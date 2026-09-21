@@ -29,6 +29,8 @@ import type {
   Role,
   Session,
   Signal,
+  SignalMuteKind,
+  SignalMuted,
 } from '@/types/operator'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
 
@@ -47,6 +49,8 @@ interface AgentState {
   updated_at: number
   night_mode: boolean
   phone_visible: boolean
+  /** The number the dealer can call; null when none is on file. */
+  phone: string | null
   found_you: number
   transactions: number
   successful: number
@@ -58,11 +62,11 @@ function minutesAgo(min: number): number {
 }
 
 const agents: AgentState[] = [
-  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, found_you: 14, transactions: 31, successful: 28, problems: 2 },
-  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, found_you: 9, transactions: 22, successful: 21, problems: 0 },
-  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, found_you: 4, transactions: 12, successful: 12, problems: 1 },
-  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, found_you: 6, transactions: 18, successful: 17, problems: 0 },
-  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, found_you: 0, transactions: 3, successful: 3, problems: 0 },
+  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2 },
+  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0 },
+  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1 },
+  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0 },
+  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0 },
 ]
 
 /** Operator-owned values. Present only because the demo adapter is switched on. */
@@ -442,14 +446,27 @@ export function demoAgentRows() {
   })
 }
 
+/** signal id → when the dealer's snooze or resolve runs out (ms since epoch). */
+const mutes: Record<string, number> = {}
+const SNOOZE_MS = 4 * 60 * 60_000
+
+function callUrl(a: AgentState): string | null {
+  return a.phone ? `tel:${a.phone}` : null
+}
+
 export function demoSignals(): Signal[] {
+  return allSignals().filter((s) => !(mutes[s.id] && mutes[s.id]! > Date.now()))
+}
+
+function allSignals(): Signal[] {
   const out: Signal[] = []
   const fatmata = find('Agent 024')
   if (fatmata.problems > 1) {
     out.push({
-      id: 'sig-1',
+      id: 'sig-mismatch-Agent 024',
       agent_ref: fatmata.ref,
       agent_name: fatmata.shop,
+      call_url: callUrl(fatmata),
       severity: 'high',
       title: 'Says available, customers say otherwise',
       sentence: `${fatmata.problems} customers reported "could not complete" today. All asked for cash out above SLE 5,000, while the declaration stayed ${CAPACITY_RANGES.find((c) => c.word === fatmata.cash_out)?.label}.`,
@@ -465,9 +482,10 @@ export function demoSignals(): Signal[] {
   const ibrahim = find('Agent 009')
   if (ibrahim.presence === 'hidden') {
     out.push({
-      id: 'sig-2',
+      id: 'sig-hidden-Agent 009',
       agent_ref: ibrahim.ref,
       agent_name: ibrahim.shop,
+      call_url: callUrl(ibrahim),
       severity: 'medium',
       title: 'Hidden during business hours',
       sentence: 'Hidden 11:20–15:40 on 4 of the last 5 days, each time with a float request waiting.',
@@ -481,9 +499,10 @@ export function demoSignals(): Signal[] {
   const amadu = find('Agent 038')
   if (freshnessOf(ageMin(amadu)) === 'expired') {
     out.push({
-      id: 'sig-3',
+      id: 'sig-stale-Agent 038',
       agent_ref: amadu.ref,
       agent_name: amadu.shop,
+      call_url: callUrl(amadu),
       severity: 'low',
       title: 'Status not updated in 3 days',
       sentence: `Last declaration ${ageText(ageMin(amadu))}. Customers no longer see this agent.`,
@@ -614,13 +633,34 @@ export function demoDealerAct(ref: string, action: DealerAction, by: string): Ac
   const note =
     action === 'contact'
       ? `${by} contacted ${a.shop}`
-      : action === 'nudge'
-        ? `${by} asked ${a.shop} to update their status`
-        : `${by} escalated ${a.shop} to the super distributor`
+      : action === 'call'
+        ? `${by} called ${a.shop}`
+        : action === 'nudge'
+          ? `${by} asked ${a.shop} to update their status`
+          : `${by} escalated ${a.shop} to the super distributor`
   const entry: ActionLogged = { id: `act-${Date.now()}-${actions.length}`, action, agent_ref: ref, at: new Date().toISOString(), note }
   actions.unshift(entry)
   if (action === 'nudge') record('Your dealer asked you to check your status is still correct', 'agent_finder', 'warning')
   return entry
+}
+
+/**
+ * Snooze hides a signal for four hours, resolve for the rest of today. Both are logged as
+ * the dealer's actions; neither touches the agent. The signal is recomputed every time, so
+ * it returns tomorrow if the condition is still true.
+ */
+export function demoMuteSignal(id: string, kind: SignalMuteKind, by: string): SignalMuted {
+  const sig = demoSignals().find((s) => s.id === id)
+  if (!sig) throw new Error('Not available.')
+  const a = find(sig.agent_ref)
+  const until = new Date(kind === 'snooze' ? Date.now() + SNOOZE_MS : new Date().setHours(23, 59, 59, 0))
+  mutes[id] = until.getTime()
+  const note =
+    kind === 'snooze'
+      ? `${by} snoozed "${sig.title}" for ${a.shop} until ${until.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      : `${by} resolved "${sig.title}" for ${a.shop} for today`
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: kind, agent_ref: sig.agent_ref, at: new Date().toISOString(), note })
+  return { id, kind, agent_ref: sig.agent_ref, until: until.toISOString(), note }
 }
 
 export function demoActions(ref: string | null): ActionLogged[] {

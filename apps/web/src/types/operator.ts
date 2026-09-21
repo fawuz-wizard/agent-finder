@@ -166,6 +166,8 @@ export interface Signal {
   id: string
   agent_ref: string
   agent_name: string
+  /** tel: link for the row's Call button; null when no number is on file. */
+  call_url: string | null
   severity: 'high' | 'medium' | 'low'
   title: string
   sentence: string
@@ -247,11 +249,26 @@ export interface DealerAgentDetail {
   open_signals: number
 }
 
-export type DealerAction = 'contact' | 'nudge' | 'escalate'
+export type DealerAction = 'contact' | 'call' | 'nudge' | 'escalate'
+
+/**
+ * Snooze (four hours) or resolve (rest of today) one signal. It is the dealer's own queue
+ * housekeeping: logged as an action, never a change to the agent's status, and the signal
+ * comes back tomorrow if the condition is still true.
+ */
+export type SignalMuteKind = 'snooze' | 'resolve'
+
+export interface SignalMuted {
+  id: string
+  kind: SignalMuteKind
+  agent_ref: string
+  until: string
+  note: string
+}
 
 export interface ActionLogged {
   id: string
-  action: DealerAction
+  action: DealerAction | SignalMuteKind
   agent_ref: string
   at: string
   note: string

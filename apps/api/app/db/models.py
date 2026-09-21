@@ -130,8 +130,26 @@ class Action(Base):
     )
     actor: Mapped[str] = mapped_column(String(120), nullable=False)
     agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
-    action: Mapped[str] = mapped_column(String(20), nullable=False)  # contact|nudge|escalate
+    # contact|call|nudge|escalate|snooze|resolve
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
     note: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class SignalMute(Base):
+    """A dealer's own queue housekeeping. Snooze hides a signal for four hours, resolve for
+    the rest of the day; the signal is recomputed from data every time, so it comes back if
+    the condition is still true. Never touches the agent's status."""
+
+    __tablename__ = "signal_mutes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    dealer_id: Mapped[str] = mapped_column(ForeignKey("dealers.id"), nullable=False, index=True)
+    agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False)
+    signal_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)  # snooze|resolve
+    until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class AuditLog(Base):

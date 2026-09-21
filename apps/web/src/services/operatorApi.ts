@@ -26,6 +26,8 @@ import type {
   Presence,
   Role,
   Session,
+  SignalMuteKind,
+  SignalMuted,
 } from '@/types/operator'
 
 const LATENCY_MS = 350
@@ -151,6 +153,16 @@ export const operatorApi = {
   act(ref: string, action: DealerAction, by: string): Promise<ActionLogged> {
     if (config.useLiveApi) return api.post<ActionLogged>('/api/v1/actions', { agent: ref, action })
     return delay(demo.demoDealerAct(ref, action, by))
+  },
+
+  /** Snooze or resolve a signal on my queue. The agent's status is never touched. */
+  muteSignal(id: string, kind: SignalMuteKind, by: string): Promise<SignalMuted> {
+    if (config.useLiveApi) return api.post<SignalMuted>(`/api/v1/dealer/signals/${kind}`, { id })
+    try {
+      return delay(demo.demoMuteSignal(id, kind, by))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Not available.'))
+    }
   },
 
   actions(ref: string | null, signal?: AbortSignal): Promise<ActionLogged[]> {

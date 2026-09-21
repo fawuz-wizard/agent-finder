@@ -271,3 +271,96 @@ async def test_refresh_status_is_allowed_any_time_not_only_when_due(client, agen
     # A refresh is recorded as a confirm event, never as a new declaration.
     acts = (await client.get("/api/v1/agent/activity", headers=agent)).json()
     assert any("confirmed your status" in e["text"] for e in acts)
+
+
+async def _two_failed_visits(client):
+    for n in (1, 2):
+        await client.post(
+            "/api/v1/reports",
+            json={
+                "agent_id": "af-024",
+                "transaction": "cash_out",
+                "amount_sle": 6000,
+                "answer": "no",
+                "reason_code": "could_not_complete",
+                "source": "search",
+                "client_token": f"tok-row-{n}",
+            },
+            headers={"X-Client": f"cust-row-{n}"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_attention_row_call_and_nudge_are_logged_never_a_status_change(client, agent, dealer):
+    await _two_failed_visits(client)
+    over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    sig = [s for s in over["signals"] if s["id"] == "sig-mismatch-Agent 024"][0]
+    assert sig["call_url"] == "tel:+23276000000"
+    before = (await client.get("/api/v1/agent/home", headers=agent)).json()["declaration"]
+    for action in ("call", "nudge"):
+        r = await client.post(
+            "/api/v1/actions", json={"agent": "Agent 024", "action": action}, headers=dealer
+        )
+        assert r.status_code == 201 and r.json()["action"] == action
+    logged = {x["action"] for x in (await client.get("/api/v1/actions", headers=dealer)).json()}
+    assert {"call", "nudge"} <= logged
+    after = (await client.get("/api/v1/agent/home", headers=agent)).json()["declaration"]
+    assert after == before  # nothing the dealer did touched the agent's declaration
+
+
+@pytest.mark.asyncio
+async def test_snooze_hides_a_signal_for_four_hours_and_is_logged(client, agent, dealer):
+    await _two_failed_visits(client)
+    sid = "sig-mismatch-Agent 024"
+    r = await client.post("/api/v1/dealer/signals/snooze", json={"id": sid}, headers=dealer)
+    assert r.status_code == 201, r.text
+    body = r.json()
+    from datetime import UTC, datetime
+
+    until = datetime.fromisoformat(body["until"])
+    assert 235 <= (until - datetime.now(UTC)).total_seconds() / 60 <= 240
+    assert "snoozed" in body["note"] and body["agent_ref"] == "Agent 024"
+    over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    assert all(s["id"] != sid for s in over["signals"])
+    detail = (await client.get("/api/v1/dealer/agents/Agent 024", headers=dealer)).json()
+    assert detail["open_signals"] == 0
+    acts = (await client.get("/api/v1/actions?agent=Agent 024", headers=dealer)).json()
+    assert acts[0]["action"] == "snooze"
+    # The agent's own status is untouched and the reports still exist for tomorrow's recompute.
+    home = (await client.get("/api/v1/agent/home", headers=agent)).json()
+    assert home["today"]["reported_problems"] == 2
+    # Snoozing it again is refused: it is no longer a live signal.
+    assert (
+        await client.post("/api/v1/dealer/signals/snooze", json={"id": sid}, headers=dealer)
+    ).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_resolve_hides_a_signal_for_the_rest_of_today(client, dealer):
+    sid = "sig-stale-Agent 038"  # seeded three days stale, so this signal is always live
+    over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    assert any(s["id"] == sid for s in over["signals"])
+    r = await client.post("/api/v1/dealer/signals/resolve", json={"id": sid}, headers=dealer)
+    assert r.status_code == 201, r.text
+    assert r.json()["until"].endswith("23:59:59+00:00") and "resolved" in r.json()["note"]
+    over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    assert all(s["id"] != sid for s in over["signals"])
+    # Agent 038 is still expired: the signal was hidden from the queue, not fixed.
+    rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
+    assert [x for x in rows if x["ref"] == "Agent 038"][0]["attention"] is True
+
+
+@pytest.mark.asyncio
+async def test_signal_mutes_are_404_for_unknown_ids_and_wrong_roles(client, agent, dealer):
+    for bad in ("sig-stale-Agent 999", "nonsense", "sig-mismatch-Agent 031"):
+        r = await client.post("/api/v1/dealer/signals/snooze", json={"id": bad}, headers=dealer)
+        assert r.status_code == 404, bad
+    r = await client.post(
+        "/api/v1/dealer/signals/resolve", json={"id": "sig-stale-Agent 038"}, headers=agent
+    )
+    assert r.status_code == 404
+    assert (
+        await client.post(
+            "/api/v1/dealer/signals/expire", json={"id": "sig-stale-Agent 038"}, headers=dealer
+        )
+    ).status_code == 422

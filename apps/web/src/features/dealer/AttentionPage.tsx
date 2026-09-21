@@ -4,7 +4,7 @@ import { Button, Card, useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import type { DealerAction, DealerOverview, Signal } from '@/types/operator'
+import type { DealerAction, DealerOverview, Signal, SignalMuteKind } from '@/types/operator'
 
 const SEV: Record<Signal['severity'], { pill: string; card: string; label: string }> = {
   high: { pill: 'bg-danger-tint text-danger', card: 'border-danger/40 bg-danger-tint/40', label: 'Investigate today' },
@@ -22,7 +22,7 @@ export default function DealerAttentionPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { session } = useSession()
-  const { data, state } = useAsync<DealerOverview>((s) => operatorApi.dealerOverview(s))
+  const { data, state, setData } = useAsync<DealerOverview>((s) => operatorApi.dealerOverview(s))
   const [busy, setBusy] = useState(false)
   const signals = data?.signals ?? []
   const open = id ? signals.find((s) => s.id === id) : null
@@ -32,6 +32,19 @@ export default function DealerAttentionPage() {
     try {
       const logged = await operatorApi.act(sig.agent_ref, action, session?.name ?? 'Dealer')
       toast.show(logged.note)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Snooze or resolve: the row leaves my queue; the agent's status is untouched. */
+  async function mute(sig: Signal, kind: SignalMuteKind) {
+    setBusy(true)
+    try {
+      const muted = await operatorApi.muteSignal(sig.id, kind, session?.name ?? 'Dealer')
+      toast.show(muted.note)
+      setData((prev) => (prev ? { ...prev, signals: prev.signals.filter((s) => s.id !== sig.id) } : prev))
+      if (id) navigate('/dealer/attention')
     } finally {
       setBusy(false)
     }
@@ -107,7 +120,15 @@ export default function DealerAttentionPage() {
               Escalate
             </Button>
           </div>
-          <p className="text-center text-xs text-muted">No automatic suspension. No permanent block. Any restriction is time-boxed, needs a reason, and lifts itself.</p>
+          <div className="flex gap-2">
+            <Button size="control" variant="secondary" className="flex-1" onClick={() => mute(open, 'snooze')} disabled={busy}>
+              Snooze 4 h
+            </Button>
+            <Button size="control" variant="secondary" className="flex-1" onClick={() => mute(open, 'resolve')} disabled={busy}>
+              Resolve for today
+            </Button>
+          </div>
+          <p className="text-center text-xs text-muted">No automatic suspension. No permanent block. Snooze and resolve only tidy your queue; the signal returns if the condition is still true.</p>
         </div>
       </div>
     )
@@ -122,15 +143,39 @@ export default function DealerAttentionPage() {
       <div className="flex flex-col gap-3 p-4 pb-6">
         {state === 'loading' && <p className="text-sm text-muted">Loading…</p>}
         {signals.map((s) => (
-          <Link key={s.id} to={`/dealer/attention/${s.id}`}>
-            <Card interactive className={SEV[s.severity].card}>
+          <Card key={s.id} className={SEV[s.severity].card}>
+            <Link to={`/dealer/attention/${s.id}`} className="flex flex-col gap-1.5">
               <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${SEV[s.severity].pill}`}>{s.title}</span>
               <p className="text-base font-bold">
                 {s.agent_ref} · {s.agent_name}
               </p>
               <p className="text-sm text-muted">{s.sentence}</p>
-            </Card>
-          </Link>
+            </Link>
+            <div className="mt-1 grid grid-cols-4 gap-2" role="group" aria-label={`Actions for ${s.agent_ref}`}>
+              <Button size="control" className="px-0 text-sm" onClick={() => act(s, 'nudge')} disabled={busy}>
+                Nudge
+              </Button>
+              {s.call_url ? (
+                <a
+                  href={s.call_url}
+                  onClick={() => void act(s, 'call')}
+                  className="inline-flex h-control items-center justify-center rounded-card border-2 border-brand-deep px-0 text-sm font-semibold text-brand-text"
+                >
+                  Call
+                </a>
+              ) : (
+                <Button size="control" variant="secondary" className="px-0 text-sm" disabled title="No number on file">
+                  Call
+                </Button>
+              )}
+              <Button size="control" variant="secondary" className="px-0 text-sm" onClick={() => mute(s, 'snooze')} disabled={busy}>
+                Snooze
+              </Button>
+              <Button size="control" variant="secondary" className="px-0 text-sm" onClick={() => mute(s, 'resolve')} disabled={busy}>
+                Resolve
+              </Button>
+            </div>
+          </Card>
         ))}
         {state === 'ready' && signals.length === 0 && <p className="text-sm text-muted">Nothing needs attention right now.</p>}
       </div>

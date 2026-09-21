@@ -3,7 +3,7 @@ read. Every response here is behind a named permission; money is masked unless r
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends
@@ -21,6 +21,7 @@ from app.db.models import (
     AvailabilityEvent,
     FloatRequest,
     OutcomeReport,
+    SignalMute,
     UsageEvent,
 )
 from app.db.session import get_session
@@ -46,11 +47,38 @@ async def my_agents(db: AsyncSession, dealer_id: str) -> list[Agent]:
     )
 
 
-async def signals_for(db: AsyncSession, agents: list[Agent], now) -> list[dict]:
-    """Rules 1–3 of the nine, computed from real events. Sentence + evidence + next action."""
+SNOOZE_FOR = timedelta(hours=4)
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+async def active_mutes(db: AsyncSession, dealer_id: str, now: datetime) -> set[str]:
+    rows = (
+        (
+            await db.execute(
+                select(SignalMute).where(SignalMute.dealer_id == dealer_id, SignalMute.until > now)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {m.signal_id for m in rows if _aware(m.until) > now}
+
+
+async def signals_for(
+    db: AsyncSession, agents: list[Agent], now, *, include_muted: bool = False
+) -> list[dict]:
+    """Rules 1–3 of the nine, computed from real events. Sentence + evidence + next action.
+    A signal the dealer snoozed or resolved is left out until its time is up."""
     out = []
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    muted: set[str] = set()
+    if agents and not include_muted:
+        muted = await active_mutes(db, agents[0].dealer_id, now)
     for a in agents:
+        call_url = f"tel:{a.phone}" if a.phone else None
         reps = (
             (
                 await db.execute(
@@ -71,6 +99,7 @@ async def signals_for(db: AsyncSession, agents: list[Agent], now) -> list[dict]:
                     "id": f"sig-mismatch-{a.ref}",
                     "agent_ref": a.ref,
                     "agent_name": a.shop_name,
+                    "call_url": call_url,
                     "severity": "high",
                     "title": "Says available, customers say otherwise",
                     "sentence": f"{len(likely_but_failed)} customers reported a failed visit today while the status said they could likely be served.",  # noqa: E501
@@ -102,6 +131,7 @@ async def signals_for(db: AsyncSession, agents: list[Agent], now) -> list[dict]:
                     "id": f"sig-hidden-{a.ref}",
                     "agent_ref": a.ref,
                     "agent_name": a.shop_name,
+                    "call_url": call_url,
                     "severity": "medium",
                     "title": "Hidden during business hours",
                     "sentence": f"Hidden right now, during operating hours. {int(hides)} hide events in the last five days.",  # noqa: E501
@@ -116,6 +146,7 @@ async def signals_for(db: AsyncSession, agents: list[Agent], now) -> list[dict]:
                     "id": f"sig-stale-{a.ref}",
                     "agent_ref": a.ref,
                     "agent_name": a.shop_name,
+                    "call_url": call_url,
                     "severity": "low",
                     "title": "Status expired",
                     "sentence": f"Last declaration {age_text(mins)}. Customers are not being sent to this agent.",  # noqa: E501
@@ -125,7 +156,7 @@ async def signals_for(db: AsyncSession, agents: list[Agent], now) -> list[dict]:
                     "explanation": None,
                 }
             )
-    return out
+    return [s for s in out if s["id"] not in muted]
 
 
 @router.get("/dealer/overview", summary="What is happening with all my agents")
@@ -289,11 +320,12 @@ async def agent_detail(
 
 class ActionBody(BaseModel):
     agent: str
-    action: Literal["contact", "nudge", "escalate"]
+    action: Literal["contact", "call", "nudge", "escalate"]
 
 
 PERM_FOR_ACTION = {
     "contact": "CONTACT_AGENT",
+    "call": "CONTACT_AGENT",
     "nudge": "CONTACT_AGENT",
     "escalate": "ESCALATE_AGENT",
 }
@@ -302,7 +334,7 @@ PERM_FOR_ACTION = {
 @router.post(
     "/actions",
     status_code=201,
-    summary="Contact · Nudge · Escalate — logged, never a status change",
+    summary="Contact · Call · Nudge · Escalate — logged, never a status change",
 )
 async def act(
     body: ActionBody,
@@ -318,6 +350,7 @@ async def act(
         raise NotFoundError("Not available.")
     note = {
         "contact": f"{p.name} contacted {a.shop_name}",
+        "call": f"{p.name} called {a.shop_name}",
         "nudge": f"{p.name} asked {a.shop_name} to update their status",
         "escalate": f"{p.name} escalated {a.shop_name} to the super distributor",
     }[body.action]
@@ -330,6 +363,59 @@ async def act(
         "action": body.action,
         "agent_ref": a.ref,
         "at": row.at.isoformat(),
+        "note": note,
+    }
+
+
+class MuteBody(BaseModel):
+    id: str = Field(min_length=5, max_length=80)
+
+
+@router.post(
+    "/dealer/signals/{kind}",
+    status_code=201,
+    summary="Snooze (4 h) or resolve (rest of today) one signal — my queue, not their status",
+)
+async def mute_signal(
+    kind: Literal["snooze", "resolve"],
+    body: MuteBody,
+    p: Principal = Depends(require_role("dealer")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    now = now_utc()
+    # Signal ids are "sig-<rule>-<agent ref>"; the agent must be mine and the signal live.
+    parts = body.id.split("-", 2)
+    if len(parts) != 3 or parts[0] != "sig":
+        raise NotFoundError("Not available.")
+    a = (
+        await db.execute(select(Agent).where(Agent.ref == parts[2], Agent.dealer_id == p.subject))
+    ).scalar_one_or_none()
+    if a is None:
+        raise NotFoundError("Not available.")
+    live = {s["id"]: s for s in await signals_for(db, [a], now)}
+    sig = live.get(body.id)
+    if sig is None:
+        raise NotFoundError("Not available.")
+    until = (
+        now + SNOOZE_FOR
+        if kind == "snooze"
+        else now.replace(hour=23, minute=59, second=59, microsecond=0)
+    )
+    note = (
+        f'{p.name} snoozed "{sig["title"]}" for {a.shop_name} until {until.strftime("%H:%M")}'
+        if kind == "snooze"
+        else f'{p.name} resolved "{sig["title"]}" for {a.shop_name} for today'
+    )
+    db.add(
+        SignalMute(dealer_id=p.subject, agent_ref=a.ref, signal_id=body.id, kind=kind, until=until)
+    )
+    db.add(Action(actor=p.name, agent_ref=a.ref, action=kind, note=note))
+    await db.commit()
+    return {
+        "id": body.id,
+        "kind": kind,
+        "agent_ref": a.ref,
+        "until": until.isoformat(),
         "note": note,
     }
 
