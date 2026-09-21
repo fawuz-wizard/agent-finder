@@ -1,0 +1,35 @@
+# secrets
+.env
+.env.*
+!.env.example
+apps/web/.env.local
+
+# node
+node_modules/
+apps/web/dist/
+apps/web/dev-dist/
+*.tsbuildinfo
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+apps/api/.coverage
+
+# local db data
+infra/.pgdata/
+.local/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
+
+# local sqlite (pilot default)
+apps/api/*.db
+apps/api/*.db-shm
+apps/api/*.db-wal

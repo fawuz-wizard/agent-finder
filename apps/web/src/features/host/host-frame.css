@@ -1,0 +1,16 @@
+/* Exported host home frame, scoped. Absolute 440x956 layout, scaled by the page. */
+.host-frame{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.host-frame *{margin:0;padding:0;box-sizing:border-box;}
+
+.host-frame .viewport{width:100%;max-width:440px;overflow:hidden;}
+  /* Fixed 440x956 design frame, scaled to fit narrower screens via JS */
+.host-frame .screen{position:relative;width:440px;height:956px;background:#1E1E1E;color:#fff;transform-origin:top left;}
+.host-frame .screen > *{position:absolute;}
+.host-frame .ic{position:absolute;display:block;}
+.host-frame .txt{position:absolute;white-space:nowrap;line-height:1;}
+.host-frame .b{font-weight:700;}
+.host-frame .card{background:#303030;border-radius:10px;}
+.host-frame .tile{background:#1E1E1E;border:1px solid #303030;border-radius:10px;box-shadow:inset 0 0 5px 0 #303030;}
+.host-frame .circ{background:#303030;border-radius:50%;}
+.host-frame .dots span{position:absolute;width:9px;height:9px;border-radius:50%;}
+  a{color:inherit;text-decoration:none;}

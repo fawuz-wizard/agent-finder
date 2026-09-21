@@ -1,0 +1,6 @@
+{
+  "app.name": "Agent Finder",
+  "app.tagline": "Find a mobile-money agent near you who can likely handle your transaction right now.",
+  "disclaimer": "Agent-reported availability. It may change before you arrive.",
+  "demo.banner": "Demo build — demo accounts and a seeded demo network. Not a live service."
+}

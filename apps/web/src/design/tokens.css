@@ -1,0 +1,147 @@
+@import 'tailwindcss';
+
+/*
+  Agent Finder design tokens — the single source of every colour, radius and size.
+  Components use the semantic utilities Tailwind derives from these (bg-brand, text-ink, …).
+  Never write a hex value in a component (ESLint enforces it).
+*/
+
+@theme {
+  /* Brand */
+  --color-brand: #ff7900;            /* Primary Orange — fills, with ink text */
+  --color-brand-deep: #e85d04;       /* Deep Orange — borders, selection, large text */
+  --color-brand-text: #c24e00;       /* Accessible Orange — small text and links (AA on white) */
+  --color-brand-light: #fff1e6;      /* Light Orange — selected tints */
+  /* Dashboard line series — validated together for colour-vision deficiency */
+  --color-series-tx: #2563eb;        /* transactions (operator data) */
+  --color-series-fresh: #0e9f6e;     /* status fresh % */
+  --color-brand-faint: #fff8f2;      /* Very Light Orange — subtle surfaces */
+
+  /* Neutrals */
+  --color-ink: #171717;              /* Dark — body text, text on brand */
+  --color-paper: #ffffff;            /* White — cards, sheets */
+  --color-canvas: #fafafa;           /* Background */
+  --color-line: #e5e5e5;             /* Border */
+  --color-muted: #6b7280;            /* Muted text and neutral status */
+
+  /* Semantic status (status only — never decoration) */
+  --color-success: #16803c;          /* fresh "can likely handle" ONLY */
+  --color-success-strong: #0f5f2c;   /* agent's own status line: 7:1 for sunlight */
+  --color-warning: #b7791f;          /* limited / ageing — deliberately not the brand orange */
+  --color-danger: #c62828;
+
+  /* Tints for banners */
+  --color-success-tint: #e8f5ec;
+  --color-warning-tint: #fbf3e2;
+  --color-danger-tint: #fbe9e9;
+  --color-night: #1e2430;            /* night-mode surfaces, same in both themes */
+  --color-night-text: #dce3f0;
+
+  /* Demo host shell only — the simulated super-app the customer module is embedded in.
+     Never used by Agent Finder's own screens. */
+  --color-host-bg: #171515;
+  --color-host-card: #2a2727;
+  --color-host-tile: #2a2727;
+  --color-host-circle: #3a3636;
+  --color-host-nav: #0d0c0c;
+  --color-host-line: #262323;
+  --color-host-dot: #4a4646;
+  --color-host-promo: #f2b705;
+  --color-host-promo-mid: #f7c948;
+  --color-host-promo-deep: #8f7b3a;
+
+  /* Type: system stack, no web fonts */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --text-xs: 0.75rem;   /* 12 — SMS hints only */
+  --text-sm: 0.875rem;  /* 14 — labels, freshness, helper */
+  --text-base: 1rem;    /* 16 — body, controls */
+  --text-lg: 1.125rem;  /* 18 — card titles, primary buttons */
+  --text-xl: 1.375rem;  /* 22 — screen headline */
+  --text-2xl: 1.75rem;  /* 28 — sheet headings */
+
+  /* Radii */
+  --radius-card: 8px;
+  --radius-cta: 12px;
+  --radius-sheet: 16px;
+  --radius-pill: 999px;
+
+  /* Control heights */
+  --spacing-cta: 3.5rem;     /* 56 */
+  --spacing-control: 3rem;   /* 48 */
+  --spacing-chip: 2.75rem;   /* 44 */
+
+  --shadow-sheet: 0 -4px 24px rgb(0 0 0 / 0.18);
+}
+
+/* Dark theme: near-black, brand fills unchanged, brand text lifted for contrast. */
+:root {
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-ink: #f2f3f0;
+    --color-paper: #1a1a1a;
+    --color-canvas: #0d0d0d;
+    --color-line: #2c2c2c;
+    --color-muted: #a8ada8;
+    --color-brand-text: #ffa24d;
+    --color-brand-light: #33200d;
+    --color-brand-faint: #1f160e;
+    --color-success: #4cc26a;
+    --color-success-strong: #7fe09a;
+    --color-warning: #ffd166;
+    --color-danger: #f2837a;
+    --color-success-tint: #12301b;
+    --color-warning-tint: #3a2b0a;
+    --color-danger-tint: #3d1512;
+  }
+}
+:root[data-theme='dark'] {
+  --color-ink: #f2f3f0;
+  --color-paper: #1a1a1a;
+  --color-canvas: #0d0d0d;
+  --color-line: #2c2c2c;
+  --color-muted: #a8ada8;
+  --color-brand-text: #ffa24d;
+  --color-brand-light: #33200d;
+  --color-brand-faint: #1f160e;
+  --color-success: #4cc26a;
+  --color-success-strong: #7fe09a;
+  --color-warning: #ffd166;
+  --color-danger: #f2837a;
+  --color-success-tint: #12301b;
+  --color-warning-tint: #3a2b0a;
+  --color-danger-tint: #3d1512;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+  }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    font-size: var(--text-base);
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: var(--color-brand-text);
+  }
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-brand-deep);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

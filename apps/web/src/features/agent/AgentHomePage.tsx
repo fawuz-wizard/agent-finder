@@ -1,0 +1,148 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Banner, Button, Card } from '@/design'
+import { useAsync } from '@/hooks/useAsync'
+import { operatorApi } from '@/services/operatorApi'
+import { useSession } from '@/features/auth/session'
+import { CAPACITY_RANGES, PRESENCE_LABELS } from '@/types/operator'
+import type { AgentHome } from '@/types/operator'
+import { OperatorValueRow } from './components/OperatorValue'
+import { formatSle } from './money'
+
+function word(w: AgentHome['declaration']['cash_out']): string {
+  return CAPACITY_RANGES.find((c) => c.word === w)?.label ?? w
+}
+
+/**
+ * A1 — Agent Home. The agent opens this to run their day, so the declaration sits inside
+ * the day rather than being the whole screen. "Still correct?" is the freshness fix: one
+ * tap resets the clock, which is the only thing a busy agent will reliably do.
+ */
+export default function AgentHomePage() {
+  const { session } = useSession()
+  const ref = session?.ref ?? 'Agent 024'
+  const { state, data, error, refresh, setData } = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
+  const [confirming, setConfirming] = useState(false)
+
+  async function confirm() {
+    setConfirming(true)
+    try {
+      const declaration = await operatorApi.confirmDeclaration(ref)
+      setData((prev) => (prev ? { ...prev, declaration } : prev))
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  if (state === 'loading') return <p className="p-4 text-base text-muted">Loading your day…</p>
+  if (state === 'error' || !data)
+    return (
+      <div className="flex flex-col gap-3 p-4 pb-6">
+        <p className="text-base font-semibold text-danger">{error}</p>
+        <Button size="control" onClick={refresh}>
+          Try again
+        </Button>
+      </div>
+    )
+
+  const d = data.declaration
+  const presenceTone =
+    d.presence === 'open' ? 'text-success-strong' : d.presence === 'hidden' ? 'text-warning' : 'text-muted'
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <header className="border-b border-line bg-paper px-4 py-3">
+        <h1 className="text-lg font-bold leading-tight">{data.name}</h1>
+        <p className="text-xs text-muted">
+          {data.ref} · {data.area}
+        </p>
+      </header>
+
+      <div className="flex flex-col gap-3 p-4">
+        <Card className="border-brand-deep bg-brand-faint">
+          <div className="flex items-center justify-between">
+            <span className={`text-2xl font-bold leading-tight ${presenceTone}`}>{PRESENCE_LABELS[d.presence]}</span>
+            <Link to="/agent/availability" className="-mr-2 flex h-control items-center rounded-card px-2 text-base font-bold text-brand-text">
+              Change
+            </Link>
+          </div>
+          <div className="mt-2 flex gap-8">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted">Cash out</p>
+              <p className="text-xl font-bold">{word(d.cash_out)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted">Deposit</p>
+              <p className="text-xl font-bold">{word(d.deposit)}</p>
+            </div>
+          </div>
+          <p className={`mt-2 text-sm ${d.freshness === 'expired' ? 'font-semibold text-danger' : 'text-muted'}`}>
+            {d.freshness_text}
+          </p>
+
+          {d.confirm_due && (
+            <div className="mt-3 rounded-card border border-line bg-paper p-3">
+              <p className="mb-2 text-base font-bold">Still correct?</p>
+              <div className="flex gap-2">
+                <Button size="control" onClick={confirm} disabled={confirming} className="flex-1">
+                  {confirming ? 'Saving…' : 'Yes'}
+                </Button>
+                <Link to="/agent/availability" className="flex-1">
+                  <Button size="control" variant="secondary" block className="w-full">
+                    Update
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <OperatorValueRow label="Balance" value={data.balance} />
+          <div className="flex items-center justify-between border-b border-line py-2 last:border-b-0">
+            <span className="text-sm text-muted">Float request</span>
+            {data.pending_float ? (
+              <Link
+                to="/agent/float"
+                className="rounded-pill bg-warning-tint px-3 py-1 text-sm font-bold text-warning"
+              >
+                Pending · {formatSle(data.pending_float.amount_sle)}
+              </Link>
+            ) : (
+              <Link to="/agent/float" className="-mr-2 flex h-control items-center rounded-card px-2 text-sm font-bold text-brand-text">
+                Request float
+              </Link>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted">Today</p>
+          <div className="flex items-baseline justify-between border-b border-line py-2">
+            <span className="text-sm text-muted">Customers who found you</span>
+            <span className="text-base font-bold text-brand-text">{data.today.found_you}</span>
+          </div>
+          <div className="flex items-baseline justify-between py-2">
+            <span className="text-sm text-muted">
+              Transactions <span className="text-xs font-semibold">· Orange</span>
+            </span>
+            <span className="text-base font-bold">{data.today.transactions ?? '—'}</span>
+          </div>
+        </Card>
+
+        {data.attention.map((sentence) => (
+          <Banner key={sentence} tone="danger">
+            {sentence}{' '}
+            <Link to="/agent/dashboard" className="font-bold underline">
+              View
+            </Link>
+          </Banner>
+        ))}
+
+        <p className="text-center text-xs text-muted">
+          Transactions happen in Max it. This app keeps your availability, float and what customers report.
+        </p>
+      </div>
+    </div>
+  )
+}

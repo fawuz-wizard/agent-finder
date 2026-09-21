@@ -1,0 +1,22 @@
+# Local development database: PostgreSQL 16 + PostGIS 3.
+# Production uses Supabase (Postgres + PostGIS); this file is for developers' machines and CI only.
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: agentfinder-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agentfinder}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentfinder}
+      POSTGRES_DB: ${POSTGRES_DB:-agentfinder}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentfinder} -d ${POSTGRES_DB:-agentfinder}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
