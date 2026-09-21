@@ -24,11 +24,17 @@ export default function AgentHomePage() {
   const { state, data, error, refresh, setData } = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
   const [confirming, setConfirming] = useState(false)
 
+  /**
+   * "Still correct? · Yes" and "Refresh status" are the same call: the clock resets, nothing
+   * else changes. The home reloads afterwards because a refresh can move an expired status
+   * back into what customers see.
+   */
   async function confirm() {
     setConfirming(true)
     try {
       const declaration = await operatorApi.confirmDeclaration(ref)
       setData((prev) => (prev ? { ...prev, declaration } : prev))
+      refresh()
     } finally {
       setConfirming(false)
     }
@@ -46,6 +52,7 @@ export default function AgentHomePage() {
     )
 
   const d = data.declaration
+  const see = data.customers_see
   const presenceTone =
     d.presence === 'open' ? 'text-success-strong' : d.presence === 'hidden' ? 'text-warning' : 'text-muted'
 
@@ -80,7 +87,7 @@ export default function AgentHomePage() {
             {d.freshness_text}
           </p>
 
-          {d.confirm_due && (
+          {d.confirm_due ? (
             <div className="mt-3 rounded-card border border-line bg-paper p-3">
               <p className="mb-2 text-base font-bold">Still correct?</p>
               <div className="flex gap-2">
@@ -94,6 +101,35 @@ export default function AgentHomePage() {
                 </Link>
               </div>
             </div>
+          ) : (
+            <Button size="control" variant="tertiary" onClick={confirm} disabled={confirming} className="mt-2 -ml-2 w-fit">
+              {confirming ? 'Saving…' : 'Refresh status'}
+            </Button>
+          )}
+        </Card>
+
+        <Card aria-labelledby="customers-see">
+          <p id="customers-see" className="text-xs font-bold uppercase tracking-wider text-muted">
+            Customers now see
+          </p>
+          {see.sides.length === 0 ? (
+            <>
+              <p className="text-xl font-bold leading-tight">{see.headline}</p>
+              <p className="text-sm text-muted">{see.explanation}</p>
+            </>
+          ) : (
+            <>
+              {see.sides.map((side) => (
+                <div key={side.label} className="border-b border-line py-2 last:border-b-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted">{side.label}</p>
+                  <p className="text-base font-bold leading-snug">
+                    {side.phrase} <span className="font-semibold text-muted">· {side.range_text}</span>
+                  </p>
+                  {side.above_text && <p className="text-sm text-muted">Above that: {side.above_text}</p>}
+                </div>
+              ))}
+              <p className="pt-1 text-xs text-muted">{see.explanation}</p>
+            </>
           )}
         </Card>
 

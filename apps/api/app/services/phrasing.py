@@ -148,3 +148,60 @@ AREA_POINTS = {
     "Congo Cross": (8.4790, -13.2560),
     "Freetown": (8.4657, -13.2317),
 }
+
+
+# ---- "Customers now see": the agent's own words, restated as the public phrases ----
+
+SIDE_LABEL = {"cash_out": "Cash out", "deposit": "Deposit"}
+
+
+def _range_text(word: str) -> tuple[str, str | None]:
+    """(what the LIKELY phrase covers, what a customer above that reads)."""
+    limited = PUBLIC_TEXT["limited"]
+    if word == "some":
+        return f"up to {amount_label(NETWORK_RANGES.some_max_sle)}", limited
+    if word == "small":
+        return f"up to {amount_label(NETWORK_RANGES.small_max_sle)}", limited
+    return "any amount", None
+
+
+def customers_see(agent, now: datetime) -> dict:
+    """Exactly what a customer reads about this agent right now, side by side with the words
+    the agent chose. Consequence, not input: the ranges appear here, never on the buttons."""
+    state = public_outcome(agent, "cash_out", None, now)
+    if state in ("hidden", "closed", "expired"):
+        why = {
+            "hidden": "You are hidden, so customers are not shown your shop at all.",
+            "closed": "You are closed right now, so customers are told to try later.",
+            "expired": "Your status is older than 4 hours, so customers are told not to rely on it.",  # noqa: E501
+        }[state]
+        return {"state": state, "headline": PUBLIC_TEXT[state], "explanation": why, "sides": []}
+    sides = []
+    for tx in ("cash_out", "deposit"):
+        word = word_for(agent, tx)
+        if word is None:
+            sides.append(
+                {
+                    "label": SIDE_LABEL[tx],
+                    "phrase": PUBLIC_TEXT["not_set"],
+                    "range_text": "no amount",
+                    "above_text": None,
+                }
+            )
+            continue
+        outcome = public_outcome(agent, tx, None, now)
+        covers, above = _range_text(word)
+        sides.append(
+            {
+                "label": SIDE_LABEL[tx],
+                "phrase": PUBLIC_TEXT[outcome],
+                "range_text": covers,
+                "above_text": above,
+            }
+        )
+    return {
+        "state": "open",
+        "headline": "Customers can find you",
+        "explanation": "Phrased from your words and the network ranges. Customers never see the words themselves.",  # noqa: E501
+        "sides": sides,
+    }

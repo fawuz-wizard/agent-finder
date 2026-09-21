@@ -13,6 +13,7 @@ import type {
   AgentHome,
   AgentInsights,
   AgentProfile,
+  CustomersSee,
   ActionLogged,
   AuditEntry,
   DealerAction,
@@ -130,6 +131,57 @@ function declarationOf(a: AgentState): Declaration {
   }
 }
 
+/** The six public phrases, exactly as the customer surface renders them. */
+const PUBLIC_TEXT = {
+  likely: 'Can likely handle your request',
+  limited: 'Limited — may not cover this amount',
+  expired: 'Status expired — ask before you go',
+  closed: 'Closed',
+  hidden: 'Availability hidden',
+  not_set: 'Status not set',
+} as const
+
+function isOpenNow(): boolean {
+  const h = new Date().getUTCHours()
+  return h >= 7 && h < 20
+}
+
+/** What a customer reads about this agent right now — the same rules the search applies. */
+function customersSee(a: AgentState): CustomersSee {
+  const state: CustomersSee['state'] =
+    a.presence === 'hidden'
+      ? 'hidden'
+      : a.presence === 'closed' || (a.night_mode && !isOpenNow())
+        ? 'closed'
+        : freshnessOf(ageMin(a)) === 'expired'
+          ? 'expired'
+          : 'open'
+  if (state !== 'open') {
+    const why = {
+      hidden: 'You are hidden, so customers are not shown your shop at all.',
+      closed: 'You are closed right now, so customers are told to try later.',
+      expired: 'Your status is older than 4 hours, so customers are told not to rely on it.',
+    }[state]
+    return { state, headline: PUBLIC_TEXT[state], explanation: why, sides: [] }
+  }
+  const side = (label: string, word: CapacityWord) => {
+    const range = CAPACITY_RANGES.find((c) => c.word === word)!
+    const capped = word === 'some' || word === 'small'
+    return {
+      label,
+      phrase: word === 'none' ? PUBLIC_TEXT.limited : PUBLIC_TEXT.likely,
+      range_text: capped ? `up to SLE ${range.ceiling_sle!.toLocaleString('en-US')}` : 'any amount',
+      above_text: capped ? PUBLIC_TEXT.limited : null,
+    }
+  }
+  return {
+    state: 'open',
+    headline: 'Customers can find you',
+    explanation: 'Phrased from your words and the network ranges. Customers never see the words themselves.',
+    sides: [side('Cash out', a.cash_out), side('Deposit', a.deposit)],
+  }
+}
+
 function operatorValue(ref: string, key: 'balance' | 'float') {
   const v = operatorValues[ref]
   if (!v) return null
@@ -203,6 +255,7 @@ export function demoAgentHome(ref: string): AgentHome {
     ref: a.ref,
     area: a.area,
     declaration: declarationOf(a),
+    customers_see: customersSee(a),
     balance: operatorValue(ref, 'balance'),
     float_position: operatorValue(ref, 'float'),
     pending_float: pending ? decorate(pending) : null,

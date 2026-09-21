@@ -23,7 +23,14 @@ from app.db.models import (
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import usage
-from app.services.phrasing import CAPACITY_LABEL, age_minutes, age_text, freshness_of, now_utc
+from app.services.phrasing import (
+    CAPACITY_LABEL,
+    age_minutes,
+    age_text,
+    customers_see,
+    freshness_of,
+    now_utc,
+)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 CONFIRM_AFTER_MIN = 90
@@ -178,6 +185,7 @@ async def home(
         "ref": a.ref,
         "area": a.street,
         "declaration": d.model_dump(),
+        "customers_see": customers_see(a, now),
         "balance": bal.model_dump() if bal else None,
         "float_position": fl.model_dump() if fl else None,
         "pending_float": float_out(pending, a.shop_name, now).model_dump() if pending else None,

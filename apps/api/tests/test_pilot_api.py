@@ -218,3 +218,56 @@ async def test_insights_every_range_and_never_money(client, agent):
         assert body["range"] == span and body["points"]
         assert all(0 <= pt["fresh_pct"] <= 100 for pt in body["points"])
         assert "balance" not in json.dumps(body).lower()
+
+
+@pytest.mark.asyncio
+async def test_agent_home_shows_exactly_what_customers_see(client, agent):
+    """The "Customers now see" card is phrased on the server from the same function the
+    customer search uses, so the two can never disagree."""
+    home = (await client.get("/api/v1/agent/home", headers=agent)).json()
+    see = home["customers_see"]
+    assert see["state"] == "open" and [s["label"] for s in see["sides"]] == ["Cash out", "Deposit"]
+    cash, dep = see["sides"]
+    # Fatmata declared Most / Some: cash has no ceiling, deposit is capped by the network range.
+    assert cash["range_text"] == "any amount" and cash["above_text"] is None
+    assert dep["range_text"] == "up to SLE 10,000" and "Limited" in dep["above_text"]
+    s = await client.post(
+        "/api/v1/search", json={"transaction": "cash_out", "amount_sle": 2000, "area": "Lumley"}
+    )
+    fatmata = [x for x in s.json()["recommended"] if x["name"] == "Fatmata's Shop"][0]
+    assert fatmata["outcome_text"] == cash["phrase"]
+
+    # Small on cash: the card now says the ceiling, and the search agrees above it.
+    await client.post(
+        "/api/v1/agent/availability",
+        json={"presence": "open", "cash_out": "small", "deposit": "none", "night_mode": True},
+        headers=agent,
+    )
+    see = (await client.get("/api/v1/agent/home", headers=agent)).json()["customers_see"]
+    assert see["sides"][0]["range_text"] == "up to SLE 500"
+    assert see["sides"][1]["phrase"].startswith("Limited")  # None → Limited for any amount
+
+    # Hidden: one headline, no sides — the same phrase the customer surface renders.
+    await client.post(
+        "/api/v1/agent/availability",
+        json={"presence": "hidden", "cash_out": "small", "deposit": "none", "night_mode": True},
+        headers=agent,
+    )
+    see = (await client.get("/api/v1/agent/home", headers=agent)).json()["customers_see"]
+    assert see["state"] == "hidden" and see["sides"] == []
+    assert see["headline"] == "Availability hidden"
+
+
+@pytest.mark.asyncio
+async def test_refresh_status_is_allowed_any_time_not_only_when_due(client, agent):
+    fresh = await client.post(
+        "/api/v1/agent/availability",
+        json={"presence": "open", "cash_out": "most", "deposit": "most", "night_mode": True},
+        headers=agent,
+    )
+    assert fresh.json()["confirm_due"] is False
+    again = await client.post("/api/v1/agent/availability/confirm", headers=agent)
+    assert again.status_code == 200 and again.json()["age_min"] == 0
+    # A refresh is recorded as a confirm event, never as a new declaration.
+    acts = (await client.get("/api/v1/agent/activity", headers=agent)).json()
+    assert any("confirmed your status" in e["text"] for e in acts)

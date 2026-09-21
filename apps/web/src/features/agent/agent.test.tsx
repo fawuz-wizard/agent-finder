@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -60,21 +60,49 @@ describe('agent app', () => {
     await signIn(user)
     await screen.findByText("Fatmata's Shop")
     expect(screen.getByText(/still correct\?/i)).toBeInTheDocument()
+    // While the prompt is due, the quiet refresh stays out of the way.
+    expect(screen.queryByText('Refresh status')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /^yes$/i }))
     expect(await screen.findByText(/you updated this just now/i)).toBeInTheDocument()
     expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
   })
 
-  it('never shows the customer phrasing or another agent\'s money on the agent home', async () => {
+  it('shows the agent exactly what customers now see, phrased from their own words', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
     await signIn(user)
     await screen.findByText("Fatmata's Shop")
-    const text = container.textContent ?? ''
-    // The agent sees their own declaration words; they never see the customer-facing phrase.
-    expect(text).not.toMatch(/can likely handle your request/i)
-    expect(text).toContain('Most')
+    // Fatmata declared Most / Some. Cash out has no ceiling; deposit is capped by the network range.
+    const card = screen.getByText(/customers now see/i).closest('div')!
+    expect(within(card).getAllByText(/can likely handle your request/i).length).toBe(2)
+    expect(within(card).getByText(/· any amount/)).toBeInTheDocument()
+    expect(within(card).getByText(/· up to SLE 10,000/)).toBeInTheDocument()
+    expect(within(card).getByText(/above that: limited/i)).toBeInTheDocument()
+    // The agent still sees their own words, and never another agent's money.
+    expect(container.textContent).toContain('Most')
+    expect(container.textContent).not.toMatch(/SLE 21,000/)
+  })
+
+  it('offers "Refresh status" whenever "Still correct?" is not due, and it resets the clock', async () => {
+    // A fresh declaration with the same words: nothing is due, so the quiet refresh is offered.
+    await operatorApi.declare('Agent 024', { presence: 'open', cash_out: 'most', deposit: 'some', night_mode: true })
+    const user = userEvent.setup()
+    render(<App />)
+    await signIn(user)
+    await screen.findByText("Fatmata's Shop")
+    const refreshBtn = await screen.findByText('Refresh status')
+    expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
+    await user.click(refreshBtn)
+    expect(await screen.findByText(/you updated this just now/i)).toBeInTheDocument()
+    expect(await screen.findByText('Refresh status')).toBeInTheDocument()
+  })
+
+  it('turns the card into one headline when the agent is hidden', async () => {
+    await operatorApi.declare('Agent 031', { presence: 'hidden', cash_out: 'some', deposit: 'small', night_mode: false })
+    const home = await operatorApi.home('Agent 031')
+    expect(home.customers_see).toMatchObject({ state: 'hidden', headline: 'Availability hidden', sides: [] })
+    await operatorApi.declare('Agent 031', { presence: 'open', cash_out: 'some', deposit: 'small', night_mode: false })
   })
 })
 

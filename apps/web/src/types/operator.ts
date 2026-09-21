@@ -94,11 +94,34 @@ export interface AgentToday {
   reported_problems: number
 }
 
+/**
+ * One side of "Customers now see": the public phrase a customer reads for this agent, with
+ * the network range it covers. Phrased on the server by the same function the customer search
+ * uses, so the card and the search can never disagree.
+ */
+export interface CustomersSeeSide {
+  label: string
+  phrase: string
+  /** "any amount" · "up to SLE 10,000" · "up to SLE 500" · "no amount" */
+  range_text: string
+  /** What a customer asking for more than the range reads; null when nothing is above it. */
+  above_text: string | null
+}
+
+export interface CustomersSee {
+  state: 'open' | 'hidden' | 'closed' | 'expired'
+  headline: string
+  explanation: string
+  /** Empty when one headline (hidden, closed, expired) applies to every request. */
+  sides: CustomersSeeSide[]
+}
+
 export interface AgentHome {
   name: string
   ref: string
   area: string
   declaration: Declaration
+  customers_see: CustomersSee
   balance: OperatorValue | null
   float_position: OperatorValue | null
   pending_float: FloatRequest | null
