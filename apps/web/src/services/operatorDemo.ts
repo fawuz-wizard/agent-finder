@@ -18,6 +18,7 @@ import type {
   AuditEntry,
   DealerAction,
   DealerAgentDetail,
+  DealerBucket,
   InsightPoint,
   InsightRange,
   CapacityWord,
@@ -409,21 +410,21 @@ export function demoMoveFloat(
 
 /* ---------- dealer ---------- */
 
+/** One rule for the tile counts and the register filter, same as the API's bucket_of. */
+function bucketOf(a: AgentState): DealerBucket {
+  if (a.presence === 'hidden') return 'hidden'
+  if (a.presence === 'closed' || freshnessOf(ageMin(a)) === 'expired') return 'closed'
+  if (a.cash_out === 'none' || a.cash_out === 'small') return 'limited'
+  return 'active'
+}
+
 export function demoDealerOverview(): DealerOverview {
   const counts = { active: 0, limited: 0, hidden: 0, closed: 0 }
-  for (const a of agents) {
-    const stale = freshnessOf(ageMin(a)) === 'expired'
-    if (a.presence === 'hidden') counts.hidden += 1
-    else if (a.presence === 'closed' || stale) counts.closed += 1
-    else if (a.cash_out === 'none' || a.cash_out === 'small') counts.limited += 1
-    else counts.active += 1
-  }
-  // Seeded network size for the demo; the five live rows above are the ones you can act on.
-  const padded = { ...counts, active: counts.active + 29, limited: counts.limited + 4, hidden: counts.hidden + 2, closed: counts.closed + 1 }
+  for (const a of agents) counts[bucketOf(a)] += 1
   return {
     dealer_name: 'Kissy Distribution',
-    agent_count: 42,
-    counts: padded,
+    agent_count: agents.length,
+    counts,
     float_requests: demoFloatRequests(null).filter((r) => r.state === 'pending'),
     signals: demoSignals(),
   }
@@ -439,6 +440,7 @@ export function demoAgentRows() {
       area: a.area,
       presence: a.presence,
       presence_text: PRESENCE_LABELS[a.presence],
+      bucket: bucketOf(a),
       declaration_text: words,
       freshness_text: ageText(d.age_min),
       attention: a.problems > 1 || d.freshness === 'expired' || a.presence === 'hidden',

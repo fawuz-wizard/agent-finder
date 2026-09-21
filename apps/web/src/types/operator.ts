@@ -144,12 +144,10 @@ export interface AgentProfile {
 
 /* ---------- dealer ---------- */
 
-export interface DealerCounts {
-  active: number
-  limited: number
-  hidden: number
-  closed: number
-}
+/** The one bucket an agent is in right now. Tiles count these; the register filters by them. */
+export type DealerBucket = 'active' | 'limited' | 'hidden' | 'closed'
+
+export type DealerCounts = Record<DealerBucket, number>
 
 export interface DealerAgentRow {
   ref: string
@@ -157,6 +155,8 @@ export interface DealerAgentRow {
   area: string
   presence: Presence
   presence_text: string
+  /** Server-computed from the same rule as the dashboard counts, so the two never disagree. */
+  bucket: DealerBucket
   declaration_text: string
   freshness_text: string
   attention: boolean

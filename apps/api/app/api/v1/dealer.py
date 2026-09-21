@@ -159,23 +159,30 @@ async def signals_for(
     return [s for s in out if s["id"] not in muted]
 
 
+BUCKETS = ("active", "limited", "hidden", "closed")
+
+
+def bucket_of(a: Agent, now: datetime) -> str:
+    """The one bucket an agent is in right now. The dashboard tiles count these and the
+    register filters by them, from this single function, so the two can never disagree."""
+    if a.presence == "hidden":
+        return "hidden"
+    if a.presence == "closed" or freshness_of(a.declared_at, now) == "expired":
+        return "closed"
+    if a.cash_out in ("none", "small"):
+        return "limited"
+    return "active"
+
+
 @router.get("/dealer/overview", summary="What is happening with all my agents")
 async def overview(
     p: Principal = Depends(require_role("dealer")), db: AsyncSession = Depends(get_session)
 ) -> dict:
     now = now_utc()
     agents = await my_agents(db, p.subject)
-    counts = {"active": 0, "limited": 0, "hidden": 0, "closed": 0}
+    counts = {b: 0 for b in BUCKETS}
     for a in agents:
-        stale = freshness_of(a.declared_at, now) == "expired"
-        if a.presence == "hidden":
-            counts["hidden"] += 1
-        elif a.presence == "closed" or stale:
-            counts["closed"] += 1
-        elif a.cash_out in ("none", "small"):
-            counts["limited"] += 1
-        else:
-            counts["active"] += 1
+        counts[bucket_of(a, now)] += 1
     pending = (
         (
             await db.execute(
@@ -226,6 +233,7 @@ async def agents_list(
                 "area": a.street,
                 "presence": a.presence,
                 "presence_text": PRESENCE_LABEL[a.presence],
+                "bucket": bucket_of(a, now),
                 "declaration_text": f"{CAPACITY_LABEL.get(a.cash_out or '', '—')} / {CAPACITY_LABEL.get(a.deposit or '', '—')}",  # noqa: E501
                 "freshness_text": age_text(d.age_min if d.age_min < 10**6 else None),
                 "attention": int(problems) > 1

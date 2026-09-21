@@ -2,16 +2,19 @@ import { Link } from 'react-router-dom'
 import { Card } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
-import type { DealerOverview } from '@/types/operator'
+import type { DealerBucket, DealerOverview } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
 
-function Tile({ label, value, sub, tone }: { label: string; value: number; sub: string; tone: string }) {
+/** A count that is also a filter: tapping it opens the register showing exactly these agents. */
+function Tile({ bucket, label, value, sub, tone }: { bucket: DealerBucket; label: string; value: number; sub: string; tone: string }) {
   return (
-    <Card className="flex-1 gap-0.5 px-3 py-3">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</p>
-      <p className={`text-3xl font-bold leading-none ${tone}`}>{value}</p>
-      <p className="text-xs text-muted">{sub}</p>
-    </Card>
+    <Link to={`/dealer/agents?filter=${bucket}`} className="flex flex-1" aria-label={`${label}: ${value} — see these agents`}>
+      <Card interactive className="flex-1 gap-0.5 px-3 py-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</p>
+        <p className={`text-3xl font-bold leading-none ${tone}`}>{value}</p>
+        <p className="text-xs text-muted">{sub}</p>
+      </Card>
+    </Link>
   )
 }
 
@@ -46,12 +49,12 @@ export default function DealerDashboardPage() {
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <div className="flex gap-2">
-          <Tile label="Active" value={data.counts.active} sub="open, fresh" tone="text-success" />
-          <Tile label="Limited" value={data.counts.limited} sub="small or none" tone="text-warning" />
+          <Tile bucket="active" label="Active" value={data.counts.active} sub="open, fresh" tone="text-success" />
+          <Tile bucket="limited" label="Limited" value={data.counts.limited} sub="small or none" tone="text-warning" />
         </div>
         <div className="flex gap-2">
-          <Tile label="Hidden" value={data.counts.hidden} sub="paused themselves" tone="text-muted" />
-          <Tile label="Closed" value={data.counts.closed} sub="outside hours or stale" tone="text-danger" />
+          <Tile bucket="hidden" label="Hidden" value={data.counts.hidden} sub="paused themselves" tone="text-muted" />
+          <Tile bucket="closed" label="Closed" value={data.counts.closed} sub="outside hours or stale" tone="text-danger" />
         </div>
 
         <Card>

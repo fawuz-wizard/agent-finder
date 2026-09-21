@@ -364,3 +364,31 @@ async def test_signal_mutes_are_404_for_unknown_ids_and_wrong_roles(client, agen
             "/api/v1/dealer/signals/expire", json={"id": "sig-stale-Agent 038"}, headers=dealer
         )
     ).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_dashboard_tiles_and_agent_register_share_one_bucket_per_agent(client, agent, dealer):
+    from collections import Counter
+
+    over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
+    by_ref = {r["ref"]: r["bucket"] for r in rows}
+    assert by_ref["Agent 009"] == "hidden"  # hidden right now
+    assert by_ref["Agent 038"] == "closed"  # open, but three days stale
+    assert by_ref["Agent 073"] == "limited"  # Small on cash
+    assert by_ref["Agent 024"] == "active"
+    assert Counter(by_ref.values()) == Counter(over["counts"])
+    assert sum(over["counts"].values()) == over["agent_count"] == len(rows)
+
+    # A declaration moves the agent between buckets, and tile and list move together.
+    await client.post(
+        "/api/v1/agent/availability",
+        json={"presence": "open", "cash_out": "none", "deposit": "most", "night_mode": True},
+        headers=agent,
+    )
+    over2 = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    rows2 = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
+    assert [r for r in rows2 if r["ref"] == "Agent 024"][0]["bucket"] == "limited"
+    assert over2["counts"]["limited"] == over["counts"]["limited"] + 1
+    assert over2["counts"]["active"] == over["counts"]["active"] - 1
+    assert Counter(r["bucket"] for r in rows2) == Counter(over2["counts"])

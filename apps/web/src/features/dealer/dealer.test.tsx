@@ -11,6 +11,7 @@ import DealerDashboardPage from './DashboardPage'
 import DealerAgentDetailPage from './AgentDetailPage'
 import DealerFloatReviewPage from './FloatReviewPage'
 import DealerAttentionPage from './AttentionPage'
+import DealerAgentsPage from './AgentsPage'
 
 const ALL = [PERMISSIONS.viewAgent, PERMISSIONS.viewFinancial, PERMISSIONS.manageFloat, PERMISSIONS.viewHistory, PERMISSIONS.contact, PERMISSIONS.escalate]
 
@@ -25,6 +26,7 @@ function App({ start }: { start: string }) {
         <MemoryRouter initialEntries={[start]}>
           <Routes>
             <Route path="/dealer" element={<DealerDashboardPage />} />
+            <Route path="/dealer/agents" element={<DealerAgentsPage />} />
             <Route path="/dealer/agents/:ref" element={<DealerAgentDetailPage />} />
             <Route path="/dealer/float" element={<p>Float queue</p>} />
             <Route path="/dealer/float/:id" element={<DealerFloatReviewPage />} />
@@ -130,6 +132,36 @@ describe('dealer', () => {
     const over = await operatorApi.dealerOverview()
     expect(over.signals.map((s) => s.id)).not.toContain('sig-mismatch-Agent 024')
     expect(over.signals.map((s) => s.id)).not.toContain('sig-stale-Agent 038')
+  })
+
+  it('turns each dashboard tile into a filter on the agent list, and the counts agree', async () => {
+    signIn(ALL)
+    const user = userEvent.setup()
+    render(<App start="/dealer" />)
+    const closedTile = await screen.findByRole('link', { name: /^closed: \d+/i })
+    expect(closedTile).toHaveAttribute('href', '/dealer/agents?filter=closed')
+    const tileCount = Number(/closed: (\d+)/i.exec(closedTile.getAttribute('aria-label') ?? '')?.[1])
+    expect(tileCount).toBeGreaterThan(0)
+    await user.click(closedTile)
+
+    // Only agents in that bucket: Salamatu is closed, Amadu is stale. The chip carries the tile's count.
+    expect(await screen.findByText(/Agent 038 · Amadu Corner Shop/)).toBeInTheDocument()
+    expect(screen.getByText(/Agent 017 · Salamatu Shop/)).toBeInTheDocument()
+    expect(screen.queryByText(/Agent 024 · Fatmata's Shop/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/Agent \d{3} · /).length).toBe(tileCount)
+    const chips = screen.getByRole('group', { name: /^show$/i })
+    const closedChip = within(chips).getByRole('button', { name: /^closed/i })
+    expect(closedChip).toHaveAttribute('aria-pressed', 'true')
+    expect(closedChip).toHaveTextContent(`Closed${tileCount}`)
+
+    // Chips are the same filter; an empty bucket says so; "All" brings every agent back.
+    await user.click(within(chips).getByRole('button', { name: /^hidden/i }))
+    expect(await screen.findByText(/Agent 009 · Ibrahim Cash Point/)).toBeInTheDocument()
+    expect(screen.queryByText(/Agent 038/)).not.toBeInTheDocument()
+    await user.click(within(chips).getByRole('button', { name: /^limited/i }))
+    expect(await screen.findByText(/no agent is on small or none right now/i)).toBeInTheDocument()
+    await user.click(within(chips).getByRole('button', { name: /^all/i }))
+    expect(screen.getAllByText(/Agent \d{3} · /).length).toBe(5)
   })
 
   it('will not decline without a reason', async () => {
