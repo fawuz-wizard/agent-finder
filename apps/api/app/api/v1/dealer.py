@@ -21,7 +21,6 @@ from app.db.models import (
     AvailabilityEvent,
     FloatRequest,
     OutcomeReport,
-    SignalMute,
     UsageEvent,
 )
 from app.db.session import get_session
@@ -54,17 +53,35 @@ def _aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
-async def active_mutes(db: AsyncSession, dealer_id: str, now: datetime) -> set[str]:
+def mute_until(action: str, at: datetime) -> datetime:
+    """Snooze hides a signal for four hours, resolve for the rest of that day."""
+    if action == "snooze":
+        return at + SNOOZE_FOR
+    return at.replace(hour=23, minute=59, second=59, microsecond=0)
+
+
+async def active_mutes(db: AsyncSession, refs: list[str], now: datetime) -> set[str]:
+    """Signal ids hidden by a snooze or resolve row on the action log that is still running.
+    Nothing expires silently: the row stays on the log, only its effect ends."""
     rows = (
         (
             await db.execute(
-                select(SignalMute).where(SignalMute.dealer_id == dealer_id, SignalMute.until > now)
+                select(Action).where(
+                    Action.agent_ref.in_(refs),
+                    Action.action.in_(("snooze", "resolve")),
+                    Action.signal_id.is_not(None),
+                    Action.at >= now - SNOOZE_FOR,
+                )
             )
         )
         .scalars()
         .all()
     )
-    return {m.signal_id for m in rows if _aware(m.until) > now}
+    return {
+        x.signal_id
+        for x in rows
+        if x.signal_id and mute_until(x.action, _aware(x.at)) > now >= _aware(x.at)
+    }
 
 
 async def signals_for(
@@ -76,7 +93,7 @@ async def signals_for(
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     muted: set[str] = set()
     if agents and not include_muted:
-        muted = await active_mutes(db, agents[0].dealer_id, now)
+        muted = await active_mutes(db, [a.ref for a in agents], now)
     for a in agents:
         call_url = f"tel:{a.phone}" if a.phone else None
         reps = (
@@ -328,7 +345,9 @@ async def agent_detail(
 
 class ActionBody(BaseModel):
     agent: str
-    action: Literal["contact", "call", "nudge", "escalate"]
+    action: Literal["contact", "call", "nudge", "escalate", "snooze", "resolve"]
+    # Required for snooze and resolve: the signal row this action takes off my queue.
+    signal_id: str | None = Field(default=None, min_length=5, max_length=80)
 
 
 PERM_FOR_ACTION = {
@@ -336,13 +355,17 @@ PERM_FOR_ACTION = {
     "call": "CONTACT_AGENT",
     "nudge": "CONTACT_AGENT",
     "escalate": "ESCALATE_AGENT",
+    "snooze": "CONTACT_AGENT",
+    "resolve": "CONTACT_AGENT",
 }
+
+MUTE_ACTIONS = ("snooze", "resolve")
 
 
 @router.post(
     "/actions",
     status_code=201,
-    summary="Contact · Call · Nudge · Escalate — logged, never a status change",
+    summary="Contact · Call · Nudge · Escalate · Snooze · Resolve — logged, never a status change",
 )
 async def act(
     body: ActionBody,
@@ -356,13 +379,34 @@ async def act(
     ).scalar_one_or_none()
     if a is None:
         raise NotFoundError("Not available.")
-    note = {
-        "contact": f"{p.name} contacted {a.shop_name}",
-        "call": f"{p.name} called {a.shop_name}",
-        "nudge": f"{p.name} asked {a.shop_name} to update their status",
-        "escalate": f"{p.name} escalated {a.shop_name} to the super distributor",
-    }[body.action]
-    row = Action(actor=p.name, agent_ref=a.ref, action=body.action, note=note)
+    now = now_utc()
+    signal_id: str | None = None
+    until: datetime | None = None
+    if body.action in MUTE_ACTIONS:
+        if not body.signal_id:
+            raise AppError("Choose a signal to snooze or resolve.", code="signal_required")
+        # Signal ids are "sig-<rule>-<agent ref>": it must be this agent's and still live.
+        live = {s["id"]: s for s in await signals_for(db, [a], now)}
+        sig = live.get(body.signal_id)
+        if sig is None:
+            raise NotFoundError("Not available.")
+        signal_id = body.signal_id
+        until = mute_until(body.action, now)
+        note = (
+            f'{p.name} snoozed "{sig["title"]}" for {a.shop_name} until {until.strftime("%H:%M")}'
+            if body.action == "snooze"
+            else f'{p.name} resolved "{sig["title"]}" for {a.shop_name} for today'
+        )
+    else:
+        note = {
+            "contact": f"{p.name} contacted {a.shop_name}",
+            "call": f"{p.name} called {a.shop_name}",
+            "nudge": f"{p.name} asked {a.shop_name} to update their status",
+            "escalate": f"{p.name} escalated {a.shop_name} to the super distributor",
+        }[body.action]
+    row = Action(
+        at=now, actor=p.name, agent_ref=a.ref, action=body.action, note=note, signal_id=signal_id
+    )
     db.add(row)
     await db.commit()
     await db.refresh(row)
@@ -370,61 +414,10 @@ async def act(
         "id": str(row.id),
         "action": body.action,
         "agent_ref": a.ref,
-        "at": row.at.isoformat(),
+        "at": _aware(row.at).isoformat(),
         "note": note,
-    }
-
-
-class MuteBody(BaseModel):
-    id: str = Field(min_length=5, max_length=80)
-
-
-@router.post(
-    "/dealer/signals/{kind}",
-    status_code=201,
-    summary="Snooze (4 h) or resolve (rest of today) one signal — my queue, not their status",
-)
-async def mute_signal(
-    kind: Literal["snooze", "resolve"],
-    body: MuteBody,
-    p: Principal = Depends(require_role("dealer")),
-    db: AsyncSession = Depends(get_session),
-) -> dict:
-    now = now_utc()
-    # Signal ids are "sig-<rule>-<agent ref>"; the agent must be mine and the signal live.
-    parts = body.id.split("-", 2)
-    if len(parts) != 3 or parts[0] != "sig":
-        raise NotFoundError("Not available.")
-    a = (
-        await db.execute(select(Agent).where(Agent.ref == parts[2], Agent.dealer_id == p.subject))
-    ).scalar_one_or_none()
-    if a is None:
-        raise NotFoundError("Not available.")
-    live = {s["id"]: s for s in await signals_for(db, [a], now)}
-    sig = live.get(body.id)
-    if sig is None:
-        raise NotFoundError("Not available.")
-    until = (
-        now + SNOOZE_FOR
-        if kind == "snooze"
-        else now.replace(hour=23, minute=59, second=59, microsecond=0)
-    )
-    note = (
-        f'{p.name} snoozed "{sig["title"]}" for {a.shop_name} until {until.strftime("%H:%M")}'
-        if kind == "snooze"
-        else f'{p.name} resolved "{sig["title"]}" for {a.shop_name} for today'
-    )
-    db.add(
-        SignalMute(dealer_id=p.subject, agent_ref=a.ref, signal_id=body.id, kind=kind, until=until)
-    )
-    db.add(Action(actor=p.name, agent_ref=a.ref, action=kind, note=note))
-    await db.commit()
-    return {
-        "id": body.id,
-        "kind": kind,
-        "agent_ref": a.ref,
-        "until": until.isoformat(),
-        "note": note,
+        "signal_id": signal_id,
+        "until": until.isoformat() if until else None,
     }
 
 
@@ -442,8 +435,9 @@ async def actions(
             "id": str(x.id),
             "action": x.action,
             "agent_ref": x.agent_ref,
-            "at": x.at.isoformat(),
+            "at": _aware(x.at).isoformat(),
             "note": x.note,
+            "signal_id": x.signal_id,
         }
         for x in (await db.execute(q)).scalars().all()
     ]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -13,9 +14,33 @@ from app.core.settings import get_settings  # noqa: E402
 from app.db import session as dbsession  # noqa: E402
 from app.main import create_app  # noqa: E402
 
+# Seeded agents run night mode 07:00–20:00 UTC. Every request and the seed itself read the
+# clock through now_utc(), so tests pin it to midday: the suite is green at any hour.
+FROZEN_NOW = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
+
+CLOCK_MODULES = (
+    "app.services.phrasing",
+    "app.seed",
+    "app.api.v1.agent_app",
+    "app.api.v1.agents",
+    "app.api.v1.dealer",
+    "app.api.v1.float_requests",
+    "app.api.v1.reports",
+    "app.api.v1.search",
+)
+
+
+@pytest.fixture(autouse=True)
+def frozen_clock(monkeypatch):
+    import importlib
+
+    for name in CLOCK_MODULES:
+        monkeypatch.setattr(importlib.import_module(name), "now_utc", lambda: FROZEN_NOW)
+    return FROZEN_NOW
+
 
 @pytest.fixture
-async def client(tmp_path):
+async def client(tmp_path, frozen_clock):
     """Every test gets its own fresh, seeded database file."""
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test-{uuid.uuid4().hex[:8]}.db"
     get_settings.cache_clear()

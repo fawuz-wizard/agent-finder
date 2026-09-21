@@ -272,6 +272,9 @@ export interface ActionLogged {
   agent_ref: string
   at: string
   note: string
+  /** Only snooze and resolve carry these: which signal, and when the row stops hiding it. */
+  signal_id?: string | null
+  until?: string | null
 }
 
 /** What the server writes BEFORE it returns a financial value. Never the value itself. */

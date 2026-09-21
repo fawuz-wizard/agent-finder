@@ -46,6 +46,11 @@ function fail(e: unknown): never {
   throw e instanceof Error ? e : new Error('Something went wrong.')
 }
 
+/** Signal ids are "sig-<rule>-<agent ref>"; the API wants the agent on every action. */
+function agentRefOfSignal(id: string): string {
+  return id.split('-').slice(2).join('-')
+}
+
 export const operatorApi = {
   signIn(ref: string, pin: string, role: Role): Promise<Session> {
     if (config.useLiveApi) return api.post<Session>('/api/v1/auth/sign-in', { ref, pin, role })
@@ -155,9 +160,15 @@ export const operatorApi = {
     return delay(demo.demoDealerAct(ref, action, by))
   },
 
-  /** Snooze or resolve a signal on my queue. The agent's status is never touched. */
+  /**
+   * Snooze or resolve a signal on my queue. It is one more row on the action log (with the
+   * signal id), so the API is POST /actions; the agent's status is never touched.
+   */
   muteSignal(id: string, kind: SignalMuteKind, by: string): Promise<SignalMuted> {
-    if (config.useLiveApi) return api.post<SignalMuted>(`/api/v1/dealer/signals/${kind}`, { id })
+    if (config.useLiveApi)
+      return api
+        .post<ActionLogged>('/api/v1/actions', { agent: agentRefOfSignal(id), action: kind, signal_id: id })
+        .then((x) => ({ id, kind, agent_ref: x.agent_ref, until: x.until ?? '', note: x.note }))
     try {
       return delay(demo.demoMuteSignal(id, kind, by))
     } catch (e) {

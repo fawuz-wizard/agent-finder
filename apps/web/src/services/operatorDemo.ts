@@ -661,7 +661,7 @@ export function demoMuteSignal(id: string, kind: SignalMuteKind, by: string): Si
     kind === 'snooze'
       ? `${by} snoozed "${sig.title}" for ${a.shop} until ${until.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
       : `${by} resolved "${sig.title}" for ${a.shop} for today`
-  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: kind, agent_ref: sig.agent_ref, at: new Date().toISOString(), note })
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: kind, agent_ref: sig.agent_ref, at: new Date().toISOString(), note, signal_id: id, until: until.toISOString() })
   return { id, kind, agent_ref: sig.agent_ref, until: until.toISOString(), note }
 }
 
