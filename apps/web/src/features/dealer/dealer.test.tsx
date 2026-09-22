@@ -182,10 +182,12 @@ describe('float forecast', () => {
   it('shows who will probably run short, with reasons, and never a balance', async () => {
     signIn(ALL)
     const { container } = render(<App start="/dealer/float" />)
-    expect(await screen.findByText(/likely to run short · \d+/i)).toBeInTheDocument()
-    expect(await screen.findByText(/Agent 038 · Amadu Corner Shop/)).toBeInTheDocument()
-    expect(screen.getAllByText('Likely short by tomorrow').length).toBeGreaterThan(0)
-    expect(screen.getByText('Says no cash right now.')).toBeInTheDocument()
+    // Both lists load; the queue may also show Agent 038 (a request from an earlier test).
+    await screen.findByText(/^Waiting$/)
+    const section = await screen.findByRole('region', { name: /likely to run short · \d+/i })
+    expect(await within(section).findByText(/Agent 038 · Amadu Corner Shop/)).toBeInTheDocument()
+    expect(within(section).getAllByText('Likely short by tomorrow').length).toBeGreaterThan(0)
+    expect(within(section).getByText('Says no cash right now.')).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/balance|SLE 12,400/i)
     // The forecast is a ranking: high before medium.
     const chips = screen.getAllByText(/likely short by tomorrow|watch this week/i).map((el) => el.textContent)
