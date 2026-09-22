@@ -57,48 +57,28 @@ describe('agent app', () => {
     expect(screen.queryByText("Fatmata's Shop")).not.toBeInTheDocument()
   })
 
-  it('offers "Still correct?" on a stale declaration and resets the clock when confirmed', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-    await signIn(user)
-    await screen.findByText("Fatmata's Shop")
-    expect(screen.getByText(/still correct\?/i)).toBeInTheDocument()
-    // While the prompt is due, the quiet refresh stays out of the way.
-    expect(screen.queryByText('Refresh status')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /^yes$/i }))
-    expect(await screen.findByText(/you updated this just now/i)).toBeInTheDocument()
-    expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
-  })
-
-  it('shows the agent exactly what customers now see, phrased from their own words', async () => {
+  it('never asks the agent to refresh or to pick a word: presence and hours only', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
     await signIn(user)
     await screen.findByText("Fatmata's Shop")
-    // Fatmata declared Most / Some. Cash out has no ceiling; deposit is capped by the network range.
+    expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
+    expect(screen.queryByText('Refresh status')).not.toBeInTheDocument()
+    expect(screen.getByText(/open · serving/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /working hours/i })).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/\bMost\b|\bSome\b|\bSmall\b/)
+  })
+
+  it('shows the agent exactly what customers now see, from evidence, never their money', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+    await signIn(user)
+    await screen.findByText("Fatmata's Shop")
     const card = screen.getByText(/customers now see/i).closest('div')!
     expect(within(card).getAllByText(/can likely handle your request/i).length).toBe(2)
     expect(within(card).getByText(/· any amount/)).toBeInTheDocument()
     expect(within(card).getByText(/· up to SLE 10,000/)).toBeInTheDocument()
-    expect(within(card).getByText(/above that: limited/i)).toBeInTheDocument()
-    // The agent still sees their own words, and never another agent's money.
-    expect(container.textContent).toContain('Most')
     expect(container.textContent).not.toMatch(/SLE 21,000/)
-  })
-
-  it('offers "Refresh status" whenever "Still correct?" is not due, and it resets the clock', async () => {
-    // A fresh declaration with the same words: nothing is due, so the quiet refresh is offered.
-    await operatorApi.declare('Agent 024', { presence: 'open', cash_out: 'most', deposit: 'some', night_mode: true })
-    const user = userEvent.setup()
-    render(<App />)
-    await signIn(user)
-    await screen.findByText("Fatmata's Shop")
-    const refreshBtn = await screen.findByText('Refresh status')
-    expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
-    await user.click(refreshBtn)
-    expect(await screen.findByText(/you updated this just now/i)).toBeInTheDocument()
-    expect(await screen.findByText('Refresh status')).toBeInTheDocument()
   })
 
   it('turns the card into one headline when the agent is hidden', async () => {
@@ -177,46 +157,6 @@ describe('predictive availability', () => {
     expect(home.declaration.cash_out_sle).toBe(5000) // the agent's own figure is untouched
   })
 
-  it('a failed visit caps the side, names why, and "Yes" folds the estimate into the figure', async () => {
-    demoRecordVisit("Fatmata's Shop", 'cash_out', 1000, 'no', 'could_not_complete') // ≤2k band → cap 501
-    const home = await operatorApi.home('Agent 024')
-    expect(home.customers_see.sides[0]!.range_text).toBe('up to SLE 500')
-    expect(home.customers_see.sides[0]!.why).toMatch(/failed cash out of SLE 500 to 2,000/)
-    expect(home.declaration.confirm_due).toBe(true)
-    expect(home.declaration.confirm_reason).toMatch(/until you refresh/)
-
-    const user = userEvent.setup()
-    render(<App />)
-    await signIn(user)
-    await screen.findByText("Fatmata's Shop")
-    expect(screen.getByText(/still correct\?/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/failed cash out of SLE 500 to 2,000/).length).toBeGreaterThan(0)
-    await user.click(screen.getByRole('button', { name: /^yes$/i }))
-    expect(await screen.findByText(/you updated this just now/i)).toBeInTheDocument()
-    const after = await operatorApi.home('Agent 024')
-    expect(after.declaration.cash_out_sle).toBe(1500)
-    expect(after.declaration.cash_out).toBe('some')
-    expect(after.declaration.confirm_reason).toBeNull()
-    expect(after.customers_see.sides[0]!.range_text).toBe('up to SLE 1,500')
-  })
-
-  it('typing a figure on the form selects the matching word', async () => {
-    const user = userEvent.setup()
-    render(<App start="/agent/availability" />)
-    await signIn(user)
-    const cash = await screen.findByLabelText(/right now/i)
-    expect(cash).toBeInTheDocument()
-    const figure = screen.getAllByLabelText(/up to about \(SLE\)/i)[0]!
-    await user.clear(figure)
-    await user.type(figure, '12000')
-    const grid = screen.getByRole('radiogroup', { name: /cash out/i })
-    expect(within(grid).getByRole('radio', { name: /most/i })).toHaveAttribute('aria-checked', 'true')
-    await user.clear(figure)
-    await user.type(figure, '300')
-    expect(within(grid).getByRole('radio', { name: /small/i })).toHaveAttribute('aria-checked', 'true')
-    // Back to the seeded words so later files see the same Fatmata.
-    await operatorApi.declare('Agent 024', { presence: 'open', cash_out: 'most', deposit: 'some', night_mode: true })
-  })
 })
 
 describe('operator feed (demo)', () => {
@@ -236,7 +176,6 @@ describe('operator feed (demo)', () => {
       render(<App />)
       await signIn(user)
       await screen.findByText("Fatmata's Shop")
-      expect(await screen.findByText(/nothing to refresh/)).toBeInTheDocument()
       expect(screen.queryByText('Refresh status')).not.toBeInTheDocument()
       expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
       expect(screen.getByText(/e-float exact/i)).toBeInTheDocument()

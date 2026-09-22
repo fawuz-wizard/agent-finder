@@ -4,83 +4,19 @@ import { Button, Card } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import { CAPACITY_RANGES, wordForFigure } from '@/types/operator'
-import type { AgentHome, CapacityWord, Presence } from '@/types/operator'
+import type { AgentHome, Presence } from '@/types/operator'
 
-const PRESENCE: { value: Presence; label: string }[] = [
-  { value: 'open', label: 'Open' },
-  { value: 'hidden', label: 'Hidden' },
-  { value: 'closed', label: 'Closed' },
+const PRESENCE: { value: Presence; label: string; hint: string }[] = [
+  { value: 'open', label: 'Open', hint: 'Customers can find you' },
+  { value: 'hidden', label: 'Away', hint: 'A pause — back soon' },
+  { value: 'closed', label: 'Closed', hint: 'Done for today' },
 ]
 
-function WordGrid({
-  legend,
-  value,
-  onChange,
-  figure,
-  onFigure,
-}: {
-  legend: string
-  value: CapacityWord
-  onChange: (w: CapacityWord) => void
-  /** Optional "up to about" figure, kept as typed; '' means none. */
-  figure: string
-  onFigure: (raw: string) => void
-}) {
-  const figureId = `${(legend.split(' ')[0] ?? 'side').toLowerCase()}-figure`
-  return (
-    <Card>
-      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">{legend}</p>
-      <div role="radiogroup" aria-label={legend} className="grid grid-cols-2 gap-2">
-        {CAPACITY_RANGES.map((c) => (
-          <button
-            key={c.word}
-            type="button"
-            role="radio"
-            aria-checked={value === c.word}
-            onClick={() => onChange(c.word)}
-            className={`rounded-card border-2 p-3 text-center ${
-              value === c.word ? 'border-brand-deep bg-brand-light' : 'border-line bg-paper'
-            }`}
-          >
-            <span className="block text-base font-bold">{c.label}</span>
-            <span className="block text-xs font-semibold text-muted">{c.hint}</span>
-          </button>
-        ))}
-      </div>
-      <label htmlFor={figureId} className="mt-3 block text-sm font-semibold">
-        Up to about (SLE) — optional
-      </label>
-      <input
-        id={figureId}
-        type="number"
-        inputMode="numeric"
-        min={0}
-        step={100}
-        value={figure}
-        placeholder="e.g. 5000"
-        onChange={(e) => onFigure(e.target.value)}
-        className="mt-1 h-control w-full rounded-card border-2 border-line bg-paper px-3 text-base"
-      />
-      <p className="mt-1 text-xs text-muted">
-        A figure picks the word for you and lets the app count confirmed visits against it. Customers never see it.
-      </p>
-    </Card>
-  )
-}
-
-/** '' → null; anything else → a whole number of Leones, never negative. */
-function figureOf(raw: string): number | null {
-  if (raw.trim() === '') return null
-  const n = Math.max(0, Math.floor(Number(raw)))
-  return Number.isFinite(n) ? n : null
-}
-
 /**
- * A2 — Availability. The four words are the agent's private vocabulary; the customer
- * never sees them, only the phrase they produce against the amount asked for. Hiding is
- * offered plainly and never punished — an agent who fears a black mark will leave
- * themselves open and turn people away, which is the behaviour that breaks the product.
+ * A2 — Availability. The agent sets presence and working hours; that is all they are asked.
+ * What they can cover comes from their history (the operator's records, the dealer's note,
+ * confirmed visits), never from a word or a figure, and there is nothing to refresh. Away is
+ * offered plainly and never punished.
  */
 export default function AvailabilityPage() {
   const { session } = useSession()
@@ -89,46 +25,18 @@ export default function AvailabilityPage() {
   const { state, data } = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
 
   const [presence, setPresence] = useState<Presence>('open')
-  const [cashOut, setCashOut] = useState<CapacityWord>('most')
-  const [deposit, setDeposit] = useState<CapacityWord>('some')
-  const [cashOutSle, setCashOutSle] = useState('')
-  const [depositSle, setDepositSle] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!data) return
-    setPresence(data.declaration.presence)
-    setCashOut(data.declaration.cash_out)
-    setDeposit(data.declaration.deposit)
-    setCashOutSle(data.declaration.cash_out_sle === null ? '' : String(data.declaration.cash_out_sle))
-    setDepositSle(data.declaration.deposit_sle === null ? '' : String(data.declaration.deposit_sle))
+    if (data) setPresence(data.declaration.presence)
   }, [data])
-
-  /** Typing a figure picks the word; picking a word clears the figure so the two never disagree. */
-  function cashFigure(raw: string) {
-    setCashOutSle(raw)
-    const n = figureOf(raw)
-    if (n !== null) setCashOut(wordForFigure(n))
-  }
-  function depositFigure(raw: string) {
-    setDepositSle(raw)
-    const n = figureOf(raw)
-    if (n !== null) setDeposit(wordForFigure(n))
-  }
 
   async function save() {
     setSaving(true)
     setError(null)
     try {
-      await operatorApi.declare(ref, {
-        presence,
-        cash_out: cashOut,
-        deposit,
-        cash_out_sle: figureOf(cashOutSle),
-        deposit_sle: figureOf(depositSle),
-        night_mode: data?.declaration.night_mode ?? true,
-      })
+      await operatorApi.declare(ref, { presence, night_mode: data?.declaration.night_mode ?? true })
       navigate('/agent')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.')
@@ -142,7 +50,7 @@ export default function AvailabilityPage() {
     <div className="flex flex-1 flex-col">
       <header className="border-b border-line bg-paper px-4 py-3">
         <h1 className="text-lg font-bold leading-tight">Availability</h1>
-        <p className="text-xs text-muted">What customers can see about you</p>
+        <p className="text-xs text-muted">Whether customers can find you right now</p>
       </header>
 
       <div className="flex flex-col gap-3 p-4 pb-6">
@@ -156,49 +64,30 @@ export default function AvailabilityPage() {
                 role="radio"
                 aria-checked={presence === p.value}
                 onClick={() => setPresence(p.value)}
-                className={`h-control rounded-card border-2 text-base font-bold ${
+                className={`rounded-card border-2 p-3 text-center ${
                   presence === p.value ? 'border-brand-deep bg-brand-light' : 'border-line bg-paper'
                 }`}
               >
-                {p.label}
+                <span className="block text-base font-bold">{p.label}</span>
+                <span className="block text-xs font-semibold text-muted">{p.hint}</span>
               </button>
             ))}
           </div>
           <p className="mt-2 text-sm text-muted">
-            Hiding is never held against you. It is recorded so your dealer can see a cash problem, not punish you.
+            Away is never held against you. It is recorded so your dealer can see a cash problem, not punish you.
           </p>
         </Card>
-
-        {data?.declaration.capacity_source === 'operator' && (
-          <p className="rounded-card border border-line bg-canvas px-3 py-2 text-sm text-muted" role="note">
-            Capacity comes from Orange Money while the link is connected. The words and figures below are used only if the link drops.
-          </p>
-        )}
-        <WordGrid
-          legend="Cash out — how much can you give?"
-          value={cashOut}
-          onChange={(w) => {
-            setCashOut(w)
-            setCashOutSle('')
-          }}
-          figure={cashOutSle}
-          onFigure={cashFigure}
-        />
-        <WordGrid
-          legend="Deposit — how much float do you have?"
-          value={deposit}
-          onChange={(w) => {
-            setDeposit(w)
-            setDepositSle('')
-          }}
-          figure={depositSle}
-          onFigure={depositFigure}
-        />
 
         <Link to="/agent/hours" className="rounded-card border border-line bg-paper px-4 py-3.5">
           <p className="text-base font-bold">Working hours</p>
           <p className="text-sm text-muted">{data?.schedule.hours_text ?? 'Set your weekly hours'} · outside them customers are told you are closed, by your own schedule.</p>
         </Link>
+
+        <Card className="bg-canvas">
+          <p className="text-sm text-muted">
+            What you can cover is worked out from your history, never asked. Your dealer can note what you usually handle until Orange Money's records take over.
+          </p>
+        </Card>
 
         {error && (
           <p role="alert" className="text-base font-semibold text-danger">
@@ -209,9 +98,6 @@ export default function AvailabilityPage() {
         <Button size="cta" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
-        <p className="text-center text-xs text-muted">
-          Saving resets your freshness clock, so customers see your status as current again.
-        </p>
       </div>
     </div>
   )

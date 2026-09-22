@@ -4,31 +4,21 @@ import { Banner, Button, Card } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
-import { CAPACITY_RANGES, PRESENCE_LABELS } from '@/types/operator'
+import { PRESENCE_LABELS } from '@/types/operator'
 import type { AgentHome } from '@/types/operator'
 import { OperatorValueRow } from './components/OperatorValue'
 import { formatSle } from './money'
 
-function word(w: AgentHome['declaration']['cash_out']): string {
-  return CAPACITY_RANGES.find((c) => c.word === w)?.label ?? w
-}
-
 /**
- * A1 — Agent Home. The agent opens this to run their day, so the declaration sits inside
- * the day rather than being the whole screen. "Still correct?" is the freshness fix: one
- * tap resets the clock, which is the only thing a busy agent will reliably do.
+ * A1 — Agent Home. The agent opens this to run their day: presence, hours, what customers
+ * see, float, and what customers reported. Nothing to declare and nothing to refresh: what
+ * they can cover comes from their history.
  */
 export default function AgentHomePage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
-  const { state, data, error, refresh, setData } = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
-  const [confirming, setConfirming] = useState(false)
+  const { state, data, error, refresh } = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
 
-  /**
-   * "Still correct? · Yes" and "Refresh status" are the same call: the clock resets, nothing
-   * else changes. The home reloads afterwards because a refresh can move an expired status
-   * back into what customers see.
-   */
   const [extending, setExtending] = useState(false)
   async function stayOpen() {
     setExtending(true)
@@ -37,17 +27,6 @@ export default function AgentHomePage() {
       refresh()
     } finally {
       setExtending(false)
-    }
-  }
-
-  async function confirm() {
-    setConfirming(true)
-    try {
-      const declaration = await operatorApi.confirmDeclaration(ref)
-      setData((prev) => (prev ? { ...prev, declaration } : prev))
-      refresh()
-    } finally {
-      setConfirming(false)
     }
   }
 
@@ -92,20 +71,7 @@ export default function AgentHomePage() {
               Change
             </Link>
           </div>
-          <div className="mt-2 flex gap-8">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted">Cash out</p>
-              <p className="text-xl font-bold">{word(d.cash_out)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted">Deposit</p>
-              <p className="text-xl font-bold">{word(d.deposit)}</p>
-            </div>
-          </div>
-          <p className={`mt-2 text-sm ${d.freshness === 'expired' ? 'font-semibold text-danger' : 'text-muted'}`}>
-            {d.freshness_text}
-          </p>
-          {d.source_text && <p className="mt-1 text-xs text-muted">{d.source_text}</p>}
+          {d.source_text && <p className="mt-2 text-xs text-muted">{d.source_text}</p>}
           <p className="mt-1 text-xs text-muted">
             {data.schedule.hours_text} ·{' '}
             <Link to="/agent/hours" className="font-semibold text-brand-text">
@@ -113,26 +79,6 @@ export default function AgentHomePage() {
             </Link>
           </p>
 
-          {d.capacity_source === 'operator' ? null : d.confirm_due ? (
-            <div className="mt-3 rounded-card border border-line bg-paper p-3">
-              <p className="mb-2 text-base font-bold">Still correct?</p>
-              {d.confirm_reason && <p className="mb-2 text-sm text-muted">{d.confirm_reason}</p>}
-              <div className="flex gap-2">
-                <Button size="control" onClick={confirm} disabled={confirming} className="flex-1">
-                  {confirming ? 'Saving…' : 'Yes'}
-                </Button>
-                <Link to="/agent/availability" className="flex-1">
-                  <Button size="control" variant="secondary" block className="w-full">
-                    Update
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <Button size="control" variant="tertiary" onClick={confirm} disabled={confirming} className="mt-2 -ml-2 w-fit">
-              {confirming ? 'Saving…' : 'Refresh status'}
-            </Button>
-          )}
         </Card>
 
         <Card aria-labelledby="customers-see">

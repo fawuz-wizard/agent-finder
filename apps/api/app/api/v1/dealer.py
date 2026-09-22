@@ -30,6 +30,7 @@ from app.services.forecast import forecast_counts, forecasts_for
 from app.services.ledger import ledgers_for
 from app.services.phrasing import (
     CAPACITY_LABEL,
+    NETWORK_RANGES,
     PRESENCE_LABEL,
     age_minutes,
     age_text,
@@ -204,6 +205,21 @@ async def signals_for(
 BUCKETS = ("active", "limited", "hidden", "closed")
 
 
+def capacity_text(ledger) -> str:
+    """What the evidence says this agent usually covers, per side. Dealer-facing; the
+    words are gone from every screen, this is what replaces them."""
+    if ledger is None:
+        return "No record yet"
+    parts = []
+    for label, side in (("Cash", ledger.cash), ("Deposit", ledger.float)):
+        if not side.known:
+            parts.append(f"{label}: no record")
+            continue
+        c = side.ceiling(NETWORK_RANGES)
+        parts.append(f"{label}: any amount" if c is None else f"{label} up to ~SLE {c:,}")
+    return " · ".join(parts)
+
+
 def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     """The one bucket an agent is in right now. The dashboard tiles count these and the
     register filters by them, from this single function, so the two can never disagree.
@@ -302,6 +318,7 @@ async def agents_list(
                 "presence_text": PRESENCE_LABEL[a.presence],
                 "bucket": bucket_of(a, now, ledger),
                 "declaration_text": f"{CAPACITY_LABEL.get(d.cash_out, '—')} / {CAPACITY_LABEL.get(d.deposit, '—')}",  # noqa: E501
+                "capacity_text": capacity_text(ledger),
                 "capacity_source": d.capacity_source,
                 "freshness_text": age_text(d.age_min if d.age_min < 10**6 else None),
                 "attention": int(problems) > 1
@@ -378,6 +395,7 @@ async def agent_detail(
         "area": a.street,
         "declaration": declaration_of(a, now, ledger).model_dump(),
         "reliability": trust.as_dict(),
+        "capacity_text": capacity_text(ledger),
         "usual": _usual_of(a),
         "evidence": {
             "cash": {"source": ledger.cash.evidence_source, "text": ledger.cash.evidence_text},

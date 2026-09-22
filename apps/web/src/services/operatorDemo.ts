@@ -681,8 +681,8 @@ export function demoDeclare(ref: string, next: DeclareBody): Declaration {
   const cashSle = next.cash_out_sle ?? null
   const depSle = next.deposit_sle ?? null
   a.presence = next.presence
-  a.cash_out = cashSle !== null ? wordForFigure(cashSle) : next.cash_out
-  a.deposit = depSle !== null ? wordForFigure(depSle) : next.deposit
+  a.cash_out = cashSle !== null ? wordForFigure(cashSle) : (next.cash_out ?? a.cash_out)
+  a.deposit = depSle !== null ? wordForFigure(depSle) : (next.deposit ?? a.deposit)
   a.cash_out_sle = cashSle
   a.deposit_sle = depSle
   a.night_mode = next.night_mode
@@ -921,6 +921,16 @@ export function demoFloatForecast(): FloatForecast[] {
   return rows.sort((x, y) => RISK_ORDER[x.risk] - RISK_ORDER[y.risk] || x.agent_name.localeCompare(y.agent_name))
 }
 
+/** What the evidence says an agent usually covers, per side. Dealer-facing; replaces the words. */
+function capacityText(ledger: LedgerState): string {
+  const parts: string[] = []
+  for (const [label, side] of [['Cash', ledger.cash], ['Deposit', ledger.float]] as const) {
+    const c = ceilingOf(side)
+    parts.push(c === null ? `${label}: any amount` : `${label} up to ~${sle(c)}`)
+  }
+  return parts.join(' · ')
+}
+
 export function demoAgentRows() {
   return agents.map((a) => {
     const d = declarationOf(a)
@@ -937,6 +947,7 @@ export function demoAgentRows() {
       attention: a.problems > 1 || d.freshness === 'expired' || a.presence === 'hidden' || trustOf(a).label === 'unreliable',
       reliability: trustOf(a),
       capacity_source: d.capacity_source,
+      capacity_text: capacityText(ledgerFor(a)),
     }
   })
 }
@@ -1141,6 +1152,7 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
     availability_today: availability,
     open_signals: signals,
     reliability: trustOf(a),
+    capacity_text: capacityText(ledgerFor(a)),
     usual: { ...a.usual },
     evidence: {
       cash: { source: ledgerFor(a).cash.evidenceSource, text: ledgerFor(a).cash.evidenceText },

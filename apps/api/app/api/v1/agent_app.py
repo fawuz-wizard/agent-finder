@@ -245,8 +245,10 @@ async def home(
 
 class DeclareBody(BaseModel):
     presence: Literal["open", "hidden", "closed"]
-    cash_out: Literal["most", "some", "small", "none"]
-    deposit: Literal["most", "some", "small", "none"]
+    # Words are no longer asked of the agent: evidence by amount decides. They stay optional
+    # for older clients; when absent, whatever was set before is kept.
+    cash_out: Literal["most", "some", "small", "none"] | None = None
+    deposit: Literal["most", "some", "small", "none"] | None = None
     # Optional: "up to about SLE …". When given, the word is derived from it so dealers keep
     # seeing words, and the ledger counts confirmed visits against the figure.
     cash_out_sle: int | None = Field(default=None, ge=0, le=10_000_000)
@@ -274,12 +276,12 @@ async def declare(
     cash_word = (
         word_for_figure(body.cash_out_sle, NETWORK_RANGES)
         if body.cash_out_sle is not None
-        else body.cash_out
+        else body.cash_out or a.cash_out or "most"
     )
     dep_word = (
         word_for_figure(body.deposit_sle, NETWORK_RANGES)
         if body.deposit_sle is not None
-        else body.deposit
+        else body.deposit or a.deposit or "most"
     )
     a.presence, a.cash_out, a.deposit, a.night_mode, a.declared_at = (
         body.presence,

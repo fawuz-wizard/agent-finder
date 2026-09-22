@@ -4,12 +4,11 @@ import { Button, Card, useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
+import { PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
 import type { DealerAction, DealerAgentDetail } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
 import { MaskedValue } from './components/MaskedValue'
 
-const word = (w: DealerAgentDetail['declaration']['cash_out']) => CAPACITY_RANGES.find((c) => c.word === w)?.label ?? w
 
 /**
  * D2 — Agent detail. Declaration, money (masked), today's counts with their source, the
@@ -64,11 +63,10 @@ export default function DealerAgentDetailPage() {
       <div className="flex flex-col gap-3 p-4 pb-6">
         <Card>
           <div className="flex items-center justify-between">
-            <span className={`text-base font-bold ${tone}`}>
-              {PRESENCE_LABELS[d.presence]} · {word(d.cash_out)} / {word(d.deposit)}
-            </span>
+            <span className={`text-base font-bold ${tone}`}>{PRESENCE_LABELS[d.presence]}</span>
             <span className="text-xs font-semibold text-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '')}</span>
           </div>
+          <p className="mt-1 text-sm text-muted">{data.capacity_text}</p>
           {d.freshness === 'expired' && <p className="mt-1 text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
           <p className="mt-1 text-sm text-muted">
             <span className="font-bold">{data.reliability.label_text}</span> · {data.reliability.text}

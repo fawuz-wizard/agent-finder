@@ -60,8 +60,9 @@ export interface Declaration {
 /** What the agent sends. Figures are optional; when given, the word is derived server-side. */
 export interface DeclareBody {
   presence: Presence
-  cash_out: CapacityWord
-  deposit: CapacityWord
+  /** Words are no longer asked of the agent; optional for older callers, kept as they were when absent. */
+  cash_out?: CapacityWord
+  deposit?: CapacityWord
   cash_out_sle?: number | null
   deposit_sle?: number | null
   night_mode: boolean
@@ -241,6 +242,8 @@ export interface DealerAgentRow {
   attention: boolean
   reliability: Reliability
   capacity_source?: 'agent' | 'operator'
+  /** What the evidence says this agent usually covers, per side. Replaces the words. */
+  capacity_text: string
 }
 
 export interface Signal {
@@ -357,6 +360,7 @@ export interface DealerAgentDetail {
   availability_today: { time_text: string; text: string; tone: 'neutral' | 'warning' }[]
   open_signals: number
   reliability: Reliability
+  capacity_text: string
   /** The dealer's note: what this agent usually handles, until the operator's records replace it. */
   usual: UsualNote
   /** Where the current ceiling per side comes from: operator | dealer | visits | none. */

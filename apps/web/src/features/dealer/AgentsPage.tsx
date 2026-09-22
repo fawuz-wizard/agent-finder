@@ -72,7 +72,7 @@ export default function DealerAgentsPage() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className={`font-bold ${TONE[a.presence]}`}>{a.presence_text}</span>
-                <span className="text-muted">{a.declaration_text}</span>
+                <span className="text-muted">{a.capacity_text}</span>
               </div>
               <p className="flex items-center justify-between gap-2 text-xs text-muted">
                 <span>{a.area}</span>
