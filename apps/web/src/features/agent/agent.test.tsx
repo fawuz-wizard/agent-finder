@@ -8,6 +8,7 @@ import SignInPage from '@/features/auth/SignInPage'
 import AgentHomePage from './AgentHomePage'
 import AvailabilityPage from './AvailabilityPage'
 import FloatPage from './FloatPage'
+import HoursPage from './HoursPage'
 import { operatorApi } from '@/services/operatorApi'
 import { demoRecordVisit, demoSetOperatorFeed } from '@/services/operatorDemo'
 
@@ -21,6 +22,7 @@ function App({ start = '/agent' }: { start?: string }) {
             <Route path="/agent" element={<AgentHomePage />} />
             <Route path="/agent/availability" element={<AvailabilityPage />} />
             <Route path="/agent/float" element={<FloatPage />} />
+          <Route path="/agent/hours" element={<HoursPage />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -245,5 +247,44 @@ describe('operator feed (demo)', () => {
       await operatorApi.declare('Agent 024', { presence: 'open', cash_out: 'most', deposit: 'some', night_mode: true })
       demoSetOperatorFeed(false)
     }
+  })
+})
+
+describe('working hours', () => {
+  it('the weekly pattern and today-only changes are the agent\'s, and customers follow them', async () => {
+    const user = userEvent.setup()
+    render(<App start="/agent/hours" />)
+    await signIn(user)
+    await screen.findByText(/working hours/i)
+    expect(screen.getAllByRole('checkbox', { name: /closed$/i })).toHaveLength(7)
+    await user.click(screen.getByRole('checkbox', { name: /sunday closed/i }))
+    await user.click(screen.getByRole('button', { name: /save weekly hours/i }))
+    expect((await operatorApi.schedule('Agent 024')).weekly.sun).toBeNull()
+
+    const half = await operatorApi.setToday('Agent 024', { hours: ['08:00', '12:10'] })
+    expect(half.today.today_only).toBe(true)
+    // The pinned clock is midday: ten minutes to the close, so the home screen warns.
+    const home = await operatorApi.home('Agent 024')
+    expect(home.schedule.notice).toMatch(/closing at 12:10 by your schedule in \d+ min\. stay open\?/i)
+    const after = await operatorApi.setToday('Agent 024', { extend_minutes: 60 })
+    expect(after.today.closes_at).toBe('13:10')
+    expect(after.today.notice).toBeNull()
+    expect(after.today.hours_text).toMatch(/staying open until 13:10/)
+    const back = await operatorApi.setToday('Agent 024', { clear: true })
+    expect(back.today.today_only).toBe(false)
+    await operatorApi.setSchedule('Agent 024', { ...back.weekly, sun: ['07:00', '20:00'] })
+  })
+
+  it('shows the closing warning on the home screen with one tap to stay open', async () => {
+    await operatorApi.setToday('Agent 024', { hours: ['08:00', '12:10'] })
+    const user = userEvent.setup()
+    render(<App />)
+    await signIn(user)
+    await screen.findByText("Fatmata's Shop")
+    expect(await screen.findByText(/closing at 12:10 by your schedule/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /stay open 1 more hour/i }))
+    await screen.findByText(/staying open until 13:10/)
+    expect(screen.queryByText(/closing at 12:10 by your schedule/i)).not.toBeInTheDocument()
+    await operatorApi.setToday('Agent 024', { clear: true })
   })
 })

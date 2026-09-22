@@ -138,11 +138,55 @@ export interface CustomersSee {
   sides: CustomersSeeSide[]
 }
 
+export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
+export const WEEKDAYS: Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+export const WEEKDAY_NAMES: Record<Weekday, string> = {
+  mon: 'Monday',
+  tue: 'Tuesday',
+  wed: 'Wednesday',
+  thu: 'Thursday',
+  fri: 'Friday',
+  sat: 'Saturday',
+  sun: 'Sunday',
+}
+/** ["08:00", "20:00"] or null for closed. */
+export type DayHours = [string, string] | null
+export type WeeklyHours = Record<Weekday, DayHours>
+
+/**
+ * Working hours are the agent's own instruction, applied by the system with a warning
+ * first: fifteen minutes before the close, "notice" asks whether to stay open.
+ */
+export interface ScheduleState {
+  open_now: boolean
+  today: DayHours
+  today_only: boolean
+  extended_until: string | null
+  closes_at: string | null
+  closing_in_min: number | null
+  hours_text: string
+  notice: string | null
+}
+
+export interface Schedule {
+  weekly: WeeklyHours
+  overrides: Record<string, DayHours>
+  today: ScheduleState
+}
+
+export interface TodayChange {
+  hours?: [string, string]
+  day_off?: boolean
+  extend_minutes?: number
+  clear?: boolean
+}
+
 export interface AgentHome {
   name: string
   ref: string
   area: string
   declaration: Declaration
+  schedule: ScheduleState
   customers_see: CustomersSee
   balance: OperatorValue | null
   float_position: OperatorValue | null

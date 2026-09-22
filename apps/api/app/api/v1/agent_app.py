@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Principal, require_role
+from app.core.errors import AppError
 from app.db.models import (
     Action,
     Agent,
@@ -22,7 +23,7 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
-from app.services import usage
+from app.services import schedule, usage
 from app.services.ledger import Ledger, ledgers_for, word_for_figure
 from app.services.phrasing import (
     CAPACITY_LABEL,
@@ -221,11 +222,13 @@ async def home(
         attention.append("Your status has expired, so customers are not being sent to you.")
     bal = await op.balance(a.ref)
     fl = await op.float_position(a.ref)
+    sched = schedule.state(a, now)
     return {
         "name": a.shop_name,
         "ref": a.ref,
         "area": a.street,
         "declaration": d.model_dump(),
+        "schedule": sched,
         "customers_see": customers_see(a, now, ledger),
         "balance": bal.model_dump() if bal else None,
         "float_position": fl.model_dump() if fl else None,
@@ -328,6 +331,76 @@ async def confirm(
     await usage.record(db, "confirm", "agent", a.ref, a.ref)
     await db.commit()
     return declaration_of(a, now)
+
+
+class WeeklyBody(BaseModel):
+    weekly: dict[str, list[str] | None]
+
+
+class TodayBody(BaseModel):
+    # One of: hours for today, null for a day off, extend_minutes to stay open, clear.
+    hours: list[str] | None = None
+    day_off: bool = False
+    extend_minutes: int | None = Field(default=None, ge=1, le=240)
+    clear: bool = False
+
+
+def _schedule_payload(a: Agent, now: datetime) -> dict:
+    return {
+        "weekly": schedule.weekly_payload(a),
+        "overrides": schedule.overrides_payload(a, now),
+        "today": schedule.state(a, now),
+    }
+
+
+@router.get("/schedule", summary="My working hours: the weekly pattern and today")
+async def get_schedule(
+    p: Principal = Depends(require_role("agent")), db: AsyncSession = Depends(get_session)
+) -> dict:
+    return _schedule_payload(await load_agent(db, p.subject), now_utc())
+
+
+@router.put("/schedule", summary="Set my weekly working hours")
+async def put_schedule(
+    body: WeeklyBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    now = now_utc()
+    a = await load_agent(db, p.subject)
+    try:
+        schedule.set_weekly(a, body.weekly)
+    except ValueError as e:
+        raise AppError(str(e), code="invalid_hours") from e
+    await usage.record(db, "schedule", "agent", a.ref, a.ref)
+    await db.commit()
+    return _schedule_payload(a, now)
+
+
+@router.post("/schedule/today", summary="Today only: different hours, a day off, or stay open")
+async def post_today(
+    body: TodayBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    now = now_utc()
+    a = await load_agent(db, p.subject)
+    try:
+        if body.clear:
+            schedule.clear_today(a, now)
+        elif body.extend_minutes is not None:
+            schedule.extend_today(a, now, body.extend_minutes)
+        elif body.day_off:
+            schedule.set_today(a, now, None)
+        elif body.hours is not None:
+            schedule.set_today(a, now, body.hours)
+        else:
+            raise AppError("Say what to change for today.", code="nothing_to_change")
+    except ValueError as e:
+        raise AppError(str(e), code="invalid_hours") from e
+    await usage.record(db, "schedule_today", "agent", a.ref, a.ref)
+    await db.commit()
+    return _schedule_payload(a, now)
 
 
 @router.get("/activity", summary="Today's timeline: operator rows and ours, each labelled")
@@ -468,7 +541,7 @@ async def profile(
         "ref": a.ref,
         "shop_name": a.shop_name,
         "area": a.street,
-        "hours_text": f"{a.open_hour:02d}:00 – {a.close_hour:02d}:00",
+        "hours_text": schedule.hours_text(a, now_utc()),
         "dealer_name": dealer.name if dealer else "",
         "phone_visible": a.phone_visible,
         "verified": a.verified,

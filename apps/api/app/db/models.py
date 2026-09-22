@@ -38,6 +38,12 @@ class Agent(Base, TimestampMixin):
     )
     open_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
     close_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    # The agent's own working hours (services/schedule.py): a weekly pattern, today-only
+    # changes by date, and "stay open" past today's close. Applied by the system, with a
+    # warning first. Legacy open/close hours stand in until a pattern is set.
+    schedule_json: Mapped[str | None] = mapped_column(Text)
+    overrides_json: Mapped[str | None] = mapped_column(Text)
+    extended_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     phone: Mapped[str | None] = mapped_column(String(32))
     phone_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

@@ -36,9 +36,14 @@ import type {
   FloatForecast,
   FloatRisk,
   Reliability,
+  DayHours,
+  Schedule,
+  ScheduleState,
+  TodayChange,
+  WeeklyHours,
 } from '@/types/operator'
 import { config } from '@/lib/config'
-import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, wordForFigure } from '@/types/operator'
+import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, WEEKDAYS, wordForFigure } from '@/types/operator'
 
 const FRESHNESS = { fresh: 90, aging: 120, may_have_changed: 240 } as const
 /** The agent is asked to confirm once the declaration stops being fresh. */
@@ -66,6 +71,9 @@ interface AgentState {
   problems: number
   /** Last 14 days of visits where the customer was told "likely": how many, how many failed for money. */
   history: { visits: number; failed: number }
+  weekly: WeeklyHours
+  overrides: Record<string, DayHours>
+  extendedUntil: number | null
 }
 
 function minutesAgo(min: number): number {
@@ -73,11 +81,11 @@ function minutesAgo(min: number): number {
 }
 
 const agents: AgentState[] = [
-  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null, history: { visits: 12, failed: 2 } },
-  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 9, failed: 0 } },
-  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null, history: { visits: 4, failed: 0 } },
-  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 6, failed: 0 } },
-  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 1, failed: 0 } },
+  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null, history: { visits: 12, failed: 2 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
+  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 9, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
+  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null, history: { visits: 4, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
+  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 6, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
+  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 1, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
 ]
 
 /** Operator-owned values. Present only because the demo adapter is switched on. */
@@ -182,9 +190,131 @@ const PUBLIC_TEXT = {
   not_set: 'Status not set',
 } as const
 
-function isOpenNow(): boolean {
-  const h = new Date().getUTCHours()
-  return h >= 7 && h < 20
+/* ---------- working hours: the agent's own schedule, applied with a warning first ---------- */
+
+const CLOSING_WARNING_MIN = 15
+
+function defaultWeekly(): WeeklyHours {
+  return { mon: ['07:00', '20:00'], tue: ['07:00', '20:00'], wed: ['07:00', '20:00'], thu: ['07:00', '20:00'], fri: ['07:00', '20:00'], sat: ['07:00', '20:00'], sun: ['07:00', '20:00'] }
+}
+
+function minutesOf(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  if (h === undefined || m === undefined || Number.isNaN(h) || Number.isNaN(m)) throw new Error(`not a time: ${hhmm}`)
+  return h * 60 + m
+}
+
+function dateKey(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
+function hoursFor(a: AgentState, d: Date): { hours: DayHours; override: boolean } {
+  const key = dateKey(d)
+  if (key in a.overrides) return { hours: a.overrides[key] ?? null, override: true }
+  return { hours: a.weekly[WEEKDAYS[(d.getUTCDay() + 6) % 7]!], override: false }
+}
+
+function extendedUntil(a: AgentState, now: Date): Date | null {
+  if (a.extendedUntil === null) return null
+  const u = new Date(a.extendedUntil)
+  return u > now && dateKey(u) === dateKey(now) ? u : null
+}
+
+function isOpenBySchedule(a: AgentState, now = new Date()): boolean {
+  const { hours } = hoursFor(a, now)
+  const minute = now.getUTCHours() * 60 + now.getUTCMinutes()
+  if (hours && minutesOf(hours[0]) <= minute && minute < minutesOf(hours[1])) return true
+  return extendedUntil(a, now) !== null
+}
+
+function closeAt(a: AgentState, now: Date): Date | null {
+  if (!isOpenBySchedule(a, now)) return null
+  const ext = extendedUntil(a, now)
+  const { hours } = hoursFor(a, now)
+  const scheduled = hours ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, minutesOf(hours[1]))) : null
+  if (ext && (!scheduled || ext > scheduled)) return ext
+  return scheduled
+}
+
+function hhmm(d: Date): string {
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+}
+
+function scheduleState(a: AgentState, now = new Date()): ScheduleState {
+  const { hours, override } = hoursFor(a, now)
+  const ext = extendedUntil(a, now)
+  const at = closeAt(a, now)
+  const mins = at ? Math.floor((at.getTime() - now.getTime()) / 60_000) : null
+  const closingIn = mins !== null && mins >= 0 && mins <= CLOSING_WARNING_MIN ? mins : null
+  const open = isOpenBySchedule(a, now)
+  let text: string
+  if (!hours && !ext) text = 'Closed today'
+  else if (open) {
+    let base = hours ? `Open today ${hours[0]}–${hours[1]}` : 'Open today'
+    if (ext && at) base = `${base} · staying open until ${hhmm(at)}`
+    text = override ? `Today only · ${base.charAt(0).toLowerCase()}${base.slice(1)}` : base
+  } else if (hours && now.getUTCHours() * 60 + now.getUTCMinutes() < minutesOf(hours[0])) text = `Opens ${hours[0]} today`
+  else text = 'Closed for today'
+  return {
+    open_now: open,
+    today: hours,
+    today_only: override,
+    extended_until: ext ? ext.toISOString() : null,
+    closes_at: at ? hhmm(at) : null,
+    closing_in_min: closingIn,
+    hours_text: text,
+    notice: closingIn !== null && at ? `Closing at ${hhmm(at)} by your schedule in ${closingIn} min. Stay open?` : null,
+  }
+}
+
+function isOpenNow(a: AgentState): boolean {
+  return isOpenBySchedule(a)
+}
+
+export function demoSchedule(ref: string): Schedule {
+  const a = find(ref)
+  const today = dateKey(new Date())
+  const overrides = Object.fromEntries(Object.entries(a.overrides).filter(([k]) => k >= today))
+  return { weekly: { ...a.weekly }, overrides, today: scheduleState(a) }
+}
+
+export function demoSetSchedule(ref: string, weekly: WeeklyHours): Schedule {
+  const a = find(ref)
+  for (const d of WEEKDAYS) {
+    const h = weekly[d]
+    if (h && minutesOf(h[0]) >= minutesOf(h[1])) throw new Error('opening time must be before closing time')
+  }
+  if (WEEKDAYS.every((d) => weekly[d] === null)) throw new Error('at least one day must be open')
+  a.weekly = { ...weekly }
+  record('You changed your working hours', 'agent_finder', 'neutral')
+  return demoSchedule(ref)
+}
+
+export function demoSetToday(ref: string, change: TodayChange): Schedule {
+  const a = find(ref)
+  const now = new Date()
+  const key = dateKey(now)
+  if (change.clear) {
+    delete a.overrides[key]
+    a.extendedUntil = null
+  } else if (change.extend_minutes !== undefined) {
+    if (change.extend_minutes < 1 || change.extend_minutes > 240) throw new Error('extension must be between 1 minute and 4 hours')
+    const base = closeAt(a, now) ?? now
+    const until = new Date(base.getTime() + change.extend_minutes * 60_000)
+    const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59))
+    a.extendedUntil = Math.min(until.getTime(), endOfDay.getTime())
+    record(`You are staying open until ${hhmm(new Date(a.extendedUntil))}`, 'agent_finder', 'good')
+  } else if (change.day_off) {
+    a.overrides[key] = null
+    a.extendedUntil = null
+    record('You took today off', 'agent_finder', 'neutral')
+  } else if (change.hours) {
+    if (minutesOf(change.hours[0]) >= minutesOf(change.hours[1])) throw new Error('opening time must be before closing time')
+    a.overrides[key] = change.hours
+    a.extendedUntil = null
+    record(`Today only: ${change.hours[0]}–${change.hours[1]}`, 'agent_finder', 'neutral')
+  } else throw new Error('Say what to change for today.')
+  return demoSchedule(ref)
 }
 
 /* ---------- predictive availability: the ledger of visits customers confirmed or failed ---------- */
@@ -357,7 +487,7 @@ function customersSee(a: AgentState): CustomersSee {
   const state: CustomersSee['state'] =
     a.presence === 'hidden'
       ? 'hidden'
-      : a.presence === 'closed' || (a.night_mode && !isOpenNow())
+      : a.presence === 'closed' || !isOpenNow(a)
         ? 'closed'
         : !ledgerFor(a).live && freshnessOf(ageMin(a)) === 'expired'
           ? 'expired'
@@ -465,6 +595,7 @@ export function demoAgentHome(ref: string): AgentHome {
     ref: a.ref,
     area: a.area,
     declaration: declarationOf(a),
+    schedule: scheduleState(a),
     customers_see: customersSee(a),
     balance: operatorValue(ref, 'balance'),
     float_position: operatorValue(ref, 'float'),
@@ -537,7 +668,7 @@ export function demoAgentProfile(ref: string): AgentProfile {
     ref: a.ref,
     shop_name: a.shop,
     area: a.area,
-    hours_text: '07:00 – 20:00',
+    hours_text: scheduleState(a).hours_text,
     dealer_name: 'Kissy Distribution',
     phone_visible: a.phone_visible,
     verified: a.ref === 'Agent 024',
@@ -631,7 +762,7 @@ function bucketOf(a: AgentState): DealerBucket {
   const ledger = ledgerFor(a)
   const word = ledger.live ? ledger.cash.word : a.cash_out
   if (a.presence === 'hidden') return 'hidden'
-  if (a.presence === 'closed' || (!ledger.live && freshnessOf(ageMin(a)) === 'expired')) return 'closed'
+  if (a.presence === 'closed' || !isOpenNow(a) || (!ledger.live && freshnessOf(ageMin(a)) === 'expired')) return 'closed'
   if (word === 'none' || word === 'small') return 'limited'
   return 'active'
 }

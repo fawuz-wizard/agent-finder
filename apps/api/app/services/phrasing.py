@@ -98,9 +98,11 @@ def freshness_text(declared_at: datetime | None, now: datetime, source: str | No
 
 
 def is_open_now(agent, now: datetime) -> bool:
-    # Product timezone is Africa/Freetown = UTC; keep it simple for the pilot.
-    hour = now.hour
-    return agent.open_hour <= hour < agent.close_hour
+    # Product timezone is Africa/Freetown = UTC; keep it simple for the pilot. The agent's
+    # own schedule decides (weekly hours, today-only changes, "stay open").
+    from app.services.schedule import is_open_by_schedule
+
+    return is_open_by_schedule(agent, now)
 
 
 def public_outcome(agent, tx: str, amount: int | None, now: datetime, ledger=None) -> str:
@@ -109,7 +111,7 @@ def public_outcome(agent, tx: str, amount: int | None, now: datetime, ledger=Non
     since the declaration; without one it is the word against the network ranges."""
     if agent.presence == "hidden":
         return "hidden"
-    if agent.presence == "closed" or (agent.night_mode and not is_open_now(agent, now)):
+    if agent.presence == "closed" or not is_open_now(agent, now):
         return "closed"
     live = ledger is not None and ledger.live
     if not live and freshness_of(agent.declared_at, now) == "expired":

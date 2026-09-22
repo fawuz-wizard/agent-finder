@@ -28,6 +28,9 @@ import type {
   SignalMuted,
   DeclareBody,
   FloatForecast,
+  Schedule,
+  TodayChange,
+  WeeklyHours,
 } from '@/types/operator'
 
 const LATENCY_MS = 350
@@ -73,6 +76,31 @@ export const operatorApi = {
   home(ref: string, signal?: AbortSignal): Promise<AgentHome> {
     if (config.useLiveApi) return api.get<AgentHome>('/api/v1/agent/home', signal)
     return delay(demo.demoAgentHome(ref), signal)
+  },
+
+  /** My working hours: the weekly pattern, today-only changes, and today's state. */
+  schedule(ref: string, signal?: AbortSignal): Promise<Schedule> {
+    if (config.useLiveApi) return api.get<Schedule>('/api/v1/agent/schedule', signal)
+    return delay(demo.demoSchedule(ref), signal)
+  },
+
+  setSchedule(ref: string, weekly: WeeklyHours): Promise<Schedule> {
+    if (config.useLiveApi) return api.put<Schedule>('/api/v1/agent/schedule', { weekly })
+    try {
+      return delay(demo.demoSetSchedule(ref, weekly))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Could not save.'))
+    }
+  },
+
+  /** Today only: different hours, a day off, stay open longer, or back to normal. */
+  setToday(ref: string, change: TodayChange): Promise<Schedule> {
+    if (config.useLiveApi) return api.post<Schedule>('/api/v1/agent/schedule/today', change)
+    try {
+      return delay(demo.demoSetToday(ref, change))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Could not save.'))
+    }
   },
 
   confirmDeclaration(ref: string): Promise<Declaration> {

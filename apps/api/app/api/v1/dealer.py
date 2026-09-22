@@ -34,6 +34,7 @@ from app.services.phrasing import (
     age_minutes,
     age_text,
     freshness_of,
+    is_open_now,
     now_utc,
 )
 from app.services.trust import trust_for
@@ -211,7 +212,11 @@ def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     word = ledger.cash.word if live else a.cash_out
     if a.presence == "hidden":
         return "hidden"
-    if a.presence == "closed" or (not live and freshness_of(a.declared_at, now) == "expired"):
+    if (
+        a.presence == "closed"
+        or not is_open_now(a, now)
+        or (not live and freshness_of(a.declared_at, now) == "expired")
+    ):
         return "closed"
     if word in ("none", "small"):
         return "limited"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
@@ -93,7 +93,6 @@ export default function AvailabilityPage() {
   const [deposit, setDeposit] = useState<CapacityWord>('some')
   const [cashOutSle, setCashOutSle] = useState('')
   const [depositSle, setDepositSle] = useState('')
-  const [night, setNight] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -104,7 +103,6 @@ export default function AvailabilityPage() {
     setDeposit(data.declaration.deposit)
     setCashOutSle(data.declaration.cash_out_sle === null ? '' : String(data.declaration.cash_out_sle))
     setDepositSle(data.declaration.deposit_sle === null ? '' : String(data.declaration.deposit_sle))
-    setNight(data.declaration.night_mode)
   }, [data])
 
   /** Typing a figure picks the word; picking a word clears the figure so the two never disagree. */
@@ -129,7 +127,7 @@ export default function AvailabilityPage() {
         deposit,
         cash_out_sle: figureOf(cashOutSle),
         deposit_sle: figureOf(depositSle),
-        night_mode: night,
+        night_mode: data?.declaration.night_mode ?? true,
       })
       navigate('/agent')
     } catch (e) {
@@ -197,26 +195,10 @@ export default function AvailabilityPage() {
           onFigure={depositFigure}
         />
 
-        <div className="rounded-card border border-night bg-night px-4 py-3.5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-base font-bold text-night-text">Night mode</p>
-              <p className="text-sm text-night-text/75">Hides you from customers outside your opening hours</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={night}
-              aria-label="Night mode"
-              onClick={() => setNight((v) => !v)}
-              className="-mr-1 flex h-control w-14 shrink-0 items-center justify-center"
-            >
-              <span className={`block h-7 w-12 rounded-full p-1 transition-colors ${night ? 'bg-brand' : 'bg-muted'}`}>
-                <span className={`block h-5 w-5 rounded-full bg-paper transition-transform ${night ? 'translate-x-5' : ''}`} />
-              </span>
-            </button>
-          </div>
-        </div>
+        <Link to="/agent/hours" className="rounded-card border border-line bg-paper px-4 py-3.5">
+          <p className="text-base font-bold">Working hours</p>
+          <p className="text-sm text-muted">{data?.schedule.hours_text ?? 'Set your weekly hours'} · outside them customers are told you are closed, by your own schedule.</p>
+        </Link>
 
         {error && (
           <p role="alert" className="text-base font-semibold text-danger">

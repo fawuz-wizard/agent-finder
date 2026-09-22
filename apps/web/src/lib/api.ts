@@ -100,4 +100,6 @@ export const api = {
   get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'GET', signal: signal ?? null }),
   post: <T>(path: string, body: unknown, signal?: AbortSignal, headers?: Record<string, string>) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body), signal: signal ?? null, ...(headers ? { headers } : {}) }),
+  put: <T>(path: string, body: unknown, signal?: AbortSignal) =>
+    request<T>(path, { method: 'PUT', body: JSON.stringify(body), signal: signal ?? null }),
 }

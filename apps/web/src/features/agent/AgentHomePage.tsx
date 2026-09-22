@@ -29,6 +29,17 @@ export default function AgentHomePage() {
    * else changes. The home reloads afterwards because a refresh can move an expired status
    * back into what customers see.
    */
+  const [extending, setExtending] = useState(false)
+  async function stayOpen() {
+    setExtending(true)
+    try {
+      await operatorApi.setToday(ref, { extend_minutes: 60 })
+      refresh()
+    } finally {
+      setExtending(false)
+    }
+  }
+
   async function confirm() {
     setConfirming(true)
     try {
@@ -66,6 +77,14 @@ export default function AgentHomePage() {
       </header>
 
       <div className="flex flex-col gap-3 p-4">
+        {data.schedule.notice && (
+          <Banner tone="warning">
+            {data.schedule.notice}{' '}
+            <button type="button" onClick={stayOpen} disabled={extending} className="font-bold underline">
+              {extending ? 'Saving…' : 'Stay open 1 more hour'}
+            </button>
+          </Banner>
+        )}
         <Card className="border-brand-deep bg-brand-faint">
           <div className="flex items-center justify-between">
             <span className={`text-2xl font-bold leading-tight ${presenceTone}`}>{PRESENCE_LABELS[d.presence]}</span>
@@ -87,6 +106,12 @@ export default function AgentHomePage() {
             {d.freshness_text}
           </p>
           {d.source_text && <p className="mt-1 text-xs text-muted">{d.source_text}</p>}
+          <p className="mt-1 text-xs text-muted">
+            {data.schedule.hours_text} ·{' '}
+            <Link to="/agent/hours" className="font-semibold text-brand-text">
+              Working hours
+            </Link>
+          </p>
 
           {d.capacity_source === 'operator' ? null : d.confirm_due ? (
             <div className="mt-3 rounded-card border border-line bg-paper p-3">

@@ -12,6 +12,7 @@ from app.api.v1.search import AgentResult, Point, to_result
 from app.core.errors import NotFoundError
 from app.db.models import Agent
 from app.db.session import get_session
+from app.services import schedule
 from app.services.ledger import ledgers_for
 from app.services.phrasing import (
     AREA_POINTS,
@@ -68,7 +69,7 @@ async def agent_detail(
         **base.model_dump(),
         origin=Point(lat=olat, lng=olng),
         request_label=label,
-        hours_text=a.hours_text,
+        hours_text=schedule.hours_text(a, now),
         verified_label="Verified agent" if a.verified else None,
         call_url=f"tel:{a.phone}" if a.phone_visible and a.phone else None,
     )
