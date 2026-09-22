@@ -44,6 +44,11 @@ class Agent(Base, TimestampMixin):
     schedule_json: Mapped[str | None] = mapped_column(Text)
     overrides_json: Mapped[str | None] = mapped_column(Text)
     extended_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The dealer's note at registration, until the operator's records replace it: what this
+    # agent usually handles (services/evidence.py). PRIVATE; never shown to customers.
+    usual_max_sle: Mapped[int | None] = mapped_column(Integer)
+    usual_float_max_sle: Mapped[int | None] = mapped_column(Integer)
+    usual_daily_transactions: Mapped[int | None] = mapped_column(Integer)
     phone: Mapped[str | None] = mapped_column(String(32))
     phone_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

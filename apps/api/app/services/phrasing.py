@@ -20,6 +20,7 @@ PUBLIC_TEXT = {
     "closed": "Closed",
     "hidden": "Availability hidden",
     "not_set": "Status not set",
+    "unknown": "No record yet for this amount — ask when you arrive",
 }
 CAPACITY_LABEL = {"most": "Most", "some": "Some", "small": "Small", "none": "None"}
 PRESENCE_LABEL = {"open": "Open · serving", "hidden": "Hidden", "closed": "Closed"}
@@ -117,10 +118,10 @@ def public_outcome(agent, tx: str, amount: int | None, now: datetime, ledger=Non
     if not live and freshness_of(agent.declared_at, now) == "expired":
         return "expired"
     word = word_for(agent, tx)
-    if word is None and not live:
-        return "not_set"
     if ledger is not None:
         return ledger.side(tx).outcome(amount, NETWORK_RANGES)
+    if word is None and not live:
+        return "not_set"
     out = compare(CapacityCategory(word), NETWORK_RANGES, amount)
     return {
         PublicOutcome.LIKELY: "likely",
@@ -207,7 +208,8 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
     live = ledger is not None and ledger.live
     for tx in ("cash_out", "deposit"):
         word = word_for(agent, tx)
-        if word is None and not live:
+        side_known = ledger is not None and ledger.side(tx).known
+        if word is None and not live and not side_known:
             sides.append(
                 {
                     "label": SIDE_LABEL[tx],
@@ -223,6 +225,8 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
         side = ledger.side(tx) if ledger is not None else None
         ceiling = side.ceiling(NETWORK_RANGES) if side is not None else _word_ceiling(word)
         covers, above = _range_text(ceiling)
+        if outcome == "unknown":
+            covers, above = "no record yet", None
         sides.append(
             {
                 "label": SIDE_LABEL[tx],
@@ -230,7 +234,11 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
                 "range_text": covers,
                 "above_text": above,
                 "estimate_text": (
-                    None if live else side.estimate_text() if side is not None else None
+                    None
+                    if live
+                    else (side.estimate_text() or side.evidence_text or None)
+                    if side is not None
+                    else None
                 ),
                 "why": side.why_text() if side is not None else None,
             }

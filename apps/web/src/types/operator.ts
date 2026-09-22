@@ -357,6 +357,16 @@ export interface DealerAgentDetail {
   availability_today: { time_text: string; text: string; tone: 'neutral' | 'warning' }[]
   open_signals: number
   reliability: Reliability
+  /** The dealer's note: what this agent usually handles, until the operator's records replace it. */
+  usual: UsualNote
+  /** Where the current ceiling per side comes from: operator | dealer | visits | none. */
+  evidence: { cash: { source: string; text: string }; float: { source: string; text: string } }
+}
+
+export interface UsualNote {
+  usual_max_sle: number | null
+  usual_float_max_sle: number | null
+  usual_daily_transactions: number | null
 }
 
 export type DealerAction = 'contact' | 'call' | 'nudge' | 'escalate'

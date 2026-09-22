@@ -40,6 +40,8 @@ interface DemoAgent {
   lng: number
   /** Present for agents on the (simulated) operator feed: their book at opening. */
   feed?: { balance: number; float: number }
+  /** Evidence by amount: what this agent usually handles (dealer's note or records). Beats the word. */
+  usual?: { cash: number | null; float: number | null }
 }
 
 /** Network-wide ranges, identical for every agent (set once in network settings). */
@@ -80,6 +82,7 @@ function freshnessText(min: number): string {
 
 const OUTCOME_TEXT: Record<PublicOutcome, string> = {
   likely: 'Can likely handle your request',
+  unknown: 'No record yet for this amount — ask when you arrive',
   limited: 'Limited — may not cover this amount',
   expired: 'Status expired — ask before you go',
   closed: 'Closed',
@@ -139,7 +142,8 @@ function ceilingFor(a: DemoAgent, side: 'cash' | 'float'): number | null {
   const feed = feedFor(a)
   if (feed) return side === 'cash' ? feed.cash : feed.float
   const word = a[side]
-  let base: number | null = word === 'most' ? null : RANGE_CEILING[word]
+  const usual = a.usual?.[side] ?? null
+  let base: number | null = usual !== null ? usual : word === 'most' ? null : RANGE_CEILING[word]
   let cap: number | null = null
   let netOut = 0
   for (const v of visits) {
@@ -171,7 +175,7 @@ export function demoAgentName(id: string): string | null {
   return AGENTS.find((x) => x.id === id)?.name ?? null
 }
 
-const TIER: Record<PublicOutcome, number> = { likely: 0, limited: 1, expired: 2, not_set: 3, closed: 4, hidden: 5 }
+const TIER: Record<PublicOutcome, number> = { likely: 0, unknown: 1, limited: 2, expired: 3, not_set: 4, closed: 5, hidden: 6 }
 
 /* ---------- the activity ranker: the same features and starting weights as the API ---------- */
 

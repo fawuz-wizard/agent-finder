@@ -30,6 +30,7 @@ import type {
   FloatForecast,
   Schedule,
   TodayChange,
+  UsualNote,
   WeeklyHours,
 } from '@/types/operator'
 
@@ -184,6 +185,12 @@ export const operatorApi = {
   dealerAgent(ref: string, signal?: AbortSignal): Promise<DealerAgentDetail> {
     if (config.useLiveApi) return api.get<DealerAgentDetail>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}`, signal)
     return delay(demo.demoDealerAgentDetail(ref), signal)
+  },
+
+  /** The dealer's note on what an agent usually handles. Sets what reads as likely; never shown to customers. */
+  setUsual(ref: string, note: UsualNote): Promise<UsualNote> {
+    if (config.useLiveApi) return api.put<UsualNote>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/usual`, note)
+    return delay(demo.demoSetUsual(ref, note))
   },
 
   act(ref: string, action: DealerAction, by: string): Promise<ActionLogged> {

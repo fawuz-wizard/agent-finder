@@ -38,7 +38,15 @@ from app.services.trust import RANK_TIER, trust_for
 
 router = APIRouter(prefix="/search", tags=["search"])
 
-TIER = {"likely": 0, "limited": 1, "expired": 2, "not_set": 3, "closed": 4, "hidden": 5}
+TIER = {
+    "likely": 0,
+    "unknown": 1,
+    "limited": 2,
+    "expired": 3,
+    "not_set": 4,
+    "closed": 5,
+    "hidden": 6,
+}
 FRESH_TIER = {"fresh": 0, "aging": 1, "may_have_changed": 2, "expired": 3}
 
 

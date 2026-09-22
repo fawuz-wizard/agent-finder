@@ -31,9 +31,20 @@ class OperatorActivity(BaseModel):
     source: str
 
 
+class OperatorHistory(BaseModel):
+    """What the host system knows an agent has been doing: transactions served and declined
+    for float, by amount band and side, over the last 30 days. Evidence by amount."""
+
+    served_by_band: dict[str, dict[str, int]]  # side → band → count
+    declined_by_band: dict[str, dict[str, int]]
+    daily_transactions: int
+    source: str
+
+
 class OperatorAdapter(Protocol):
     def source_name(self) -> str: ...
     async def activity(self, agent_ref: str, now: datetime) -> OperatorActivity | None: ...
+    async def history(self, agent_ref: str, now: datetime) -> OperatorHistory | None: ...
     async def balance(self, agent_ref: str) -> OperatorValue | None: ...
     async def float_position(self, agent_ref: str) -> OperatorValue | None: ...
     async def transactions_today(self, agent_ref: str) -> dict: ...
@@ -50,6 +61,9 @@ class NoOperator:
         return ""
 
     async def activity(self, agent_ref: str, now: datetime) -> OperatorActivity | None:
+        return None
+
+    async def history(self, agent_ref: str, now: datetime) -> OperatorHistory | None:
         return None
 
     async def balance(self, agent_ref: str) -> OperatorValue | None:
@@ -85,6 +99,43 @@ class FakeOperator:
 
     def _row(self, ref: str):
         return self._seed.get(ref, (5_000, 3_000, 10, 9))
+
+    # Last 30 days by band, shaped by each agent's book: served (cash, float), declined.
+    _history = {
+        "Agent 024": (
+            {"≤500": 40, "≤2k": 60, "≤5k": 25, "≤10k": 6},
+            {"≤500": 30, "≤2k": 20, "≤5k": 4},
+            {"≤10k": 2},
+        ),  # noqa: E501
+        "Agent 031": (
+            {"≤500": 30, "≤2k": 35, "≤5k": 8},
+            {"≤500": 20, "≤2k": 10},
+            {"≤5k": 1, "≤10k": 3},
+        ),  # noqa: E501
+        "Agent 009": (
+            {"≤500": 10, "≤2k": 30, "≤5k": 20, "≤10k": 12, "≤50k": 3},
+            {"≤2k": 15, "≤5k": 10, "≤10k": 4},
+            {},
+        ),  # noqa: E501
+        "Agent 017": (
+            {"≤500": 25, "≤2k": 40, "≤5k": 15, "≤10k": 4},
+            {"≤500": 15, "≤2k": 12},
+            {"≤10k": 1},
+        ),  # noqa: E501
+        "Agent 038": ({"≤500": 12}, {"≤500": 6}, {"≤2k": 4, "≤5k": 2}),
+    }
+
+    async def history(self, agent_ref: str, now: datetime) -> OperatorHistory | None:
+        row = self._history.get(agent_ref)
+        if row is None:
+            return None
+        cash, float_, declined = row
+        return OperatorHistory(
+            served_by_band={"cash": cash, "float": float_},
+            declined_by_band={"cash": declined, "float": {}},
+            daily_transactions=self._row(agent_ref)[2],
+            source=self.source_name(),
+        )
 
     async def activity(self, agent_ref: str, now: datetime) -> OperatorActivity | None:
         """A day that moves: cash is drawn through opening hours and e-float rises with it,

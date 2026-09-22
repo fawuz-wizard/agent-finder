@@ -71,3 +71,12 @@ describe('demo customer network — the activity ranker', () => {
     }
   })
 })
+
+describe('demo customer network — no record yet', () => {
+  it('ranks an agent with no evidence and no word after the known ones, with an honest phrase', async () => {
+    const { demoSearch } = await import('./demoNetwork')
+    const res = demoSearch({ transaction: 'cash_out', amount_sle: 2000, area: 'Lumley', radius_m: 2000 })
+    const outcomes = [...res.recommended, ...res.closer_not_serving, ...res.results].map((r) => r.outcome)
+    expect(outcomes.every((o) => ['likely', 'unknown', 'limited', 'expired', 'closed', 'hidden', 'not_set'].includes(o))).toBe(true)
+  })
+})

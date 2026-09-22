@@ -4,6 +4,7 @@ import type { PublicOutcome } from '@/types/public'
 /** Maps the server's outcome onto the shared status indicator. Text always accompanies it. */
 const DOT: Record<PublicOutcome, StatusKind> = {
   likely: 'fresh',
+  unknown: 'notset',
   limited: 'limited',
   expired: 'expired',
   closed: 'closed',
@@ -13,6 +14,7 @@ const DOT: Record<PublicOutcome, StatusKind> = {
 
 const TONE: Record<PublicOutcome, string> = {
   likely: 'bg-success-tint text-success',
+  unknown: 'bg-canvas text-muted',
   limited: 'bg-warning-tint text-warning',
   expired: 'bg-warning-tint text-warning',
   closed: 'bg-danger-tint text-danger',

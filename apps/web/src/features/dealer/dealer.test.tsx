@@ -233,3 +233,20 @@ describe('trust score', () => {
     expect(rows.find((r) => r.ref === 'Agent 031')!.attention).toBe(true)
   })
 })
+
+describe('evidence by amount', () => {
+  it('the dealer\'s note sets what reads as likely, beats the word, and never reaches customers', async () => {
+    signIn(ALL)
+    const user = userEvent.setup()
+    render(<App start="/dealer/agents/Agent%20024" />)
+    await screen.findByText(/usually handles/i)
+    await user.type(screen.getByLabelText(/cash out, up to about/i), '5000')
+    await user.click(screen.getByRole('button', { name: /save note/i }))
+    expect(await screen.findByText(/your dealer noted you usually handle up to about SLE 5,000/i)).toBeInTheDocument()
+    const { demoAgentHome } = await import('@/services/operatorDemo')
+    const home = demoAgentHome('Agent 024')
+    expect(home.customers_see.sides[0]!.range_text).toBe('up to SLE 5,000')
+    expect(home.declaration.cash_out).toBe('most') // the word is untouched; the evidence decides
+    await operatorApi.setUsual('Agent 024', { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null })
+  })
+})

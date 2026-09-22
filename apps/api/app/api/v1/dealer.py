@@ -378,6 +378,11 @@ async def agent_detail(
         "area": a.street,
         "declaration": declaration_of(a, now, ledger).model_dump(),
         "reliability": trust.as_dict(),
+        "usual": _usual_of(a),
+        "evidence": {
+            "cash": {"source": ledger.cash.evidence_source, "text": ledger.cash.evidence_text},
+            "float": {"source": ledger.float.evidence_source, "text": ledger.float.evidence_text},
+        },
         "today": {
             "transactions": tx.get("transactions"),
             "successful": tx.get("successful"),
@@ -396,6 +401,51 @@ async def agent_detail(
             for e in ev
         ],
         "open_signals": len(sigs),
+    }
+
+
+class UsualBody(BaseModel):
+    """The dealer's note: what this agent usually handles, until the operator's records
+    replace it. Never shown to customers; it only sets what amounts read as likely."""
+
+    usual_max_sle: int | None = Field(default=None, ge=0, le=10_000_000)
+    usual_float_max_sle: int | None = Field(default=None, ge=0, le=10_000_000)
+    usual_daily_transactions: int | None = Field(default=None, ge=0, le=10_000)
+
+
+@router.put("/dealer/agents/{ref}/usual", summary="What this agent usually handles — my note")
+async def set_usual(
+    ref: str,
+    body: UsualBody,
+    p: Principal = Depends(require_permission("VIEW_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    a = (
+        await db.execute(select(Agent).where(Agent.ref == ref, Agent.dealer_id == p.subject))
+    ).scalar_one_or_none()
+    if a is None:
+        raise NotFoundError("Not available.")
+    a.usual_max_sle = body.usual_max_sle
+    a.usual_float_max_sle = body.usual_float_max_sle
+    a.usual_daily_transactions = body.usual_daily_transactions
+    db.add(
+        Action(
+            at=now_utc(),
+            actor=p.name,
+            agent_ref=a.ref,
+            action="contact",
+            note=f"{p.name} noted what {a.shop_name} usually handles",
+        )
+    )
+    await db.commit()
+    return _usual_of(a)
+
+
+def _usual_of(a: Agent) -> dict:
+    return {
+        "usual_max_sle": a.usual_max_sle,
+        "usual_float_max_sle": a.usual_float_max_sle,
+        "usual_daily_transactions": a.usual_daily_transactions,
     }
 
 

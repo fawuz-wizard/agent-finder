@@ -20,7 +20,7 @@ export default function DealerAgentDetailPage() {
   const { ref = '' } = useParams()
   const { session, can } = useSession()
   const toast = useToast()
-  const { state, data, error } = useAsync<DealerAgentDetail>((s) => operatorApi.dealerAgent(ref, s), [ref])
+  const { state, data, error, refresh } = useAsync<DealerAgentDetail>((s) => operatorApi.dealerAgent(ref, s), [ref])
   const [busy, setBusy] = useState<DealerAction | null>(null)
 
   async function act(action: DealerAction) {
@@ -94,6 +94,8 @@ export default function DealerAgentDetailPage() {
           )}
         </Card>
 
+        <UsualCard detail={data} onSaved={refresh} />
+
         <Card>
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Today</p>
           <div className="flex items-baseline justify-between border-b border-line py-2">
@@ -147,5 +149,56 @@ export default function DealerAgentDetailPage() {
         <p className="text-center text-xs text-muted">Every action is recorded with your name. None of them changes the agent's status.</p>
       </div>
     </div>
+  )
+}
+
+/**
+ * What this agent usually handles: the dealer's note until the operator's records replace it.
+ * It sets what amounts read as likely for customers; the figure itself is never shown to them.
+ */
+function UsualCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: () => void }) {
+  const [cash, setCash] = useState(detail.usual.usual_max_sle === null ? '' : String(detail.usual.usual_max_sle))
+  const [float, setFloat] = useState(detail.usual.usual_float_max_sle === null ? '' : String(detail.usual.usual_float_max_sle))
+  const [daily, setDaily] = useState(detail.usual.usual_daily_transactions === null ? '' : String(detail.usual.usual_daily_transactions))
+  const [saving, setSaving] = useState(false)
+  const num = (raw: string) => (raw.trim() === '' ? null : Math.max(0, Math.floor(Number(raw))))
+  async function save() {
+    setSaving(true)
+    try {
+      await operatorApi.setUsual(detail.ref, { usual_max_sle: num(cash), usual_float_max_sle: num(float), usual_daily_transactions: num(daily) })
+      onSaved()
+    } finally {
+      setSaving(false)
+    }
+  }
+  const fromRecords = detail.evidence.cash.source === 'operator'
+  return (
+    <Card>
+      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Usually handles</p>
+      <p className="text-sm text-muted">{detail.evidence.cash.text}</p>
+      {detail.evidence.float.source !== 'none' && <p className="text-sm text-muted">{detail.evidence.float.text}</p>}
+      {fromRecords ? (
+        <p className="mt-1 text-xs text-muted">From the operator's records. Your note is no longer needed.</p>
+      ) : (
+        <div className="mt-2 flex flex-col gap-2">
+          <label className="text-sm font-semibold" htmlFor="usual-cash">
+            Cash out, up to about (SLE)
+            <input id="usual-cash" type="number" inputMode="numeric" min={0} value={cash} onChange={(e) => setCash(e.target.value)} className="mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal" />
+          </label>
+          <label className="text-sm font-semibold" htmlFor="usual-float">
+            Deposit, up to about (SLE)
+            <input id="usual-float" type="number" inputMode="numeric" min={0} value={float} onChange={(e) => setFloat(e.target.value)} className="mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal" />
+          </label>
+          <label className="text-sm font-semibold" htmlFor="usual-daily">
+            Transactions on a usual day
+            <input id="usual-daily" type="number" inputMode="numeric" min={0} value={daily} onChange={(e) => setDaily(e.target.value)} className="mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal" />
+          </label>
+          <Button size="control" variant="secondary" onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : 'Save note'}
+          </Button>
+          <p className="text-xs text-muted">Sets what amounts customers are told this agent can likely handle. The figure is never shown to them, and it is replaced by the operator's records on integration.</p>
+        </div>
+      )}
+    </Card>
   )
 }

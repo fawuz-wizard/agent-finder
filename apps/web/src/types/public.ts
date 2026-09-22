@@ -9,7 +9,7 @@
 export type TransactionType = 'cash_out' | 'deposit' | 'send'
 
 /** The six public phrases. The server decides which one applies; the client only renders it. */
-export type PublicOutcome = 'likely' | 'limited' | 'expired' | 'closed' | 'hidden' | 'not_set'
+export type PublicOutcome = 'likely' | 'unknown' | 'limited' | 'expired' | 'closed' | 'hidden' | 'not_set'
 
 /** Freshness is computed by the backend domain layer, never in the browser. */
 export type FreshnessState = 'fresh' | 'aging' | 'may_have_changed' | 'expired'

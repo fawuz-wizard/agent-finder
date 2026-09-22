@@ -91,10 +91,21 @@ class SideLedger:
             return None
         return max(0, self.declared_sle - self.net_out_sle)
 
+    usual_sle: int | None = None
+    evidence_source: str = "none"
+    evidence_text: str = ""
+
+    @property
+    def known(self) -> bool:
+        """Is anything at all known about this side? If not, the answer is "no record"."""
+        return self.declared_sle is not None or self.usual_sle is not None or self.word is not None
+
     def ceiling(self, ranges: SideThresholds) -> int | None:
         """Largest amount that reads as likely right now. None means no upper bound."""
         if self.declared_sle is not None:
             base: int | None = self.estimate_sle
+        elif self.usual_sle is not None:
+            base = self.usual_sle  # evidence by amount beats a word
         elif self.word == "none":
             base = 0
         elif self.word == "small":
@@ -109,6 +120,8 @@ class SideLedger:
         return base
 
     def outcome(self, amount_sle: int | None, ranges: SideThresholds) -> str:
+        if not self.known:
+            return "unknown"
         c = self.ceiling(ranges)
         if c is None:
             return "likely"
@@ -265,6 +278,15 @@ async def ledgers_for(db: AsyncSession, agents: list[Agent], now: datetime) -> d
             ledger.feed_source = act.source
             ledger.failed_for_float_today = act.failed_for_float_today
             ledger.tx_last_hour = act.transactions_last_hour
+    from app.services.evidence import evidence_for
+
+    # Evidence by amount is attached last so a live position keeps its own fields too.
+    for ref, sides in (await evidence_for(db, agents, now)).items():
+        for side_name, ev in sides.items():
+            side = out[ref].cash if side_name == "cash" else out[ref].float
+            side.usual_sle = ev.ceiling_sle
+            side.evidence_source = ev.source
+            side.evidence_text = ev.text
     return out
 
 

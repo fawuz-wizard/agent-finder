@@ -40,6 +40,7 @@ import type {
   Schedule,
   ScheduleState,
   TodayChange,
+  UsualNote,
   WeeklyHours,
 } from '@/types/operator'
 import { config } from '@/lib/config'
@@ -74,6 +75,8 @@ interface AgentState {
   weekly: WeeklyHours
   overrides: Record<string, DayHours>
   extendedUntil: number | null
+  /** The dealer's note at registration. PRIVATE. */
+  usual: UsualNote
 }
 
 function minutesAgo(min: number): number {
@@ -81,11 +84,11 @@ function minutesAgo(min: number): number {
 }
 
 const agents: AgentState[] = [
-  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null, history: { visits: 12, failed: 2 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
-  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 9, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
-  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null, history: { visits: 4, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
-  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 6, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
-  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 1, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null },
+  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null, history: { visits: 12, failed: 2 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 9, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null, history: { visits: 4, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 6, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 1, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
 ]
 
 /** Operator-owned values. Present only because the demo adapter is switched on. */
@@ -353,6 +356,9 @@ interface SideLedger {
   label: string
   word: CapacityWord
   declared: number | null
+  usual: number | null
+  evidenceSource: 'operator' | 'dealer' | 'visits' | 'none'
+  evidenceText: string
   netOut: number
   visits: number
   cap: number | null
@@ -361,7 +367,47 @@ interface SideLedger {
 }
 
 function sideLedger(label: string, word: CapacityWord, declared: number | null): SideLedger {
-  return { label, word, declared, netOut: 0, visits: 0, cap: null, capAt: null, capText: null }
+  return { label, word, declared, usual: null, evidenceSource: 'none', evidenceText: '', netOut: 0, visits: 0, cap: null, capAt: null, capText: null }
+}
+
+/** Evidence by amount from this session's confirmed and failed visits, by band. */
+function evidenceFromVisits(a: AgentState, tx: 'cash_out' | 'deposit'): { ceiling: number | null; served: number } {
+  const served: Record<number, number> = {}
+  const failed: Record<number, number> = {}
+  let n = 0
+  for (const v of visits) {
+    if (v.ref !== a.ref || v.tx !== tx) continue
+    const [ceiling] = bandOf(v.amount)
+    if (v.answer === 'yes') {
+      served[ceiling] = (served[ceiling] ?? 0) + 1
+      n += 1
+    } else if (v.reason && CAPACITY_FAILURES.includes(v.reason)) failed[ceiling] = (failed[ceiling] ?? 0) + 1
+  }
+  let best: number | null = null
+  for (const [ceiling] of BANDS) {
+    const s = served[ceiling] ?? 0
+    const f = failed[ceiling] ?? 0
+    if (s > 0 && s > f) best = ceiling === Number.POSITIVE_INFINITY ? 200_000 : ceiling
+    else if (f > 0 && f >= s) break
+  }
+  return { ceiling: best, served: n }
+}
+
+function attachEvidence(a: AgentState, side: SideLedger, tx: 'cash_out' | 'deposit'): void {
+  const noted = tx === 'cash_out' ? a.usual.usual_max_sle : a.usual.usual_float_max_sle
+  const fromVisits = evidenceFromVisits(a, tx)
+  if (noted !== null) {
+    const c = fromVisits.ceiling === null ? noted : Math.max(noted, fromVisits.ceiling)
+    side.usual = c
+    side.evidenceSource = 'dealer'
+    side.evidenceText = `Your dealer noted you usually handle up to about ${sle(c)}`
+  } else if (fromVisits.ceiling !== null) {
+    side.usual = fromVisits.ceiling
+    side.evidenceSource = 'visits'
+    side.evidenceText = `${fromVisits.served} confirmed visits in the last 30 days, usually up to about ${sle(fromVisits.ceiling)}`
+  } else {
+    side.evidenceText = 'No record for this side yet'
+  }
 }
 
 function estimateOf(s: SideLedger): number | null {
@@ -371,7 +417,7 @@ function estimateOf(s: SideLedger): number | null {
 /** Largest amount that reads as likely right now; null means no upper bound. */
 function ceilingOf(s: SideLedger): number | null {
   let base: number | null =
-    s.declared !== null ? estimateOf(s) : s.word === 'none' ? 0 : s.word === 'small' ? NETWORK.small : s.word === 'some' ? NETWORK.some : null
+    s.declared !== null ? estimateOf(s) : s.usual !== null ? s.usual : s.word === 'none' ? 0 : s.word === 'small' ? NETWORK.small : s.word === 'some' ? NETWORK.some : null
   if (s.cap !== null) {
     const capped = Math.max(0, s.cap - 1)
     base = base === null ? capped : Math.min(base, capped)
@@ -421,6 +467,8 @@ function ledgerFor(a: AgentState): LedgerState {
   }
   const cash = sideLedger('Cash out', a.cash_out, a.cash_out_sle)
   const float = sideLedger('Deposit', a.deposit, a.deposit_sle)
+  attachEvidence(a, cash, 'cash_out')
+  attachEvidence(a, float, 'deposit')
   for (const v of visits) {
     if (v.ref !== a.ref || v.at < a.updated_at) continue
     const [, text, mid, floor] = bandOf(v.amount)
@@ -508,7 +556,7 @@ function customersSee(a: AgentState): CustomersSee {
       phrase: ceiling !== null && ceiling <= 0 ? PUBLIC_TEXT.limited : PUBLIC_TEXT.likely,
       range_text: ceiling === null ? 'any amount' : ceiling <= 0 ? 'nothing right now' : `up to ${sle(ceiling)}`,
       above_text: ceiling === null || ceiling <= 0 ? null : PUBLIC_TEXT.limited,
-      estimate_text: live ? null : estimateText(s),
+      estimate_text: live ? null : (estimateText(s) ?? (s.evidenceText || null)),
       why: whyText(s),
     }
   }
@@ -1093,7 +1141,19 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
     availability_today: availability,
     open_signals: signals,
     reliability: trustOf(a),
+    usual: { ...a.usual },
+    evidence: {
+      cash: { source: ledgerFor(a).cash.evidenceSource, text: ledgerFor(a).cash.evidenceText },
+      float: { source: ledgerFor(a).float.evidenceSource, text: ledgerFor(a).float.evidenceText },
+    },
   }
+}
+
+export function demoSetUsual(ref: string, note: UsualNote): UsualNote {
+  const a = find(ref)
+  a.usual = { ...note }
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'contact', agent_ref: a.ref, at: new Date().toISOString(), note: `Kissy Distribution noted what ${a.shop} usually handles` })
+  return { ...a.usual }
 }
 
 export function demoDealerAct(ref: string, action: DealerAction, by: string): ActionLogged {
