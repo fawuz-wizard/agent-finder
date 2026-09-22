@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +23,10 @@ from app.db.models import (
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import usage
+from app.services.ledger import Ledger, ledgers_for, word_for_figure
 from app.services.phrasing import (
     CAPACITY_LABEL,
+    NETWORK_RANGES,
     age_minutes,
     age_text,
     customers_see,
@@ -40,11 +42,16 @@ class Declaration(BaseModel):
     presence: str
     cash_out: str
     deposit: str
+    # The agent's own figures behind the words, when they gave any. Never shown to customers.
+    cash_out_sle: int | None = None
+    deposit_sle: int | None = None
     updated_at: str
     age_min: int
     freshness: str
     freshness_text: str
     confirm_due: bool
+    # Why "still correct?" is asked now, when an event (not the clock) raised it.
+    confirm_reason: str | None = None
     night_mode: bool
 
 
@@ -93,9 +100,10 @@ def float_out(r: FloatRequest, agent_name: str, now: datetime) -> FloatOut:
     )
 
 
-def declaration_of(a: Agent, now: datetime) -> Declaration:
+def declaration_of(a: Agent, now: datetime, ledger: Ledger | None = None) -> Declaration:
     mins = age_minutes(a.declared_at, now)
     f = freshness_of(a.declared_at, now)
+    reason = ledger.nudge_reason(NETWORK_RANGES) if ledger is not None else None
     text = (
         "No status yet — customers cannot find you until you set one"
         if mins is None
@@ -109,11 +117,14 @@ def declaration_of(a: Agent, now: datetime) -> Declaration:
         presence=a.presence,
         cash_out=a.cash_out or "none",
         deposit=a.deposit or "none",
+        cash_out_sle=a.cash_out_sle,
+        deposit_sle=a.deposit_sle,
         updated_at=a.declared_at.isoformat() if a.declared_at else "",
         age_min=mins if mins is not None else 10**6,
         freshness=f,
         freshness_text=text,
-        confirm_due=mins is None or mins >= CONFIRM_AFTER_MIN,
+        confirm_due=mins is None or mins >= CONFIRM_AFTER_MIN or reason is not None,
+        confirm_reason=reason,
         night_mode=a.night_mode,
     )
 
@@ -175,7 +186,8 @@ async def home(
         attention.append(
             f"{n} customer{'s' if n > 1 else ''} said you could not complete their transaction today."  # noqa: E501
         )
-    d = declaration_of(a, now)
+    ledger = (await ledgers_for(db, [a], now))[a.ref]
+    d = declaration_of(a, now, ledger)
     if d.freshness == "expired":
         attention.append("Your status has expired, so customers are not being sent to you.")
     bal = await op.balance(a.ref)
@@ -185,7 +197,7 @@ async def home(
         "ref": a.ref,
         "area": a.street,
         "declaration": d.model_dump(),
-        "customers_see": customers_see(a, now),
+        "customers_see": customers_see(a, now, ledger),
         "balance": bal.model_dump() if bal else None,
         "float_position": fl.model_dump() if fl else None,
         "pending_float": float_out(pending, a.shop_name, now).model_dump() if pending else None,
@@ -203,6 +215,10 @@ class DeclareBody(BaseModel):
     presence: Literal["open", "hidden", "closed"]
     cash_out: Literal["most", "some", "small", "none"]
     deposit: Literal["most", "some", "small", "none"]
+    # Optional: "up to about SLE …". When given, the word is derived from it so dealers keep
+    # seeing words, and the ledger counts confirmed visits against the figure.
+    cash_out_sle: int | None = Field(default=None, ge=0, le=10_000_000)
+    deposit_sle: int | None = Field(default=None, ge=0, le=10_000_000)
     night_mode: bool = True
 
 
@@ -223,20 +239,31 @@ async def declare(
         if a.presence == "hidden" and body.presence != "hidden"
         else "declare"
     )
+    cash_word = (
+        word_for_figure(body.cash_out_sle, NETWORK_RANGES)
+        if body.cash_out_sle is not None
+        else body.cash_out
+    )
+    dep_word = (
+        word_for_figure(body.deposit_sle, NETWORK_RANGES)
+        if body.deposit_sle is not None
+        else body.deposit
+    )
     a.presence, a.cash_out, a.deposit, a.night_mode, a.declared_at = (
         body.presence,
-        body.cash_out,
-        body.deposit,
+        cash_word,
+        dep_word,
         body.night_mode,
         now,
     )
+    a.cash_out_sle, a.deposit_sle = body.cash_out_sle, body.deposit_sle
     db.add(
         AvailabilityEvent(
             agent_ref=a.ref,
             kind=kind,
             presence=body.presence,
-            cash_out=body.cash_out,
-            deposit=body.deposit,
+            cash_out=cash_word,
+            deposit=dep_word,
         )
     )
     await usage.record(db, "declare", "agent", a.ref, a.ref)
@@ -250,6 +277,15 @@ async def confirm(
 ) -> Declaration:
     now = now_utc()
     a = await load_agent(db, p.subject)
+    # "Still correct?" · Yes confirms what the ledger says is probably left, not the figure
+    # from this morning: the agent's own figure moves to the estimate they just agreed with.
+    ledger = (await ledgers_for(db, [a], now))[a.ref]
+    if a.cash_out_sle is not None:
+        a.cash_out_sle = ledger.cash.estimate_sle
+        a.cash_out = word_for_figure(a.cash_out_sle or 0, NETWORK_RANGES)
+    if a.deposit_sle is not None:
+        a.deposit_sle = ledger.float.estimate_sle
+        a.deposit = word_for_figure(a.deposit_sle or 0, NETWORK_RANGES)
     a.declared_at = now
     db.add(
         AvailabilityEvent(

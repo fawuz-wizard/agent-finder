@@ -11,7 +11,6 @@ import type {
   AgentHome,
   AgentInsights,
   AgentProfile,
-  CapacityWord,
   DealerAgentRow,
   DealerOverview,
   Declaration,
@@ -23,11 +22,11 @@ import type {
   AuditEntry,
   DealerAction,
   DealerAgentDetail,
-  Presence,
   Role,
   Session,
   SignalMuteKind,
   SignalMuted,
+  DeclareBody,
 } from '@/types/operator'
 
 const LATENCY_MS = 350
@@ -80,10 +79,7 @@ export const operatorApi = {
     return delay(demo.demoConfirmDeclaration(ref))
   },
 
-  declare(
-    ref: string,
-    body: { presence: Presence; cash_out: CapacityWord; deposit: CapacityWord; night_mode: boolean },
-  ): Promise<Declaration> {
+  declare(ref: string, body: DeclareBody): Promise<Declaration> {
     if (config.useLiveApi) return api.post<Declaration>('/api/v1/agent/availability', body)
     return delay(demo.demoDeclare(ref, body))
   },

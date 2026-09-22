@@ -7,7 +7,7 @@
  */
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
-import { demoAgent, demoSearch } from './demoNetwork'
+import { demoAgent, demoAgentName, demoSearch, recordDemoVisit } from './demoNetwork'
 import type {
   AgentDetail,
   ReportAccepted,
@@ -53,6 +53,16 @@ export const customerApi = {
 
   report(body: VisitReport, signal?: AbortSignal): Promise<ReportAccepted> {
     if (config.useLiveApi) return api.post<ReportAccepted>('/api/v1/reports', body, signal)
+    // Demo: the report moves the customer's own results, and the agent's "Customers now see"
+    // through a dynamic import, so no operator code ships in the customer's bundle.
+    recordDemoVisit(body)
+    const shop = demoAgentName(body.agent_id)
+    if (shop && body.answer !== 'did_not_go' && body.amount_sle !== null) {
+      const tx = body.transaction === 'deposit' ? 'deposit' : 'cash_out'
+      void import('./operatorDemo').then((m) =>
+        m.demoRecordVisit(shop, tx, body.amount_sle!, body.answer as 'yes' | 'no', body.reason_code ?? null),
+      )
+    }
     return delay({ id: `rep-${body.client_token.slice(0, 8)}`, accepted: true as const }, signal)
   },
 }

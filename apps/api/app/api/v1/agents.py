@@ -12,6 +12,7 @@ from app.api.v1.search import AgentResult, to_result
 from app.core.errors import NotFoundError
 from app.db.models import Agent
 from app.db.session import get_session
+from app.services.ledger import ledgers_for
 from app.services.phrasing import (
     AREA_POINTS,
     TRANSACTION_LABELS,
@@ -56,7 +57,8 @@ async def agent_detail(
         if lat is not None and lng is not None
         else AREA_POINTS.get(a.area, AREA_POINTS["Freetown"])
     )
-    base = to_result(a, tx, amount_sle, haversine_m(olat, olng, a.lat, a.lng), now)
+    ledger = (await ledgers_for(db, [a], now))[a.ref]
+    base = to_result(a, tx, amount_sle, haversine_m(olat, olng, a.lat, a.lng), now, ledger)
     label = f"For {TRANSACTION_LABELS[tx]}" + (
         f" · {amount_label(amount_sle)}" if amount_sle else ""
     )

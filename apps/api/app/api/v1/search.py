@@ -14,6 +14,7 @@ from app.db.models import Agent
 from app.db.session import get_session
 from app.schemas.public.common import PublicModel
 from app.services import usage
+from app.services.ledger import ledgers_for
 from app.services.phrasing import (
     AREA_POINTS,
     PUBLIC_TEXT,
@@ -79,8 +80,8 @@ class SearchResponse(PublicModel):
     banner: str | None = None
 
 
-def to_result(a: Agent, tx: str, amount: int | None, dist: int, now) -> AgentResult:
-    out = public_outcome(a, tx, amount, now)
+def to_result(a: Agent, tx: str, amount: int | None, dist: int, now, ledger=None) -> AgentResult:
+    out = public_outcome(a, tx, amount, now, ledger)
     return AgentResult(
         id=a.ref.replace("Agent ", "af-"),
         name=a.shop_name,
@@ -112,12 +113,13 @@ async def search(
     tx = normalise_tx(req.transaction)
     olat, olng = origin_for(req)
     agents = (await db.execute(select(Agent))).scalars().all()
+    ledgers = await ledgers_for(db, agents, now)
     scored = []
     for a in agents:
         dist = haversine_m(olat, olng, a.lat, a.lng)
         if dist > req.radius_m and a.area != req.area:
             continue
-        scored.append(to_result(a, tx, req.amount_sle, dist, now))
+        scored.append(to_result(a, tx, req.amount_sle, dist, now, ledgers.get(a.ref)))
     scored.sort(key=lambda r: (TIER[r.outcome], FRESH_TIER[r.freshness], r.distance_m, r.id))
 
     likely = [r for r in scored if r.outcome == "likely"]

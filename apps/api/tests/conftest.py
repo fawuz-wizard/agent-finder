@@ -30,13 +30,27 @@ CLOCK_MODULES = (
 )
 
 
+class Clock:
+    """The pinned clock, with a way for a test to move it forward between steps."""
+
+    def __init__(self) -> None:
+        self.now = FROZEN_NOW
+
+    def advance(self, minutes: int) -> datetime:
+        from datetime import timedelta
+
+        self.now = self.now + timedelta(minutes=minutes)
+        return self.now
+
+
 @pytest.fixture(autouse=True)
 def frozen_clock(monkeypatch):
     import importlib
 
+    clock = Clock()
     for name in CLOCK_MODULES:
-        monkeypatch.setattr(importlib.import_module(name), "now_utc", lambda: FROZEN_NOW)
-    return FROZEN_NOW
+        monkeypatch.setattr(importlib.import_module(name), "now_utc", lambda: clock.now)
+    return clock
 
 
 @pytest.fixture

@@ -90,6 +90,7 @@ export default function AgentHomePage() {
           {d.confirm_due ? (
             <div className="mt-3 rounded-card border border-line bg-paper p-3">
               <p className="mb-2 text-base font-bold">Still correct?</p>
+              {d.confirm_reason && <p className="mb-2 text-sm text-muted">{d.confirm_reason}</p>}
               <div className="flex gap-2">
                 <Button size="control" onClick={confirm} disabled={confirming} className="flex-1">
                   {confirming ? 'Saving…' : 'Yes'}
@@ -126,6 +127,8 @@ export default function AgentHomePage() {
                     {side.phrase} <span className="font-semibold text-muted">· {side.range_text}</span>
                   </p>
                   {side.above_text && <p className="text-sm text-muted">Above that: {side.above_text}</p>}
+                  {side.estimate_text && <p className="text-sm text-muted">{side.estimate_text}</p>}
+                  {side.why && <p className="text-sm font-semibold text-warning">{side.why}</p>}
                 </div>
               ))}
               <p className="pt-1 text-xs text-muted">{see.explanation}</p>

@@ -58,6 +58,7 @@ async def report(
     db.add(
         OutcomeReport(
             id=body.client_token,
+            at=now,
             agent_ref=ref,
             transaction=tx,
             amount_band=amount_band(body.amount_sle),

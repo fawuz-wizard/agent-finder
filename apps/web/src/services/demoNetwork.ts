@@ -15,6 +15,7 @@ import type {
   SearchRequest,
   SearchResponse,
   TransactionType,
+  VisitReport,
 } from '@/types/public'
 import { TRANSACTION_LABELS } from '@/types/public'
 
@@ -87,16 +88,64 @@ function sideFor(tx: TransactionType): 'cash' | 'float' {
   return tx === 'cash_out' ? 'cash' : 'float'
 }
 
-/** The server's job: compare the amount against the declared word's ceiling. */
+/* Visits reported through this demo, so what the next customer reads moves the way it does
+ * against the live API: a confirmed visit lowers the side it drew on and raises the other; a
+ * failed visit for lack of money caps that side at the floor of its amount band. */
+interface DemoVisit {
+  id: string
+  side: 'cash' | 'float'
+  amount: number
+  answer: 'yes' | 'no'
+  reason: string | null
+}
+const visits: DemoVisit[] = []
+const BAND_FLOORS: [number, number][] = [[500, 1], [2_000, 501], [5_000, 2_001], [10_000, 5_001], [50_000, 10_001], [Number.POSITIVE_INFINITY, 50_001]]
+const BAND_MIDPOINTS: [number, number][] = [[500, 250], [2_000, 1_250], [5_000, 3_500], [10_000, 7_500], [50_000, 30_000], [Number.POSITIVE_INFINITY, 50_000]]
+const CAPACITY_FAILURES = ['could_not_complete', 'less_than_requested']
+
+function bandValue(table: [number, number][], amount: number): number {
+  return table.find(([ceiling]) => amount <= ceiling)![1]
+}
+
+export function recordDemoVisit(body: VisitReport): void {
+  if (body.answer === 'did_not_go' || body.amount_sle === null) return
+  const side = body.transaction === 'deposit' ? 'float' : 'cash'
+  visits.push({ id: body.agent_id, side, amount: body.amount_sle, answer: body.answer, reason: body.reason_code ?? null })
+}
+
+/** Largest amount that reads as likely for one side right now; null means no upper bound. */
+function ceilingFor(a: DemoAgent, side: 'cash' | 'float'): number | null {
+  const word = a[side]
+  let base: number | null = word === 'most' ? null : RANGE_CEILING[word]
+  let cap: number | null = null
+  let netOut = 0
+  for (const v of visits) {
+    if (v.id !== a.id) continue
+    if (v.answer === 'yes') netOut += v.side === side ? bandValue(BAND_MIDPOINTS, v.amount) : -bandValue(BAND_MIDPOINTS, v.amount)
+    else if (v.side === side && v.reason && CAPACITY_FAILURES.includes(v.reason)) {
+      const floor = bandValue(BAND_FLOORS, v.amount)
+      cap = cap === null ? floor : Math.min(cap, floor)
+    }
+  }
+  if (base !== null) base = Math.max(0, base - netOut)
+  if (cap !== null) base = base === null ? Math.max(0, cap - 1) : Math.min(base, Math.max(0, cap - 1))
+  return base
+}
+
+/** The server's job: compare the amount against what the words and the visits since allow. */
 function outcomeFor(a: DemoAgent, tx: TransactionType, amount: number | null): PublicOutcome {
   if (a.hidden) return 'hidden'
   if (!a.open) return 'closed'
   const fresh = freshnessOf(a.updated_min_ago)
   if (fresh === 'expired') return 'expired'
-  const word = a[sideFor(tx)]
-  if (word === 'none') return 'limited'
-  if (amount === null) return 'likely'
-  return amount <= RANGE_CEILING[word] ? 'likely' : 'limited'
+  const ceiling = ceilingFor(a, sideFor(tx))
+  if (ceiling === null) return 'likely'
+  if (amount === null) return ceiling <= 0 ? 'limited' : 'likely'
+  return amount <= ceiling ? 'likely' : 'limited'
+}
+
+export function demoAgentName(id: string): string | null {
+  return AGENTS.find((x) => x.id === id)?.name ?? null
 }
 
 const TIER: Record<PublicOutcome, number> = { likely: 0, limited: 1, expired: 2, not_set: 3, closed: 4, hidden: 5 }

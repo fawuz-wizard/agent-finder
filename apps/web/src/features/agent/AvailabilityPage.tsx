@@ -4,7 +4,7 @@ import { Button, Card } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import { CAPACITY_RANGES } from '@/types/operator'
+import { CAPACITY_RANGES, wordForFigure } from '@/types/operator'
 import type { AgentHome, CapacityWord, Presence } from '@/types/operator'
 
 const PRESENCE: { value: Presence; label: string }[] = [
@@ -17,11 +17,17 @@ function WordGrid({
   legend,
   value,
   onChange,
+  figure,
+  onFigure,
 }: {
   legend: string
   value: CapacityWord
   onChange: (w: CapacityWord) => void
+  /** Optional "up to about" figure, kept as typed; '' means none. */
+  figure: string
+  onFigure: (raw: string) => void
 }) {
+  const figureId = `${(legend.split(' ')[0] ?? 'side').toLowerCase()}-figure`
   return (
     <Card>
       <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">{legend}</p>
@@ -42,8 +48,32 @@ function WordGrid({
           </button>
         ))}
       </div>
+      <label htmlFor={figureId} className="mt-3 block text-sm font-semibold">
+        Up to about (SLE) — optional
+      </label>
+      <input
+        id={figureId}
+        type="number"
+        inputMode="numeric"
+        min={0}
+        step={100}
+        value={figure}
+        placeholder="e.g. 5000"
+        onChange={(e) => onFigure(e.target.value)}
+        className="mt-1 h-control w-full rounded-card border-2 border-line bg-paper px-3 text-base"
+      />
+      <p className="mt-1 text-xs text-muted">
+        A figure picks the word for you and lets the app count confirmed visits against it. Customers never see it.
+      </p>
     </Card>
   )
+}
+
+/** '' → null; anything else → a whole number of Leones, never negative. */
+function figureOf(raw: string): number | null {
+  if (raw.trim() === '') return null
+  const n = Math.max(0, Math.floor(Number(raw)))
+  return Number.isFinite(n) ? n : null
 }
 
 /**
@@ -61,6 +91,8 @@ export default function AvailabilityPage() {
   const [presence, setPresence] = useState<Presence>('open')
   const [cashOut, setCashOut] = useState<CapacityWord>('most')
   const [deposit, setDeposit] = useState<CapacityWord>('some')
+  const [cashOutSle, setCashOutSle] = useState('')
+  const [depositSle, setDepositSle] = useState('')
   const [night, setNight] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,14 +102,35 @@ export default function AvailabilityPage() {
     setPresence(data.declaration.presence)
     setCashOut(data.declaration.cash_out)
     setDeposit(data.declaration.deposit)
+    setCashOutSle(data.declaration.cash_out_sle === null ? '' : String(data.declaration.cash_out_sle))
+    setDepositSle(data.declaration.deposit_sle === null ? '' : String(data.declaration.deposit_sle))
     setNight(data.declaration.night_mode)
   }, [data])
+
+  /** Typing a figure picks the word; picking a word clears the figure so the two never disagree. */
+  function cashFigure(raw: string) {
+    setCashOutSle(raw)
+    const n = figureOf(raw)
+    if (n !== null) setCashOut(wordForFigure(n))
+  }
+  function depositFigure(raw: string) {
+    setDepositSle(raw)
+    const n = figureOf(raw)
+    if (n !== null) setDeposit(wordForFigure(n))
+  }
 
   async function save() {
     setSaving(true)
     setError(null)
     try {
-      await operatorApi.declare(ref, { presence, cash_out: cashOut, deposit, night_mode: night })
+      await operatorApi.declare(ref, {
+        presence,
+        cash_out: cashOut,
+        deposit,
+        cash_out_sle: figureOf(cashOutSle),
+        deposit_sle: figureOf(depositSle),
+        night_mode: night,
+      })
       navigate('/agent')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.')
@@ -118,8 +171,26 @@ export default function AvailabilityPage() {
           </p>
         </Card>
 
-        <WordGrid legend="Cash out — how much can you give?" value={cashOut} onChange={setCashOut} />
-        <WordGrid legend="Deposit — how much float do you have?" value={deposit} onChange={setDeposit} />
+        <WordGrid
+          legend="Cash out — how much can you give?"
+          value={cashOut}
+          onChange={(w) => {
+            setCashOut(w)
+            setCashOutSle('')
+          }}
+          figure={cashOutSle}
+          onFigure={cashFigure}
+        />
+        <WordGrid
+          legend="Deposit — how much float do you have?"
+          value={deposit}
+          onChange={(w) => {
+            setDeposit(w)
+            setDepositSle('')
+          }}
+          figure={depositSle}
+          onFigure={depositFigure}
+        />
 
         <div className="rounded-card border border-night bg-night px-4 py-3.5">
           <div className="flex items-center justify-between gap-3">

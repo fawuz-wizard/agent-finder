@@ -32,8 +32,9 @@ import type {
   Signal,
   SignalMuteKind,
   SignalMuted,
+  DeclareBody,
 } from '@/types/operator'
-import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
+import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, wordForFigure } from '@/types/operator'
 
 const FRESHNESS = { fresh: 90, aging: 120, may_have_changed: 240 } as const
 /** The agent is asked to confirm once the declaration stops being fresh. */
@@ -47,6 +48,9 @@ interface AgentState {
   presence: Presence
   cash_out: CapacityWord
   deposit: CapacityWord
+  /** Optional figures behind the words. Private, like the words. */
+  cash_out_sle: number | null
+  deposit_sle: number | null
   updated_at: number
   night_mode: boolean
   phone_visible: boolean
@@ -63,11 +67,11 @@ function minutesAgo(min: number): number {
 }
 
 const agents: AgentState[] = [
-  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2 },
-  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0 },
-  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1 },
-  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0 },
-  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0 },
+  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null },
+  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null },
+  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null },
+  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null },
+  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null },
 ]
 
 /** Operator-owned values. Present only because the demo adapter is switched on. */
@@ -123,15 +127,19 @@ function declarationOf(a: AgentState): Declaration {
       : freshness === 'may_have_changed'
         ? `You updated this ${ageText(min)} — customers are told it may have changed`
         : `You updated this ${ageText(min)}`
+  const reason = nudgeReason(a)
   return {
     presence: a.presence,
     cash_out: a.cash_out,
     deposit: a.deposit,
+    cash_out_sle: a.cash_out_sle,
+    deposit_sle: a.deposit_sle,
     updated_at: new Date(a.updated_at).toISOString(),
     age_min: min,
     freshness,
     freshness_text: text,
-    confirm_due: min >= CONFIRM_AFTER_MIN,
+    confirm_due: min >= CONFIRM_AFTER_MIN || reason !== null,
+    confirm_reason: reason,
     night_mode: a.night_mode,
   }
 }
@@ -149,6 +157,131 @@ const PUBLIC_TEXT = {
 function isOpenNow(): boolean {
   const h = new Date().getUTCHours()
   return h >= 7 && h < 20
+}
+
+/* ---------- predictive availability: the ledger of visits customers confirmed or failed ---------- */
+
+interface Visit {
+  ref: string
+  tx: 'cash_out' | 'deposit'
+  amount: number
+  answer: 'yes' | 'no'
+  reason: string | null
+  at: number
+}
+
+const visits: Visit[] = []
+const NETWORK = { small: 500, some: 10_000 } as const
+const BANDS: [number, string, number, number][] = [
+  // ceiling, text, midpoint, floor — reports keep a band, never the exact amount
+  [500, 'under SLE 500', 250, 1],
+  [2_000, 'SLE 500 to 2,000', 1_250, 501],
+  [5_000, 'SLE 2,000 to 5,000', 3_500, 2_001],
+  [10_000, 'SLE 5,000 to 10,000', 7_500, 5_001],
+  [50_000, 'SLE 10,000 to 50,000', 30_000, 10_001],
+  [Number.POSITIVE_INFINITY, 'over SLE 50,000', 50_000, 50_001],
+]
+const CAPACITY_FAILURES = ['could_not_complete', 'less_than_requested']
+
+function bandOf(amount: number) {
+  return BANDS.find(([ceiling]) => amount <= ceiling)!
+}
+
+function sle(n: number): string {
+  return `SLE ${n.toLocaleString('en-US')}`
+}
+
+interface SideLedger {
+  label: string
+  word: CapacityWord
+  declared: number | null
+  netOut: number
+  visits: number
+  cap: number | null
+  capAt: number | null
+  capText: string | null
+}
+
+function sideLedger(label: string, word: CapacityWord, declared: number | null): SideLedger {
+  return { label, word, declared, netOut: 0, visits: 0, cap: null, capAt: null, capText: null }
+}
+
+function estimateOf(s: SideLedger): number | null {
+  return s.declared === null ? null : Math.max(0, s.declared - s.netOut)
+}
+
+/** Largest amount that reads as likely right now; null means no upper bound. */
+function ceilingOf(s: SideLedger): number | null {
+  let base: number | null =
+    s.declared !== null ? estimateOf(s) : s.word === 'none' ? 0 : s.word === 'small' ? NETWORK.small : s.word === 'some' ? NETWORK.some : null
+  if (s.cap !== null) {
+    const capped = Math.max(0, s.cap - 1)
+    base = base === null ? capped : Math.min(base, capped)
+  }
+  return base
+}
+
+function ledgerFor(a: AgentState): { cash: SideLedger; float: SideLedger } {
+  const cash = sideLedger('Cash out', a.cash_out, a.cash_out_sle)
+  const float = sideLedger('Deposit', a.deposit, a.deposit_sle)
+  for (const v of visits) {
+    if (v.ref !== a.ref || v.at < a.updated_at) continue
+    const [, text, mid, floor] = bandOf(v.amount)
+    const side = v.tx === 'cash_out' ? cash : float
+    const other = side === cash ? float : cash
+    if (v.answer === 'yes') {
+      side.visits += 1
+      side.netOut += mid
+      other.netOut -= mid
+    } else if (v.reason && CAPACITY_FAILURES.includes(v.reason) && (side.cap === null || floor < side.cap)) {
+      side.cap = floor
+      side.capAt = v.at
+      side.capText = text
+    }
+  }
+  return { cash, float }
+}
+
+function estimateText(s: SideLedger): string | null {
+  if (s.declared === null) return null
+  let text = `You said up to ${sle(s.declared)}`
+  if (s.visits) text += ` · ${s.visits} confirmed visit${s.visits === 1 ? '' : 's'} since · about ${sle(estimateOf(s) ?? 0)} left`
+  return text
+}
+
+function whyText(s: SideLedger): string | null {
+  if (s.cap === null || s.capAt === null || !s.capText) return null
+  const at = new Date(s.capAt)
+  const hhmm = `${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`
+  return `A customer reported a failed ${s.label.toLowerCase()} of ${s.capText} at ${hhmm}, so amounts of ${sle(s.cap)} and above read as limited until you refresh your status.`
+}
+
+function nudgeReason(a: AgentState): string | null {
+  const { cash, float } = ledgerFor(a)
+  for (const s of [cash, float]) if (s.cap !== null) return whyText(s)
+  for (const s of [cash, float]) {
+    if (s.declared === null || !s.visits) continue
+    if (wordForFigure(estimateOf(s) ?? 0) !== wordForFigure(s.declared))
+      return `${s.label}: confirmed visits since you said ${sle(s.declared)} leave about ${sle(estimateOf(s) ?? 0)}.`
+  }
+  return null
+}
+
+/**
+ * A customer's visit report, as the API receives it. The demo customer surface records it
+ * here (through a dynamic import, so no operator code reaches the customer's bundle) and the
+ * agent's "Customers now see" moves exactly as it would against the live API.
+ */
+export function demoRecordVisit(
+  shop: string,
+  tx: 'cash_out' | 'deposit',
+  amount: number,
+  answer: 'yes' | 'no',
+  reason: string | null,
+): void {
+  const a = agents.find((x) => x.shop === shop)
+  if (!a) return
+  visits.push({ ref: a.ref, tx, amount, answer, reason, at: Date.now() })
 }
 
 /** What a customer reads about this agent right now — the same rules the search applies. */
@@ -169,21 +302,23 @@ function customersSee(a: AgentState): CustomersSee {
     }[state]
     return { state, headline: PUBLIC_TEXT[state], explanation: why, sides: [] }
   }
-  const side = (label: string, word: CapacityWord) => {
-    const range = CAPACITY_RANGES.find((c) => c.word === word)!
-    const capped = word === 'some' || word === 'small'
+  const { cash, float } = ledgerFor(a)
+  const side = (s: SideLedger) => {
+    const ceiling = ceilingOf(s)
     return {
-      label,
-      phrase: word === 'none' ? PUBLIC_TEXT.limited : PUBLIC_TEXT.likely,
-      range_text: capped ? `up to SLE ${range.ceiling_sle!.toLocaleString('en-US')}` : 'any amount',
-      above_text: capped ? PUBLIC_TEXT.limited : null,
+      label: s.label,
+      phrase: ceiling !== null && ceiling <= 0 ? PUBLIC_TEXT.limited : PUBLIC_TEXT.likely,
+      range_text: ceiling === null ? 'any amount' : ceiling <= 0 ? 'nothing right now' : `up to ${sle(ceiling)}`,
+      above_text: ceiling === null || ceiling <= 0 ? null : PUBLIC_TEXT.limited,
+      estimate_text: estimateText(s),
+      why: whyText(s),
     }
   }
   return {
     state: 'open',
     headline: 'Customers can find you',
     explanation: 'Phrased from your words and the network ranges. Customers never see the words themselves.',
-    sides: [side('Cash out', a.cash_out), side('Deposit', a.deposit)],
+    sides: [side(cash), side(float)],
   }
 }
 
@@ -276,23 +411,34 @@ export function demoAgentHome(ref: string): AgentHome {
 
 export function demoConfirmDeclaration(ref: string): Declaration {
   const a = find(ref)
+  // "Still correct?" · Yes confirms what the ledger says is probably left, not this morning's figure.
+  const { cash, float } = ledgerFor(a)
+  if (a.cash_out_sle !== null) {
+    a.cash_out_sle = estimateOf(cash)
+    a.cash_out = wordForFigure(a.cash_out_sle ?? 0)
+  }
+  if (a.deposit_sle !== null) {
+    a.deposit_sle = estimateOf(float)
+    a.deposit = wordForFigure(a.deposit_sle ?? 0)
+  }
   a.updated_at = Date.now()
   record('You confirmed your status was still correct', 'agent_finder', 'good')
   return declarationOf(a)
 }
 
-export function demoDeclare(
-  ref: string,
-  next: { presence: Presence; cash_out: CapacityWord; deposit: CapacityWord; night_mode: boolean },
-): Declaration {
+export function demoDeclare(ref: string, next: DeclareBody): Declaration {
   const a = find(ref)
   const changedPresence = a.presence !== next.presence
+  const cashSle = next.cash_out_sle ?? null
+  const depSle = next.deposit_sle ?? null
   a.presence = next.presence
-  a.cash_out = next.cash_out
-  a.deposit = next.deposit
+  a.cash_out = cashSle !== null ? wordForFigure(cashSle) : next.cash_out
+  a.deposit = depSle !== null ? wordForFigure(depSle) : next.deposit
+  a.cash_out_sle = cashSle
+  a.deposit_sle = depSle
   a.night_mode = next.night_mode
   a.updated_at = Date.now()
-  const words = `${CAPACITY_RANGES.find((c) => c.word === next.cash_out)?.label} · ${CAPACITY_RANGES.find((c) => c.word === next.deposit)?.label}`
+  const words = `${CAPACITY_RANGES.find((c) => c.word === a.cash_out)?.label} · ${CAPACITY_RANGES.find((c) => c.word === a.deposit)?.label}`
   record(
     `You declared ${PRESENCE_LABELS[next.presence].split(' ·')[0]} · ${words}`,
     'agent_finder',

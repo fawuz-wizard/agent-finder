@@ -37,6 +37,9 @@ export interface Declaration {
   presence: Presence
   cash_out: CapacityWord
   deposit: CapacityWord
+  /** The agent's own figures behind the words ("up to about SLE 5,000"), when given. */
+  cash_out_sle: number | null
+  deposit_sle: number | null
   /** ISO timestamp of the last declaration or confirmation. */
   updated_at: string
   /** Minutes since the declaration, computed by the server. */
@@ -46,6 +49,18 @@ export interface Declaration {
   freshness_text: string
   /** True when the agent should be asked "still correct?" */
   confirm_due: boolean
+  /** Why it is asked now, when an event (a failed or confirmed visit) raised it, not the clock. */
+  confirm_reason: string | null
+  night_mode: boolean
+}
+
+/** What the agent sends. Figures are optional; when given, the word is derived server-side. */
+export interface DeclareBody {
+  presence: Presence
+  cash_out: CapacityWord
+  deposit: CapacityWord
+  cash_out_sle?: number | null
+  deposit_sle?: number | null
   night_mode: boolean
 }
 
@@ -106,6 +121,10 @@ export interface CustomersSeeSide {
   range_text: string
   /** What a customer asking for more than the range reads; null when nothing is above it. */
   above_text: string | null
+  /** Agent-only: their figure and what confirmed visits since leave of it. */
+  estimate_text: string | null
+  /** Agent-only: the failed visit that lowered the ceiling, so they can dispute it. */
+  why: string | null
 }
 
 export interface CustomersSee {
@@ -199,6 +218,14 @@ export const CAPACITY_RANGES: CapacityRange[] = [
   { word: 'small', label: 'Small', ceiling_sle: 500, hint: 'up to 500' },
   { word: 'none', label: 'None', ceiling_sle: 0, hint: 'nothing right now' },
 ]
+
+/** The word a figure implies on the network ranges — the same rule the API applies. */
+export function wordForFigure(sle: number): CapacityWord {
+  if (sle <= 0) return 'none'
+  if (sle <= 500) return 'small'
+  if (sle <= 10_000) return 'some'
+  return 'most'
+}
 
 export const PRESENCE_LABELS: Record<Presence, string> = {
   open: 'Open · serving',

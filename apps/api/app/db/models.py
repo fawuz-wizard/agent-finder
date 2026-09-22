@@ -49,6 +49,10 @@ class Agent(Base, TimestampMixin):
     )  # open|hidden|closed
     cash_out: Mapped[str | None] = mapped_column(String(10))  # most|some|small|none
     deposit: Mapped[str | None] = mapped_column(String(10))
+    # Optional figures behind the words ("up to about SLE 5,000"). PRIVATE like the words;
+    # the ledger counts confirmed visits against them. None when the agent gave a word only.
+    cash_out_sle: Mapped[int | None] = mapped_column(Integer)
+    deposit_sle: Mapped[int | None] = mapped_column(Integer)
     night_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     declared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

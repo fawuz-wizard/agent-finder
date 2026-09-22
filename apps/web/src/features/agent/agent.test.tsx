@@ -9,6 +9,7 @@ import AgentHomePage from './AgentHomePage'
 import AvailabilityPage from './AvailabilityPage'
 import FloatPage from './FloatPage'
 import { operatorApi } from '@/services/operatorApi'
+import { demoRecordVisit } from '@/services/operatorDemo'
 
 function App({ start = '/agent' }: { start?: string }) {
   return (
@@ -150,5 +151,68 @@ describe('surface boundary', () => {
     const src = await readFile(resolve(process.cwd(), 'src/features/auth/SessionProvider.tsx'), 'utf8')
     expect(src).not.toMatch(/^import .*operatorApi/m)
     expect(src).toMatch(/await import\('@\/services\/operatorApi'\)/)
+  })
+})
+
+describe('predictive availability', () => {
+  it('a figure picks the word, and confirmed visits move what customers see', async () => {
+    const d = await operatorApi.declare('Agent 024', {
+      presence: 'open',
+      cash_out: 'most',
+      deposit: 'some',
+      cash_out_sle: 5000,
+      night_mode: true,
+    })
+    expect(d.cash_out).toBe('some')
+    expect(d.cash_out_sle).toBe(5000)
+    let home = await operatorApi.home('Agent 024')
+    expect(home.customers_see.sides[0]!).toMatchObject({ range_text: 'up to SLE 5,000', estimate_text: 'You said up to SLE 5,000' })
+
+    demoRecordVisit("Fatmata's Shop", 'cash_out', 3000, 'yes', null) // ≤5k band → 3,500 moved
+    home = await operatorApi.home('Agent 024')
+    expect(home.customers_see.sides[0]!.range_text).toBe('up to SLE 1,500')
+    expect(home.customers_see.sides[0]!.estimate_text).toContain('1 confirmed visit since · about SLE 1,500 left')
+    expect(home.declaration.cash_out_sle).toBe(5000) // the agent's own figure is untouched
+  })
+
+  it('a failed visit caps the side, names why, and "Yes" folds the estimate into the figure', async () => {
+    demoRecordVisit("Fatmata's Shop", 'cash_out', 1000, 'no', 'could_not_complete') // ≤2k band → cap 501
+    const home = await operatorApi.home('Agent 024')
+    expect(home.customers_see.sides[0]!.range_text).toBe('up to SLE 500')
+    expect(home.customers_see.sides[0]!.why).toMatch(/failed cash out of SLE 500 to 2,000/)
+    expect(home.declaration.confirm_due).toBe(true)
+    expect(home.declaration.confirm_reason).toMatch(/until you refresh/)
+
+    const user = userEvent.setup()
+    render(<App />)
+    await signIn(user)
+    await screen.findByText("Fatmata's Shop")
+    expect(screen.getByText(/still correct\?/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/failed cash out of SLE 500 to 2,000/).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: /^yes$/i }))
+    expect(await screen.findByText(/you updated this just now/i)).toBeInTheDocument()
+    const after = await operatorApi.home('Agent 024')
+    expect(after.declaration.cash_out_sle).toBe(1500)
+    expect(after.declaration.cash_out).toBe('some')
+    expect(after.declaration.confirm_reason).toBeNull()
+    expect(after.customers_see.sides[0]!.range_text).toBe('up to SLE 1,500')
+  })
+
+  it('typing a figure on the form selects the matching word', async () => {
+    const user = userEvent.setup()
+    render(<App start="/agent/availability" />)
+    await signIn(user)
+    const cash = await screen.findByLabelText(/right now/i)
+    expect(cash).toBeInTheDocument()
+    const figure = screen.getAllByLabelText(/up to about \(SLE\)/i)[0]!
+    await user.clear(figure)
+    await user.type(figure, '12000')
+    const grid = screen.getByRole('radiogroup', { name: /cash out/i })
+    expect(within(grid).getByRole('radio', { name: /most/i })).toHaveAttribute('aria-checked', 'true')
+    await user.clear(figure)
+    await user.type(figure, '300')
+    expect(within(grid).getByRole('radio', { name: /small/i })).toHaveAttribute('aria-checked', 'true')
+    // Back to the seeded words so later files see the same Fatmata.
+    await operatorApi.declare('Agent 024', { presence: 'open', cash_out: 'most', deposit: 'some', night_mode: true })
   })
 })

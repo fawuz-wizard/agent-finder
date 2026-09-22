@@ -95,7 +95,10 @@ def is_open_now(agent, now: datetime) -> bool:
     return agent.open_hour <= hour < agent.close_hour
 
 
-def public_outcome(agent, tx: str, amount: int | None, now: datetime) -> str:
+def public_outcome(agent, tx: str, amount: int | None, now: datetime, ledger=None) -> str:
+    """The one place a customer's amount meets an agent's private words. With a ledger
+    (services/ledger.py) the ceiling also reflects the visits customers confirmed or failed
+    since the declaration; without one it is the word against the network ranges."""
     if agent.presence == "hidden":
         return "hidden"
     if agent.presence == "closed" or (agent.night_mode and not is_open_now(agent, now)):
@@ -105,6 +108,8 @@ def public_outcome(agent, tx: str, amount: int | None, now: datetime) -> str:
     word = word_for(agent, tx)
     if word is None:
         return "not_set"
+    if ledger is not None:
+        return ledger.side(tx).outcome(amount, NETWORK_RANGES)
     out = compare(CapacityCategory(word), NETWORK_RANGES, amount)
     return {
         PublicOutcome.LIKELY: "likely",
@@ -155,19 +160,30 @@ AREA_POINTS = {
 SIDE_LABEL = {"cash_out": "Cash out", "deposit": "Deposit"}
 
 
-def _range_text(word: str) -> tuple[str, str | None]:
+def _range_text(ceiling: int | None) -> tuple[str, str | None]:
     """(what the LIKELY phrase covers, what a customer above that reads)."""
-    limited = PUBLIC_TEXT["limited"]
-    if word == "some":
-        return f"up to {amount_label(NETWORK_RANGES.some_max_sle)}", limited
+    if ceiling is None:
+        return "any amount", None
+    if ceiling <= 0:
+        return "nothing right now", None
+    return f"up to {amount_label(ceiling)}", PUBLIC_TEXT["limited"]
+
+
+def _word_ceiling(word: str) -> int | None:
+    if word == "none":
+        return 0
     if word == "small":
-        return f"up to {amount_label(NETWORK_RANGES.small_max_sle)}", limited
-    return "any amount", None
+        return NETWORK_RANGES.small_max_sle
+    if word == "some":
+        return NETWORK_RANGES.some_max_sle
+    return None
 
 
-def customers_see(agent, now: datetime) -> dict:
+def customers_see(agent, now: datetime, ledger=None) -> dict:
     """Exactly what a customer reads about this agent right now, side by side with the words
-    the agent chose. Consequence, not input: the ranges appear here, never on the buttons."""
+    the agent chose. Consequence, not input: the ranges appear here, never on the buttons.
+    With a ledger, each side also says what the agent's own figure and the confirmed visits
+    since add up to, and names the failed visit that lowered a ceiling."""
     state = public_outcome(agent, "cash_out", None, now)
     if state in ("hidden", "closed", "expired"):
         why = {
@@ -186,17 +202,23 @@ def customers_see(agent, now: datetime) -> dict:
                     "phrase": PUBLIC_TEXT["not_set"],
                     "range_text": "no amount",
                     "above_text": None,
+                    "estimate_text": None,
+                    "why": None,
                 }
             )
             continue
-        outcome = public_outcome(agent, tx, None, now)
-        covers, above = _range_text(word)
+        outcome = public_outcome(agent, tx, None, now, ledger)
+        side = ledger.side(tx) if ledger is not None else None
+        ceiling = side.ceiling(NETWORK_RANGES) if side is not None else _word_ceiling(word)
+        covers, above = _range_text(ceiling)
         sides.append(
             {
                 "label": SIDE_LABEL[tx],
                 "phrase": PUBLIC_TEXT[outcome],
                 "range_text": covers,
                 "above_text": above,
+                "estimate_text": side.estimate_text() if side is not None else None,
+                "why": side.why_text() if side is not None else None,
             }
         )
     return {
