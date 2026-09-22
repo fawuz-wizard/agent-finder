@@ -12,6 +12,7 @@ import DealerAgentDetailPage from './AgentDetailPage'
 import DealerFloatReviewPage from './FloatReviewPage'
 import DealerAttentionPage from './AttentionPage'
 import DealerAgentsPage from './AgentsPage'
+import DealerFloatQueuePage from './FloatQueuePage'
 
 const ALL = [PERMISSIONS.viewAgent, PERMISSIONS.viewFinancial, PERMISSIONS.manageFloat, PERMISSIONS.viewHistory, PERMISSIONS.contact, PERMISSIONS.escalate]
 
@@ -28,7 +29,7 @@ function App({ start }: { start: string }) {
             <Route path="/dealer" element={<DealerDashboardPage />} />
             <Route path="/dealer/agents" element={<DealerAgentsPage />} />
             <Route path="/dealer/agents/:ref" element={<DealerAgentDetailPage />} />
-            <Route path="/dealer/float" element={<p>Float queue</p>} />
+            <Route path="/dealer/float" element={<DealerFloatQueuePage />} />
             <Route path="/dealer/float/:id" element={<DealerFloatReviewPage />} />
             <Route path="/dealer/attention" element={<DealerAttentionPage />} />
             <Route path="/dealer/attention/:id" element={<DealerAttentionPage />} />
@@ -89,7 +90,7 @@ describe('dealer', () => {
     render(<App start={`/dealer/float/${created.id}`} />)
     await screen.findByText(/amount requested/i)
     await user.click(screen.getByRole('button', { name: /^approve$/i }))
-    expect(await screen.findByText('Float queue')).toBeInTheDocument()
+    expect(await screen.findByText(/^Float requests$/)).toBeInTheDocument()
     const agentView = (await operatorApi.floatRequests('Agent 017')).find((r) => r.id === created.id)
     expect(agentView?.state).toBe('approved')
     expect(agentView?.decided_by).toBe('Kissy Distribution')
@@ -174,5 +175,29 @@ describe('dealer', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('button', { name: /decline with this reason/i })).toBeDisabled()
     vi.restoreAllMocks()
+  })
+})
+
+describe('float forecast', () => {
+  it('shows who will probably run short, with reasons, and never a balance', async () => {
+    signIn(ALL)
+    const { container } = render(<App start="/dealer/float" />)
+    expect(await screen.findByText(/likely to run short · \d+/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Agent 038 · Amadu Corner Shop/)).toBeInTheDocument()
+    expect(screen.getAllByText('Likely short by tomorrow').length).toBeGreaterThan(0)
+    expect(screen.getByText('Says no cash right now.')).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/balance|SLE 12,400/i)
+    // The forecast is a ranking: high before medium.
+    const chips = screen.getAllByText(/likely short by tomorrow|watch this week/i).map((el) => el.textContent)
+    const firstWatch = chips.indexOf('Watch this week')
+    const lastShort = chips.lastIndexOf('Likely short by tomorrow')
+    expect(firstWatch === -1 || lastShort < firstWatch).toBe(true)
+  })
+
+  it('puts the count on the dashboard, linking to the reasons', async () => {
+    signIn(ALL)
+    render(<App start="/dealer" />)
+    const card = await screen.findByLabelText(/float forecast: \d+ likely short by tomorrow/i)
+    expect(card).toHaveAttribute('href', '/dealer/float')
   })
 })

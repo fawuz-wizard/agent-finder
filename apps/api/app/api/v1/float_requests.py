@@ -100,6 +100,7 @@ async def create(
         )
     r = FloatRequest(
         id=f"fr-{secrets.token_hex(6)}",
+        requested_at=now,
         agent_ref=a.ref,
         dealer_id=a.dealer_id,
         amount_sle=body.amount_sle,

@@ -194,12 +194,32 @@ export interface Signal {
   explanation: string | null
 }
 
+export type FloatRisk = 'high' | 'medium' | 'low'
+
+/**
+ * Float demand forecast: who will probably run short of cash by tomorrow, from the pilot's
+ * own evidence (confirmed visits, the agent's words, failed visits, top-up history). A ranking
+ * with reasons. Never a balance, never a figure of the agent's, never a decision.
+ */
+export interface FloatForecast {
+  agent_ref: string
+  agent_name: string
+  risk: FloatRisk
+  headline: string
+  reasons: string[]
+  days_left_text: string | null
+  last_top_up_text: string | null
+  pending_request: boolean
+  call_url: string | null
+}
+
 export interface DealerOverview {
   dealer_name: string
   agent_count: number
   counts: DealerCounts
   float_requests: FloatRequest[]
   signals: Signal[]
+  forecast_counts: Record<FloatRisk, number>
 }
 
 /** Permission names. The UI asks; the API decides. */

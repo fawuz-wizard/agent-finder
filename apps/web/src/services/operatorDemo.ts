@@ -33,6 +33,8 @@ import type {
   SignalMuteKind,
   SignalMuted,
   DeclareBody,
+  FloatForecast,
+  FloatRisk,
 } from '@/types/operator'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, wordForFigure } from '@/types/operator'
 
@@ -567,13 +569,84 @@ function bucketOf(a: AgentState): DealerBucket {
 export function demoDealerOverview(): DealerOverview {
   const counts = { active: 0, limited: 0, hidden: 0, closed: 0 }
   for (const a of agents) counts[bucketOf(a)] += 1
+  const forecast_counts = { high: 0, medium: 0, low: 0 }
+  for (const f of demoFloatForecast()) forecast_counts[f.risk] += 1
   return {
     dealer_name: 'Kissy Distribution',
     agent_count: agents.length,
     counts,
     float_requests: demoFloatRequests(null).filter((r) => r.state === 'pending'),
     signals: demoSignals(),
+    forecast_counts,
   }
+}
+
+/* ---------- float demand forecast: the same rule as the API, on the demo's own evidence ---------- */
+
+const RISK_ORDER: Record<FloatRisk, number> = { high: 0, medium: 1, low: 2 }
+const HEADLINE: Record<FloatRisk, string> = {
+  high: 'Likely short by tomorrow',
+  medium: 'Watch this week',
+  low: 'Fine for now',
+}
+const WINDOW_DAYS = 7
+
+function daysLeftText(days: number): string {
+  if (days < 0.75) return 'about half a day of cash at the recent pace'
+  if (days < 1.5) return 'about a day of cash at the recent pace'
+  return `about ${Math.round(days)} days of cash at the recent pace`
+}
+
+function riskOf(word: CapacityWord, capped: boolean, daysLeft: number | null, failuresToday: number, lastTopUpDays: number | null, pace: number): FloatRisk {
+  if (word === 'none' || capped) return 'high'
+  if (daysLeft !== null && daysLeft < 1) return 'high'
+  if (daysLeft !== null && daysLeft < 2) return 'medium'
+  if (word === 'small' || failuresToday) return 'medium'
+  if (lastTopUpDays !== null && lastTopUpDays >= WINDOW_DAYS && pace > 0) return 'medium'
+  return 'low'
+}
+
+export function demoFloatForecast(): FloatForecast[] {
+  const since = Date.now() - WINDOW_DAYS * 86_400_000
+  const rows = agents.map((a): FloatForecast => {
+    const mine = visits.filter((v) => v.ref === a.ref && v.tx === 'cash_out' && v.at >= since)
+    const confirmed = mine.filter((v) => v.answer === 'yes')
+    const drawn = confirmed.reduce((sum, v) => sum + bandOf(v.amount)[2], 0)
+    const pace = drawn / WINDOW_DAYS
+    const { cash } = ledgerFor(a)
+    const ceiling = ceilingOf(cash)
+    const daysLeft = ceiling !== null && pace > 0 ? ceiling / pace : null
+    const failuresToday = a.problems + mine.filter((v) => v.answer === 'no' && v.reason && CAPACITY_FAILURES.includes(v.reason)).length
+    const requests = floatRequests.filter((r) => r.agent_ref === a.ref)
+    const pending = requests.some((r) => r.state === 'pending')
+    const topped = requests.filter((r) => r.state === 'approved' || r.state === 'completed')
+    const last = topped.length ? topped[topped.length - 1]! : null
+    const lastAt = last ? new Date(last.decided_at ?? last.requested_at).getTime() : null
+    const lastDays = lastAt !== null ? Math.max(0, (Date.now() - lastAt) / 86_400_000) : null
+    const lastText = lastDays !== null ? `Last top-up ${ageText(Math.round(lastDays * 24 * 60))}` : null
+    const risk = riskOf(a.cash_out, cash.cap !== null, daysLeft, failuresToday, lastDays, pace)
+    const reasons: string[] = []
+    if (a.cash_out === 'none') reasons.push('Says no cash right now.')
+    if (cash.cap !== null) reasons.push('A customer could not be served for lack of cash since the last update.')
+    if (failuresToday) reasons.push(`${failuresToday} failed visit${failuresToday === 1 ? '' : 's'} for lack of cash today.`)
+    if (daysLeft !== null) reasons.push(daysLeftText(daysLeft).charAt(0).toUpperCase() + daysLeftText(daysLeft).slice(1) + '.')
+    if (confirmed.length) reasons.push(`Confirmed visits drew cash ${confirmed.length} time${confirmed.length === 1 ? '' : 's'} in the last ${WINDOW_DAYS} days.`)
+    else if (a.cash_out === 'most' || a.cash_out === 'some') reasons.push('No confirmed visits in the last 7 days to learn a pace from yet.')
+    reasons.push(lastText ? `${lastText}.` : 'No top-up on record.')
+    if (pending) reasons.push('A request is waiting for your decision.')
+    return {
+      agent_ref: a.ref,
+      agent_name: a.shop,
+      risk,
+      headline: HEADLINE[risk],
+      reasons,
+      days_left_text: daysLeft !== null ? daysLeftText(daysLeft) : null,
+      last_top_up_text: lastText,
+      pending_request: pending,
+      call_url: callUrl(a),
+    }
+  })
+  return rows.sort((x, y) => RISK_ORDER[x.risk] - RISK_ORDER[y.risk] || x.agent_name.localeCompare(y.agent_name))
 }
 
 export function demoAgentRows() {

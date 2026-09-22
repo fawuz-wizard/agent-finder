@@ -27,6 +27,7 @@ import type {
   SignalMuteKind,
   SignalMuted,
   DeclareBody,
+  FloatForecast,
 } from '@/types/operator'
 
 const LATENCY_MS = 350
@@ -136,6 +137,12 @@ export const operatorApi = {
   },
 
   /* dealer */
+  /** Who will probably run short of cash by tomorrow. A ranking with reasons, never money. */
+  floatForecast(signal?: AbortSignal): Promise<FloatForecast[]> {
+    if (config.useLiveApi) return api.get<FloatForecast[]>('/api/v1/dealer/forecast', signal)
+    return delay(demo.demoFloatForecast(), signal)
+  },
+
   dealerOverview(signal?: AbortSignal): Promise<DealerOverview> {
     if (config.useLiveApi) return api.get<DealerOverview>('/api/v1/dealer/overview', signal)
     return delay(demo.demoDealerOverview(), signal)

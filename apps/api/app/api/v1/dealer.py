@@ -26,6 +26,7 @@ from app.db.models import (
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import usage
+from app.services.forecast import forecast_counts, forecasts_for
 from app.services.phrasing import (
     CAPACITY_LABEL,
     PRESENCE_LABEL,
@@ -220,7 +221,20 @@ async def overview(
             float_out(r, names.get(r.agent_ref, r.agent_ref), now).model_dump() for r in pending
         ],
         "signals": await signals_for(db, agents, now),
+        "forecast_counts": forecast_counts(await forecasts_for(db, agents, now)),
     }
+
+
+@router.get(
+    "/dealer/forecast",
+    summary="Who will probably run short of cash by tomorrow — a ranking with reasons, never a balance",  # noqa: E501
+)
+async def forecast(
+    p: Principal = Depends(require_permission("VIEW_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    now = now_utc()
+    return await forecasts_for(db, await my_agents(db, p.subject), now)
 
 
 @router.get("/dealer/agents", summary="Agent register")

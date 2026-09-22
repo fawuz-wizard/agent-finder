@@ -81,6 +81,17 @@ export default function DealerDashboardPage() {
           {data.float_requests.length === 0 && <p className="py-2 text-sm text-muted">Nothing waiting.</p>}
         </Card>
 
+        <Link to="/dealer/float" aria-label={`Float forecast: ${data.forecast_counts.high} likely short by tomorrow — see the reasons`}>
+          <Card interactive>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted">Float forecast</p>
+            <p className="text-base font-bold">
+              {data.forecast_counts.high} likely short by tomorrow
+              <span className="font-semibold text-muted"> · {data.forecast_counts.medium} to watch</span>
+            </p>
+            <p className="text-xs text-muted">From confirmed visits and the agents' own words. Reasons on the Float tab.</p>
+          </Card>
+        </Link>
+
         <Card>
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wider text-muted">Needs attention · {data.signals.length}</p>
