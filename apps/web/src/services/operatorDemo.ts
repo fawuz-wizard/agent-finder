@@ -37,6 +37,7 @@ import type {
   FloatRisk,
   Reliability,
 } from '@/types/operator'
+import { config } from '@/lib/config'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, wordForFigure } from '@/types/operator'
 
 const FRESHNESS = { fresh: 90, aging: 120, may_have_changed: 240 } as const
@@ -124,6 +125,26 @@ function freshnessOf(min: number): Declaration['freshness'] {
 }
 
 function declarationOf(a: AgentState): Declaration {
+  const ledger = ledgerFor(a)
+  if (ledger.live) {
+    const fmin = ledger.feedAgeMin ?? 0
+    return {
+      presence: a.presence,
+      cash_out: ledger.cash.word,
+      deposit: ledger.float.word,
+      cash_out_sle: ledger.cash.declared,
+      deposit_sle: ledger.float.declared,
+      updated_at: new Date(Date.now() - fmin * 60_000).toISOString(),
+      age_min: fmin,
+      freshness: freshnessOf(fmin),
+      freshness_text: `${FEED_SOURCE} updated your capacity ${ageText(fmin)} — nothing to refresh`,
+      confirm_due: false,
+      confirm_reason: null,
+      night_mode: a.night_mode,
+      capacity_source: 'operator',
+      source_text: `From ${FEED_SOURCE}: e-float exact, cash inferred from your transactions. Your own words are used if the link drops.`,
+    }
+  }
   const min = ageMin(a)
   const freshness = freshnessOf(min)
   const text =
@@ -146,6 +167,8 @@ function declarationOf(a: AgentState): Declaration {
     confirm_due: min >= CONFIRM_AFTER_MIN || reason !== null,
     confirm_reason: reason,
     night_mode: a.night_mode,
+    capacity_source: 'agent',
+    source_text: null,
   }
 }
 
@@ -226,7 +249,46 @@ function ceilingOf(s: SideLedger): number | null {
   return base
 }
 
-function ledgerFor(a: AgentState): { cash: SideLedger; float: SideLedger } {
+/* ---------- the operator's activity feed, simulated: a day that moves, from the clock ---------- */
+
+let feedOn = config.operatorFeed
+/** Demo control: flip the simulated Orange Money feed on or off. */
+export function demoSetOperatorFeed(on: boolean): void {
+  feedOn = on
+}
+export function demoOperatorFeedOn(): boolean {
+  return feedOn
+}
+const FEED_SOURCE = 'Orange (demo)'
+
+function feedFor(a: AgentState): { cash: number; float: number; ageMin: number } | null {
+  const v = operatorValues[a.ref]
+  if (!feedOn || !v) return null
+  const d = new Date()
+  const hour = d.getUTCHours() + d.getUTCMinutes() / 60
+  const frac = Math.max(0, Math.min(1, (hour - 7) / 13))
+  const drawn = Math.floor(v.balance * 0.85 * frac)
+  const salt = [...a.ref].reduce((n, c) => n + c.charCodeAt(0), 0) % 17
+  return { cash: Math.max(0, v.balance - drawn), float: v.float + Math.floor(drawn * 0.6), ageMin: 3 + salt }
+}
+
+interface LedgerState {
+  cash: SideLedger
+  float: SideLedger
+  live: boolean
+  feedAgeMin: number | null
+}
+
+function ledgerFor(a: AgentState): LedgerState {
+  const feed = feedFor(a)
+  if (feed) {
+    return {
+      cash: sideLedger('Cash out', wordForFigure(feed.cash), feed.cash),
+      float: sideLedger('Deposit', wordForFigure(feed.float), feed.float),
+      live: true,
+      feedAgeMin: feed.ageMin,
+    }
+  }
   const cash = sideLedger('Cash out', a.cash_out, a.cash_out_sle)
   const float = sideLedger('Deposit', a.deposit, a.deposit_sle)
   for (const v of visits) {
@@ -244,7 +306,7 @@ function ledgerFor(a: AgentState): { cash: SideLedger; float: SideLedger } {
       side.capText = text
     }
   }
-  return { cash, float }
+  return { cash, float, live: false, feedAgeMin: null }
 }
 
 function estimateText(s: SideLedger): string | null {
@@ -262,7 +324,8 @@ function whyText(s: SideLedger): string | null {
 }
 
 function nudgeReason(a: AgentState): string | null {
-  const { cash, float } = ledgerFor(a)
+  const { cash, float, live } = ledgerFor(a)
+  if (live) return null
   for (const s of [cash, float]) if (s.cap !== null) return whyText(s)
   for (const s of [cash, float]) {
     if (s.declared === null || !s.visits) continue
@@ -296,7 +359,7 @@ function customersSee(a: AgentState): CustomersSee {
       ? 'hidden'
       : a.presence === 'closed' || (a.night_mode && !isOpenNow())
         ? 'closed'
-        : freshnessOf(ageMin(a)) === 'expired'
+        : !ledgerFor(a).live && freshnessOf(ageMin(a)) === 'expired'
           ? 'expired'
           : 'open'
   if (state !== 'open') {
@@ -307,7 +370,7 @@ function customersSee(a: AgentState): CustomersSee {
     }[state]
     return { state, headline: PUBLIC_TEXT[state], explanation: why, sides: [] }
   }
-  const { cash, float } = ledgerFor(a)
+  const { cash, float, live, feedAgeMin } = ledgerFor(a)
   const side = (s: SideLedger) => {
     const ceiling = ceilingOf(s)
     return {
@@ -315,14 +378,16 @@ function customersSee(a: AgentState): CustomersSee {
       phrase: ceiling !== null && ceiling <= 0 ? PUBLIC_TEXT.limited : PUBLIC_TEXT.likely,
       range_text: ceiling === null ? 'any amount' : ceiling <= 0 ? 'nothing right now' : `up to ${sle(ceiling)}`,
       above_text: ceiling === null || ceiling <= 0 ? null : PUBLIC_TEXT.limited,
-      estimate_text: estimateText(s),
+      estimate_text: live ? null : estimateText(s),
       why: whyText(s),
     }
   }
   return {
     state: 'open',
     headline: 'Customers can find you',
-    explanation: 'Phrased from your words and the network ranges. Customers never see the words themselves.',
+    explanation: live
+      ? `Phrased from your ${FEED_SOURCE} position, read ${ageText(feedAgeMin ?? 0)}. E-float is exact; cash is inferred from your transactions. Customers never see the figures.`
+      : 'Phrased from your words and the network ranges. Customers never see the words themselves.',
     sides: [side(cash), side(float)],
   }
 }
@@ -563,9 +628,11 @@ export function demoMoveFloat(
 
 /** One rule for the tile counts and the register filter, same as the API's bucket_of. */
 function bucketOf(a: AgentState): DealerBucket {
+  const ledger = ledgerFor(a)
+  const word = ledger.live ? ledger.cash.word : a.cash_out
   if (a.presence === 'hidden') return 'hidden'
-  if (a.presence === 'closed' || freshnessOf(ageMin(a)) === 'expired') return 'closed'
-  if (a.cash_out === 'none' || a.cash_out === 'small') return 'limited'
+  if (a.presence === 'closed' || (!ledger.live && freshnessOf(ageMin(a)) === 'expired')) return 'closed'
+  if (word === 'none' || word === 'small') return 'limited'
   return 'active'
 }
 
@@ -678,7 +745,7 @@ export function demoFloatForecast(): FloatForecast[] {
 export function demoAgentRows() {
   return agents.map((a) => {
     const d = declarationOf(a)
-    const words = `${CAPACITY_RANGES.find((c) => c.word === a.cash_out)?.label} / ${CAPACITY_RANGES.find((c) => c.word === a.deposit)?.label}`
+    const words = `${CAPACITY_RANGES.find((c) => c.word === d.cash_out)?.label} / ${CAPACITY_RANGES.find((c) => c.word === d.deposit)?.label}`
     return {
       ref: a.ref,
       name: a.shop,
@@ -690,6 +757,7 @@ export function demoAgentRows() {
       freshness_text: ageText(d.age_min),
       attention: a.problems > 1 || d.freshness === 'expired' || a.presence === 'hidden' || trustOf(a).label === 'unreliable',
       reliability: trustOf(a),
+      capacity_source: d.capacity_source,
     }
   })
 }
@@ -703,7 +771,9 @@ function callUrl(a: AgentState): string | null {
 }
 
 export function demoSignals(): Signal[] {
-  return allSignals().filter((s) => !(mutes[s.id] && mutes[s.id]! > Date.now()))
+  return allSignals()
+    .filter((s) => !(mutes[s.id] && mutes[s.id]! > Date.now()))
+    .filter((s) => !(s.id.startsWith('sig-stale-') && ledgerFor(find(s.agent_ref)).live))
 }
 
 function allSignals(): Signal[] {

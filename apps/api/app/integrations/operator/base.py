@@ -17,8 +17,23 @@ class OperatorValue(BaseModel):
     read_at: str
 
 
+class OperatorActivity(BaseModel):
+    """What the host system knows about one agent right now. E-float is exact; cash is what
+    the operator infers from the till declared at opening and the transactions since. Read
+    through the adapter on each request, labelled, never stored."""
+
+    cash_sle: int
+    float_sle: int
+    as_of: str
+    last_transaction_min_ago: int
+    transactions_last_hour: int
+    failed_for_float_today: int
+    source: str
+
+
 class OperatorAdapter(Protocol):
     def source_name(self) -> str: ...
+    async def activity(self, agent_ref: str, now: datetime) -> OperatorActivity | None: ...
     async def balance(self, agent_ref: str) -> OperatorValue | None: ...
     async def float_position(self, agent_ref: str) -> OperatorValue | None: ...
     async def transactions_today(self, agent_ref: str) -> dict: ...
@@ -33,6 +48,9 @@ class NoOperator:
 
     def source_name(self) -> str:
         return ""
+
+    async def activity(self, agent_ref: str, now: datetime) -> OperatorActivity | None:
+        return None
 
     async def balance(self, agent_ref: str) -> OperatorValue | None:
         return None
@@ -67,6 +85,26 @@ class FakeOperator:
 
     def _row(self, ref: str):
         return self._seed.get(ref, (5_000, 3_000, 10, 9))
+
+    async def activity(self, agent_ref: str, now: datetime) -> OperatorActivity | None:
+        """A day that moves: cash is drawn through opening hours and e-float rises with it,
+        deterministically from the clock, so a demo is repeatable and a test can pin it."""
+        if agent_ref not in self._seed:
+            return None
+        bal, fl, t, _ = self._row(agent_ref)
+        hour = now.hour + now.minute / 60
+        frac = max(0.0, min(1.0, (hour - 7) / 13))  # 0 at 07:00 → 1 at 20:00
+        drawn = int(bal * 0.85 * frac)
+        salt = sum(ord(c) for c in agent_ref) % 17
+        return OperatorActivity(
+            cash_sle=max(0, bal - drawn),
+            float_sle=fl + int(drawn * 0.6),
+            as_of=now.isoformat(),
+            last_transaction_min_ago=3 + salt,
+            transactions_last_hour=max(0, t // 8),
+            failed_for_float_today=1 if fl < 1_000 else 0,
+            source=self.source_name(),
+        )
 
     async def balance(self, agent_ref: str) -> OperatorValue | None:
         return OperatorValue(

@@ -17,8 +17,10 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.settings import get_settings
 from app.db.models import Agent, OutcomeReport
 from app.domain.capacity import SideThresholds
+from app.integrations.operator.base import get_operator
 
 # Reports keep a band, never the exact amount (privacy). A confirmed visit moves the band's
 # midpoint; a failed one caps the side at the band's floor, the safe reading for the next
@@ -145,13 +147,34 @@ class Ledger:
     float: SideLedger
     last_event_at: datetime | None = None
     events: int = field(default=0)
+    # "agent": words and figure the agent gave, moved by app-confirmed visits.
+    # "operator": the host system's position, read just now; nothing to refresh.
+    source: str = "agent"
+    feed_age_min: int | None = None
+    feed_source: str | None = None
+    failed_for_float_today: int = 0
+
+    @property
+    def live(self) -> bool:
+        return self.source == "operator"
 
     def side(self, tx: str | None) -> SideLedger:
         return self.cash if side_of(tx) == "cash" else self.float
 
+    def updated_at(self, now: datetime) -> datetime | None:
+        """When the capacity behind the phrase was last known to be true."""
+        if self.live and self.feed_age_min is not None:
+            from datetime import timedelta
+
+            return now - timedelta(minutes=self.feed_age_min)
+        return None
+
     def nudge_reason(self, ranges: SideThresholds) -> str | None:
         """Why the agent should be asked "still correct?" now, independent of the clock:
-        a failed visit lowered a side, or confirmed visits moved a figure into another word."""
+        a failed visit lowered a side, or confirmed visits moved a figure into another word.
+        With the operator feed on there is nothing to ask: the position is read, not told."""
+        if self.live:
+            return None
         for s in (self.cash, self.float):
             if s.cap_sle is not None:
                 return s.why_text()
@@ -221,4 +244,29 @@ async def ledgers_for(db: AsyncSession, agents: list[Agent], now: datetime) -> d
             floor = BAND_FLOOR[band]
             if side.cap_sle is None or floor < side.cap_sle:
                 side.cap_sle, side.cap_at, side.cap_band = floor, at, band
+    if get_settings().operator_feed:
+        op = get_operator()
+        for a in agents:
+            act = await op.activity(a.ref, now)
+            if act is None:
+                continue  # not on the feed: the agent's own words stand
+            ledger = out[a.ref]
+            # The position replaces words, figure and app-counted movement; a failed visit
+            # reported after this reading still caps until the next reading.
+            ledger.cash = SideLedger(
+                "cash", word_for_figure(act.cash_sle, ranges_now()), act.cash_sle
+            )
+            ledger.float = SideLedger(
+                "float", word_for_figure(act.float_sle, ranges_now()), act.float_sle
+            )
+            ledger.source = "operator"
+            ledger.feed_age_min = act.last_transaction_min_ago
+            ledger.feed_source = act.source
+            ledger.failed_for_float_today = act.failed_for_float_today
     return out
+
+
+def ranges_now() -> SideThresholds:
+    from app.services.phrasing import NETWORK_RANGES
+
+    return NETWORK_RANGES

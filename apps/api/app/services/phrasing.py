@@ -76,12 +76,20 @@ def age_text(min_: int | None) -> str:
     return f"{d} day{'s' if d != 1 else ''} ago"
 
 
-def freshness_text(declared_at: datetime | None, now: datetime) -> str:
+def capacity_updated_at(agent, ledger, now: datetime) -> datetime | None:
+    """What the customer's freshness line is about: the feed reading when the operator feed
+    is live, otherwise the agent's own declaration."""
+    if ledger is not None and ledger.live:
+        return ledger.updated_at(now)
+    return agent.declared_at
+
+
+def freshness_text(declared_at: datetime | None, now: datetime, source: str | None = None) -> str:
     mins = age_minutes(declared_at, now)
     if mins is None:
         return "No status yet"
     f = freshness_of(declared_at, now)
-    base = f"Updated {age_text(mins)}"
+    base = f"Updated {age_text(mins)}" + (f" · {source}" if source else "")
     if f == "expired":
         return f"{base} — expired"
     if f == "may_have_changed":
@@ -103,10 +111,11 @@ def public_outcome(agent, tx: str, amount: int | None, now: datetime, ledger=Non
         return "hidden"
     if agent.presence == "closed" or (agent.night_mode and not is_open_now(agent, now)):
         return "closed"
-    if freshness_of(agent.declared_at, now) == "expired":
+    live = ledger is not None and ledger.live
+    if not live and freshness_of(agent.declared_at, now) == "expired":
         return "expired"
     word = word_for(agent, tx)
-    if word is None:
+    if word is None and not live:
         return "not_set"
     if ledger is not None:
         return ledger.side(tx).outcome(amount, NETWORK_RANGES)
@@ -184,7 +193,7 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
     the agent chose. Consequence, not input: the ranges appear here, never on the buttons.
     With a ledger, each side also says what the agent's own figure and the confirmed visits
     since add up to, and names the failed visit that lowered a ceiling."""
-    state = public_outcome(agent, "cash_out", None, now)
+    state = public_outcome(agent, "cash_out", None, now, ledger)
     if state in ("hidden", "closed", "expired"):
         why = {
             "hidden": "You are hidden, so customers are not shown your shop at all.",
@@ -193,9 +202,10 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
         }[state]
         return {"state": state, "headline": PUBLIC_TEXT[state], "explanation": why, "sides": []}
     sides = []
+    live = ledger is not None and ledger.live
     for tx in ("cash_out", "deposit"):
         word = word_for(agent, tx)
-        if word is None:
+        if word is None and not live:
             sides.append(
                 {
                     "label": SIDE_LABEL[tx],
@@ -217,13 +227,23 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
                 "phrase": PUBLIC_TEXT[outcome],
                 "range_text": covers,
                 "above_text": above,
-                "estimate_text": side.estimate_text() if side is not None else None,
+                "estimate_text": (
+                    None if live else side.estimate_text() if side is not None else None
+                ),
                 "why": side.why_text() if side is not None else None,
             }
         )
+    if live and ledger is not None:
+        explanation = (
+            f"Phrased from your {ledger.feed_source or 'operator'} position, read "
+            f"{age_text(ledger.feed_age_min)}. E-float is exact; cash is inferred from your "
+            "transactions. Customers never see the figures."
+        )
+    else:
+        explanation = "Phrased from your words and the network ranges. Customers never see the words themselves."  # noqa: E501
     return {
         "state": "open",
         "headline": "Customers can find you",
-        "explanation": "Phrased from your words and the network ranges. Customers never see the words themselves.",  # noqa: E501
+        "explanation": explanation,
         "sides": sides,
     }

@@ -53,6 +53,10 @@ class Declaration(BaseModel):
     # Why "still correct?" is asked now, when an event (not the clock) raised it.
     confirm_reason: str | None = None
     night_mode: bool
+    # "agent": these words and figures are the agent's own. "operator": they are the host
+    # system's position, read just now, and there is nothing to refresh.
+    capacity_source: str = "agent"
+    source_text: str | None = None
 
 
 class OperatorValue(BaseModel):
@@ -101,6 +105,8 @@ def float_out(r: FloatRequest, agent_name: str, now: datetime) -> FloatOut:
 
 
 def declaration_of(a: Agent, now: datetime, ledger: Ledger | None = None) -> Declaration:
+    if ledger is not None and ledger.live:
+        return _live_declaration(a, now, ledger)
     mins = age_minutes(a.declared_at, now)
     f = freshness_of(a.declared_at, now)
     reason = ledger.nudge_reason(NETWORK_RANGES) if ledger is not None else None
@@ -126,6 +132,29 @@ def declaration_of(a: Agent, now: datetime, ledger: Ledger | None = None) -> Dec
         confirm_due=mins is None or mins >= CONFIRM_AFTER_MIN or reason is not None,
         confirm_reason=reason,
         night_mode=a.night_mode,
+    )
+
+
+def _live_declaration(a: Agent, now: datetime, ledger: Ledger) -> Declaration:
+    """The operator feed is on: capacity is read, not told. Presence stays the agent's."""
+    updated = ledger.updated_at(now)
+    mins = age_minutes(updated, now)
+    src = ledger.feed_source or "operator"
+    return Declaration(
+        presence=a.presence,
+        cash_out=ledger.cash.word or "none",
+        deposit=ledger.float.word or "none",
+        cash_out_sle=ledger.cash.declared_sle,
+        deposit_sle=ledger.float.declared_sle,
+        updated_at=updated.isoformat() if updated else "",
+        age_min=mins if mins is not None else 0,
+        freshness=freshness_of(updated, now),
+        freshness_text=f"{src} updated your capacity {age_text(mins)} — nothing to refresh",
+        confirm_due=False,
+        confirm_reason=None,
+        night_mode=a.night_mode,
+        capacity_source="operator",
+        source_text=f"From {src}: e-float exact, cash inferred from your transactions. Your own words are used if the link drops.",  # noqa: E501
     )
 
 

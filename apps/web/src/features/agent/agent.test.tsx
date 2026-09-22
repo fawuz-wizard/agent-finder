@@ -9,7 +9,7 @@ import AgentHomePage from './AgentHomePage'
 import AvailabilityPage from './AvailabilityPage'
 import FloatPage from './FloatPage'
 import { operatorApi } from '@/services/operatorApi'
-import { demoRecordVisit } from '@/services/operatorDemo'
+import { demoRecordVisit, demoSetOperatorFeed } from '@/services/operatorDemo'
 
 function App({ start = '/agent' }: { start?: string }) {
   return (
@@ -214,5 +214,36 @@ describe('predictive availability', () => {
     expect(within(grid).getByRole('radio', { name: /small/i })).toHaveAttribute('aria-checked', 'true')
     // Back to the seeded words so later files see the same Fatmata.
     await operatorApi.declare('Agent 024', { presence: 'open', cash_out: 'most', deposit: 'some', night_mode: true })
+  })
+})
+
+describe('operator feed (demo)', () => {
+  it('reads capacity from the feed, retires the refresh prompt, and keeps presence with the agent', async () => {
+    demoSetOperatorFeed(true)
+    try {
+      const home = await operatorApi.home('Agent 024')
+      expect(home.declaration.capacity_source).toBe('operator')
+      expect(home.declaration.confirm_due).toBe(false)
+      expect(home.declaration.freshness_text).toMatch(/nothing to refresh/)
+      expect(home.customers_see.explanation).toMatch(/Orange \(demo\) position/)
+      // Midday pinned clock: 5/13 of the day drawn from 12,400 leaves 8,347 → "some".
+      expect(home.declaration.cash_out).toBe('some')
+      expect(home.customers_see.sides[0]!.range_text).toBe('up to SLE 8,347')
+
+      const user = userEvent.setup()
+      render(<App />)
+      await signIn(user)
+      await screen.findByText("Fatmata's Shop")
+      expect(await screen.findByText(/nothing to refresh/)).toBeInTheDocument()
+      expect(screen.queryByText('Refresh status')).not.toBeInTheDocument()
+      expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
+      expect(screen.getByText(/e-float exact/i)).toBeInTheDocument()
+
+      await operatorApi.declare('Agent 024', { presence: 'hidden', cash_out: 'most', deposit: 'some', night_mode: true })
+      expect((await operatorApi.home('Agent 024')).customers_see.state).toBe('hidden')
+    } finally {
+      await operatorApi.declare('Agent 024', { presence: 'open', cash_out: 'most', deposit: 'some', night_mode: true })
+      demoSetOperatorFeed(false)
+    }
   })
 })

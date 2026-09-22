@@ -10,6 +10,11 @@ export const config = {
   /** 'mock' serves the seeded demo network; 'live' calls the FastAPI backend. */
   apiMode: ((env.VITE_API_MODE as string | undefined) ?? 'mock') as 'mock' | 'live',
   useLiveApi: ((env.VITE_API_MODE as string | undefined) ?? 'mock') === 'live',
+  /**
+   * Demo only: simulate the operator's activity feed, so capacity is read from transactions
+   * and agents are never asked to refresh. Off for the pilot with real agents.
+   */
+  operatorFeed: ((env.VITE_OPERATOR_FEED as string | undefined) ?? 'off') === 'on',
   /** Results re-query cadence while the results screen is visible (architecture §9). */
   searchRefreshMs: 30_000,
   /**

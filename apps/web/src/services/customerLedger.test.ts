@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { customerApi } from './customerApi'
+import { customerApi, setOperatorFeedDemo } from './customerApi'
 import type { AgentResult, SearchResponse } from '@/types/public'
 
 function fatmata(res: SearchResponse): AgentResult {
@@ -37,5 +37,22 @@ describe('demo customer network — visits move the answer like the live API', (
     const home = demoAgentHome('Agent 024')
     expect(home.declaration.confirm_reason).toMatch(/failed cash out of SLE 5,000 to 10,000/)
     expect(home.customers_see.sides[0]!.range_text).toBe('up to SLE 5,000')
+  })
+})
+
+describe('demo customer network — the operator feed', () => {
+  it('answers from the simulated position and says where the freshness comes from', async () => {
+    setOperatorFeedDemo(true)
+    try {
+      await new Promise((r) => setTimeout(r, 20))
+      // Midday pinned clock: Fatmata's 12,400 minus 5/13 of the day's 85% drain leaves 8,347.
+      expect(fatmata(await search(8000)).outcome).toBe('likely')
+      expect(fatmata(await search(8400)).outcome).toBe('limited')
+      expect(fatmata(await search(8000)).freshness_text).toMatch(/Orange \(demo\)/)
+      const text = JSON.stringify(await search(8000))
+      expect(text).not.toMatch(/8,347|8347|balance|"most"|"some"/)
+    } finally {
+      setOperatorFeedDemo(false)
+    }
   })
 })

@@ -18,6 +18,7 @@ import type {
   VisitReport,
 } from '@/types/public'
 import { TRANSACTION_LABELS } from '@/types/public'
+import { config } from '@/lib/config'
 
 /** PRIVATE to this fake server — never leaves it. */
 interface DemoAgent {
@@ -37,6 +38,8 @@ interface DemoAgent {
   verified?: boolean
   lat: number
   lng: number
+  /** Present for agents on the (simulated) operator feed: their book at opening. */
+  feed?: { balance: number; float: number }
 }
 
 /** Network-wide ranges, identical for every agent (set once in network settings). */
@@ -50,14 +53,14 @@ const RANGE_CEILING: Record<DemoAgent['cash'], number> = {
 const FRESHNESS_WINDOWS = { fresh: 90, aging: 120, may_have_changed: 240 } as const
 
 const AGENTS: DemoAgent[] = [
-  { id: 'af-4821', name: "Fatmata's Shop", area: 'Lumley', street: 'Lumley Junction', distance_m: 300, open: true, hidden: false, cash: 'most', float: 'some', updated_min_ago: 6, hours_text: 'Open today 07:00–20:00', can_call: true, verified: true, lat: 8.4405, lng: -13.2795 },
+  { id: 'af-4821', name: "Fatmata's Shop", area: 'Lumley', street: 'Lumley Junction', distance_m: 300, open: true, hidden: false, cash: 'most', float: 'some', updated_min_ago: 6, hours_text: 'Open today 07:00–20:00', can_call: true, verified: true, lat: 8.4405, lng: -13.2795, feed: { balance: 12400, float: 8450 } },
   { id: 'af-7315', name: "Mohamed's Store", area: 'Lumley', street: 'Lumley Road', distance_m: 120, open: true, hidden: false, cash: 'small', float: 'most', updated_min_ago: 25, hours_text: 'Open today 08:00–19:00', can_call: true, lat: 8.4412, lng: -13.2781 },
   { id: 'af-1902', name: 'Aminata Trading', area: 'Lumley', street: 'Lumley Junction', distance_m: 210, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 305, hours_text: 'Open today 07:30–20:00', can_call: false, lat: 8.4399, lng: -13.2808 },
   { id: 'af-6644', name: "Kadiatu's Kiosk", area: 'Lumley', street: 'Lumley Beach Road', distance_m: 650, open: true, hidden: false, cash: 'most', float: 'some', updated_min_ago: 14, hours_text: 'Open today 08:00–21:00', can_call: true, lat: 8.4371, lng: -13.2852 },
-  { id: 'af-5570', name: 'Sento Enterprise', area: 'Aberdeen', street: 'Sir Samuel Lewis Road', distance_m: 1400, open: true, hidden: false, cash: 'some', float: 'small', updated_min_ago: 48, hours_text: 'Open today 08:00–18:00', can_call: false, lat: 8.4842, lng: -13.2711 },
-  { id: 'af-2210', name: 'Salamatu Shop', area: 'Lumley', street: 'Wilkinson Road', distance_m: 880, open: false, hidden: false, cash: 'most', float: 'most', updated_min_ago: 62, hours_text: 'Opens 07:00', can_call: false, lat: 8.4448, lng: -13.2749 },
-  { id: 'af-3388', name: 'Ibrahim Cash Point', area: 'Wilberforce', street: 'Wilberforce Street', distance_m: 1900, open: true, hidden: true, cash: 'some', float: 'some', updated_min_ago: 20, hours_text: 'Open today 09:00–18:00', can_call: false, lat: 8.4617, lng: -13.2629 },
-  { id: 'af-9042', name: 'Amadu Corner Shop', area: 'Lumley', street: 'Juba Road', distance_m: 1100, open: true, hidden: false, cash: 'none', float: 'most', updated_min_ago: 9, hours_text: 'Open today 07:00–19:00', can_call: false, lat: 8.4336, lng: -13.2724 },
+  { id: 'af-5570', name: 'Sento Enterprise', area: 'Aberdeen', street: 'Sir Samuel Lewis Road', distance_m: 1400, open: true, hidden: false, cash: 'some', float: 'small', updated_min_ago: 48, hours_text: 'Open today 08:00–18:00', can_call: false, lat: 8.4842, lng: -13.2711, feed: { balance: 4900, float: 3100 } },
+  { id: 'af-2210', name: 'Salamatu Shop', area: 'Lumley', street: 'Wilkinson Road', distance_m: 880, open: false, hidden: false, cash: 'most', float: 'most', updated_min_ago: 62, hours_text: 'Opens 07:00', can_call: false, lat: 8.4448, lng: -13.2749, feed: { balance: 7300, float: 6050 } },
+  { id: 'af-3388', name: 'Ibrahim Cash Point', area: 'Wilberforce', street: 'Wilberforce Street', distance_m: 1900, open: true, hidden: true, cash: 'some', float: 'some', updated_min_ago: 20, hours_text: 'Open today 09:00–18:00', can_call: false, lat: 8.4617, lng: -13.2629, feed: { balance: 21000, float: 15600 } },
+  { id: 'af-9042', name: 'Amadu Corner Shop', area: 'Lumley', street: 'Juba Road', distance_m: 1100, open: true, hidden: false, cash: 'none', float: 'most', updated_min_ago: 9, hours_text: 'Open today 07:00–19:00', can_call: false, lat: 8.4336, lng: -13.2724, feed: { balance: 900, float: 400 } },
 ]
 
 function freshnessOf(min: number): FreshnessState {
@@ -113,8 +116,28 @@ export function recordDemoVisit(body: VisitReport): void {
   visits.push({ id: body.agent_id, side, amount: body.amount_sle, answer: body.answer, reason: body.reason_code ?? null })
 }
 
+let feedOn = config.operatorFeed
+/** Demo control: flip the simulated operator feed for the customer surface. */
+export function setDemoOperatorFeed(on: boolean): void {
+  feedOn = on
+}
+const FEED_SOURCE = 'Orange (demo)'
+
+/** The operator's position for one agent, simulated from the clock exactly as the API's fake adapter does. */
+function feedFor(a: DemoAgent): { cash: number; float: number; ageMin: number } | null {
+  if (!feedOn || !a.feed) return null
+  const d = new Date()
+  const hour = d.getUTCHours() + d.getUTCMinutes() / 60
+  const frac = Math.max(0, Math.min(1, (hour - 7) / 13))
+  const drawn = Math.floor(a.feed.balance * 0.85 * frac)
+  const salt = [...a.id].reduce((n, c) => n + c.charCodeAt(0), 0) % 17
+  return { cash: Math.max(0, a.feed.balance - drawn), float: a.feed.float + Math.floor(drawn * 0.6), ageMin: 3 + salt }
+}
+
 /** Largest amount that reads as likely for one side right now; null means no upper bound. */
 function ceilingFor(a: DemoAgent, side: 'cash' | 'float'): number | null {
+  const feed = feedFor(a)
+  if (feed) return side === 'cash' ? feed.cash : feed.float
   const word = a[side]
   let base: number | null = word === 'most' ? null : RANGE_CEILING[word]
   let cap: number | null = null
@@ -137,7 +160,7 @@ function outcomeFor(a: DemoAgent, tx: TransactionType, amount: number | null): P
   if (a.hidden) return 'hidden'
   if (!a.open) return 'closed'
   const fresh = freshnessOf(a.updated_min_ago)
-  if (fresh === 'expired') return 'expired'
+  if (fresh === 'expired' && !feedFor(a)) return 'expired'
   const ceiling = ceilingFor(a, sideFor(tx))
   if (ceiling === null) return 'likely'
   if (amount === null) return ceiling <= 0 ? 'limited' : 'likely'
@@ -169,8 +192,8 @@ function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): Age
     distance_m: a.distance_m,
     outcome,
     outcome_text: OUTCOME_TEXT[outcome],
-    freshness: freshnessOf(a.updated_min_ago),
-    freshness_text: freshnessText(a.updated_min_ago),
+    freshness: freshnessOf(feedFor(a)?.ageMin ?? a.updated_min_ago),
+    freshness_text: feedFor(a) ? `${freshnessText(feedFor(a)!.ageMin)} · ${FEED_SOURCE}` : freshnessText(a.updated_min_ago),
     directions_url: `https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lng}`,
     can_call: a.can_call,
   }

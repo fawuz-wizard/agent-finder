@@ -20,6 +20,7 @@ from app.services.phrasing import (
     PUBLIC_TEXT,
     TRANSACTION_LABELS,
     amount_label,
+    capacity_updated_at,
     freshness_of,
     freshness_text,
     haversine_m,
@@ -83,6 +84,8 @@ class SearchResponse(PublicModel):
 
 def to_result(a: Agent, tx: str, amount: int | None, dist: int, now, ledger=None) -> AgentResult:
     out = public_outcome(a, tx, amount, now, ledger)
+    updated = capacity_updated_at(a, ledger, now)
+    source = ledger.feed_source if ledger is not None and ledger.live else None
     return AgentResult(
         id=a.ref.replace("Agent ", "af-"),
         name=a.shop_name,
@@ -90,8 +93,8 @@ def to_result(a: Agent, tx: str, amount: int | None, dist: int, now, ledger=None
         distance_m=dist,
         outcome=out,
         outcome_text=PUBLIC_TEXT[out],
-        freshness=freshness_of(a.declared_at, now),
-        freshness_text=freshness_text(a.declared_at, now),
+        freshness=freshness_of(updated, now),
+        freshness_text=freshness_text(updated, now, source),
         directions_url=f"https://www.google.com/maps/dir/?api=1&destination={round(a.lat, 3)},{round(a.lng, 3)}",  # noqa: E501
         can_call=bool(a.phone_visible and a.phone),
     )

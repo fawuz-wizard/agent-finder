@@ -52,6 +52,9 @@ export interface Declaration {
   /** Why it is asked now, when an event (a failed or confirmed visit) raised it, not the clock. */
   confirm_reason: string | null
   night_mode: boolean
+  /** "agent": the agent's own words. "operator": the host system's position, read just now. */
+  capacity_source: 'agent' | 'operator'
+  source_text: string | null
 }
 
 /** What the agent sends. Figures are optional; when given, the word is derived server-side. */
@@ -193,6 +196,7 @@ export interface DealerAgentRow {
   freshness_text: string
   attention: boolean
   reliability: Reliability
+  capacity_source?: 'agent' | 'operator'
 }
 
 export interface Signal {

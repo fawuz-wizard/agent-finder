@@ -27,6 +27,7 @@ from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import usage
 from app.services.forecast import forecast_counts, forecasts_for
+from app.services.ledger import ledgers_for
 from app.services.phrasing import (
     CAPACITY_LABEL,
     PRESENCE_LABEL,
@@ -97,8 +98,10 @@ async def signals_for(
     if agents and not include_muted:
         muted = await active_mutes(db, [a.ref for a in agents], now)
     trust = await trust_for(db, agents, now)
+    ledgers = await ledgers_for(db, agents, now)
     for a in agents:
         call_url = f"tel:{a.phone}" if a.phone else None
+        live = ledgers[a.ref].live
         t = trust[a.ref]
         if t.label == "unreliable":
             out.append(
@@ -177,7 +180,7 @@ async def signals_for(
                     "explanation": "Often a cash shortage. Check whether a float request is waiting.",  # noqa: E501
                 }
             )
-        if freshness_of(a.declared_at, now) == "expired":
+        if not live and freshness_of(a.declared_at, now) == "expired":
             mins = age_minutes(a.declared_at, now)
             out.append(
                 {
@@ -200,14 +203,17 @@ async def signals_for(
 BUCKETS = ("active", "limited", "hidden", "closed")
 
 
-def bucket_of(a: Agent, now: datetime) -> str:
+def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     """The one bucket an agent is in right now. The dashboard tiles count these and the
-    register filters by them, from this single function, so the two can never disagree."""
+    register filters by them, from this single function, so the two can never disagree.
+    With the operator feed live, the word and the freshness come from the feed."""
+    live = ledger is not None and ledger.live
+    word = ledger.cash.word if live else a.cash_out
     if a.presence == "hidden":
         return "hidden"
-    if a.presence == "closed" or freshness_of(a.declared_at, now) == "expired":
+    if a.presence == "closed" or (not live and freshness_of(a.declared_at, now) == "expired"):
         return "closed"
-    if a.cash_out in ("none", "small"):
+    if word in ("none", "small"):
         return "limited"
     return "active"
 
@@ -218,9 +224,10 @@ async def overview(
 ) -> dict:
     now = now_utc()
     agents = await my_agents(db, p.subject)
+    ledgers = await ledgers_for(db, agents, now)
     counts = {b: 0 for b in BUCKETS}
     for a in agents:
-        counts[bucket_of(a, now)] += 1
+        counts[bucket_of(a, now, ledgers.get(a.ref))] += 1
     pending = (
         (
             await db.execute(
@@ -266,8 +273,10 @@ async def agents_list(
     rows = []
     agents = await my_agents(db, p.subject)
     trust = await trust_for(db, agents, now)
+    ledgers = await ledgers_for(db, agents, now)
     for a in agents:
-        d = declaration_of(a, now)
+        ledger = ledgers.get(a.ref)
+        d = declaration_of(a, now, ledger)
         problems = (
             await db.execute(
                 select(func.count())
@@ -286,8 +295,9 @@ async def agents_list(
                 "area": a.street,
                 "presence": a.presence,
                 "presence_text": PRESENCE_LABEL[a.presence],
-                "bucket": bucket_of(a, now),
-                "declaration_text": f"{CAPACITY_LABEL.get(a.cash_out or '', '—')} / {CAPACITY_LABEL.get(a.deposit or '', '—')}",  # noqa: E501
+                "bucket": bucket_of(a, now, ledger),
+                "declaration_text": f"{CAPACITY_LABEL.get(d.cash_out, '—')} / {CAPACITY_LABEL.get(d.deposit, '—')}",  # noqa: E501
+                "capacity_source": d.capacity_source,
                 "freshness_text": age_text(d.age_min if d.age_min < 10**6 else None),
                 "attention": int(problems) > 1
                 or d.freshness == "expired"
@@ -355,12 +365,13 @@ async def agent_detail(
     )
     sigs = [s for s in await signals_for(db, [a], now)]
     trust = (await trust_for(db, [a], now))[a.ref]
+    ledger = (await ledgers_for(db, [a], now))[a.ref]
     return {
         "ref": a.ref,
         "name": a.person_name,
         "shop_name": a.shop_name,
         "area": a.street,
-        "declaration": declaration_of(a, now).model_dump(),
+        "declaration": declaration_of(a, now, ledger).model_dump(),
         "reliability": trust.as_dict(),
         "today": {
             "transactions": tx.get("transactions"),

@@ -7,7 +7,16 @@
  */
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
-import { demoAgent, demoAgentName, demoSearch, recordDemoVisit } from './demoNetwork'
+import { demoAgent, demoAgentName, demoSearch, recordDemoVisit, setDemoOperatorFeed } from './demoNetwork'
+
+/**
+ * Demo only: flip the simulated Orange Money feed for both surfaces. The operator side is
+ * reached through a dynamic import so nothing of it ships in the customer's bundle.
+ */
+export function setOperatorFeedDemo(on: boolean): void {
+  setDemoOperatorFeed(on)
+  void import('./operatorDemo').then((m) => m.demoSetOperatorFeed(on))
+}
 import type {
   AgentDetail,
   ReportAccepted,

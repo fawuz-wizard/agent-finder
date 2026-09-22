@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import frame from './frame.html?raw'
 import './host-frame.css'
+import { config } from '@/lib/config'
+import { setOperatorFeedDemo } from '@/services/customerApi'
 
 /**
  * Demo host shell — the operator super-app home, from the design export the team
@@ -24,6 +26,12 @@ export default function HostHomePage() {
   const navigate = useNavigate()
   const box = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
+  const [feed, setFeed] = useState(config.operatorFeed)
+
+  function toggleFeed(on: boolean) {
+    setFeed(on)
+    setOperatorFeedDemo(on)
+  }
 
   useEffect(() => {
     const el = box.current
@@ -68,6 +76,25 @@ export default function HostHomePage() {
         />
       </div>
 
+      {!config.useLiveApi && (
+        <label className="mx-4 mt-3 flex items-center justify-between gap-3 rounded-[10px] border border-white/15 px-3 py-2 text-left text-xs text-white/80">
+          <span>
+            <span className="block font-bold text-white">Orange Money feed (demo)</span>
+            {feed
+              ? 'On — capacity is read from transactions; agents are never asked to refresh.'
+              : 'Off — agents declare their own capacity and confirm it when asked.'}
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            aria-checked={feed}
+            aria-label="Orange Money feed (demo)"
+            checked={feed}
+            onChange={(e) => toggleFeed(e.target.checked)}
+            className="h-6 w-6 shrink-0"
+          />
+        </label>
+      )}
       <p className="px-4 pb-2 pt-3 text-center text-[10.5px] leading-snug text-white/40">
         Only the Agent Finder banner is active in this demo — everything else is a placeholder.{' '}
         <Link to="/find" className="underline">

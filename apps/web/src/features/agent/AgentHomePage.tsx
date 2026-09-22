@@ -86,8 +86,9 @@ export default function AgentHomePage() {
           <p className={`mt-2 text-sm ${d.freshness === 'expired' ? 'font-semibold text-danger' : 'text-muted'}`}>
             {d.freshness_text}
           </p>
+          {d.source_text && <p className="mt-1 text-xs text-muted">{d.source_text}</p>}
 
-          {d.confirm_due ? (
+          {d.capacity_source === 'operator' ? null : d.confirm_due ? (
             <div className="mt-3 rounded-card border border-line bg-paper p-3">
               <p className="mb-2 text-base font-bold">Still correct?</p>
               {d.confirm_reason && <p className="mb-2 text-sm text-muted">{d.confirm_reason}</p>}

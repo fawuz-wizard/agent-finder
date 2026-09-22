@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # set DATABASE_URL=postgresql+asyncpg://... for Supabase/Postgres.
     database_url: str = Field(default="sqlite+aiosqlite:///./agentfinder.db")
     operator_adapter: Literal["fake", "none"] = "fake"
+    # When on, the operator's activity feed (position, last transaction) is the truth behind
+    # every phrase and the agent is never asked to refresh capacity. Off for the pilot with
+    # real agents, on for the demo build; on for real once the Orange Money feed is connected.
+    operator_feed: bool = False
     # Demo dealer, demo agents, PIN 1234 everywhere. Unset means: yes on a laptop or in tests,
     # never in production, where the first boot must not plant demo PINs in a real database.
     seed_on_start: bool | None = None

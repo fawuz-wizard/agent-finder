@@ -171,6 +171,11 @@ export default function AvailabilityPage() {
           </p>
         </Card>
 
+        {data?.declaration.capacity_source === 'operator' && (
+          <p className="rounded-card border border-line bg-canvas px-3 py-2 text-sm text-muted" role="note">
+            Capacity comes from Orange Money while the link is connected. The words and figures below are used only if the link drops.
+          </p>
+        )}
         <WordGrid
           legend="Cash out — how much can you give?"
           value={cashOut}
