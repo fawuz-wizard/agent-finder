@@ -30,7 +30,9 @@ export function GoogleMap({ center, zoom = 15, className, onReady }: GoogleMapPr
     const map = new libs.maps.Map(ref.current, {
       center,
       zoom,
-      ...(config.googleMapsMapId ? { mapId: config.googleMapsMapId } : {}),
+      // Advanced Markers need a Map ID. Google's DEMO_MAP_ID renders the default style, so a
+      // key alone is enough for a demo; set VITE_GOOGLE_MAPS_MAP_ID for a styled production map.
+      mapId: config.googleMapsMapId || 'DEMO_MAP_ID',
       disableDefaultUI: true,
       zoomControl: true,
       gestureHandling: 'greedy',
