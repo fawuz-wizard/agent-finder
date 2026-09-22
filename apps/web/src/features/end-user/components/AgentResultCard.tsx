@@ -38,15 +38,13 @@ export function AgentResultCard({
         {agent.note && <WhyLine text={agent.note} tone="note" />}
         <div className="relative z-10 flex">
           {actionable && onDirections ? (
-            <a
-              href={agent.directions_url}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to={`${to}&map=1`}
               onClick={() => onDirections(agent)}
               className="inline-flex h-control items-center rounded-card px-1 text-base font-bold text-brand-text hover:bg-brand-faint"
             >
               Get directions ›
-            </a>
+            </Link>
           ) : (
             <Link
               to={to}

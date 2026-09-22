@@ -14,10 +14,19 @@ export type PublicOutcome = 'likely' | 'limited' | 'expired' | 'closed' | 'hidde
 /** Freshness is computed by the backend domain layer, never in the browser. */
 export type FreshnessState = 'fresh' | 'aging' | 'may_have_changed' | 'expired'
 
+/** A coarse point (~110 m): an agent's business point or the origin distances were measured from. */
+export interface Point {
+  lat: number
+  lng: number
+}
+
 export interface AgentResult {
   id: string
   name: string
   area: string
+  /** Coarse business point, so the app can draw the way there without leaving. */
+  lat: number
+  lng: number
   distance_m: number
   /** Outcome for THIS request, decided server-side. */
   outcome: PublicOutcome
@@ -42,6 +51,8 @@ export interface SearchQueryEcho {
   amount_label: string | null
   area: string
   radius_m: number
+  /** Where the distances were measured from: the blunted device point or the area centre. */
+  origin: Point
 }
 
 export interface SearchResponse {
@@ -66,6 +77,8 @@ export interface AgentDetail extends AgentResult {
   verified_label?: string | null
   /** Present only when the agent opted in; never rendered as plain text. */
   call_url?: string | null
+  /** Where the distance was measured from, so the app can draw the way there. */
+  origin: Point
 }
 
 export type OutcomeAnswer = 'yes' | 'no' | 'did_not_go'

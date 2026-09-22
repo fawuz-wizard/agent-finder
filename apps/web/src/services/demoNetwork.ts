@@ -222,6 +222,8 @@ function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): Age
     id: a.id,
     name: a.name,
     area: a.street,
+    lat: a.lat,
+    lng: a.lng,
     distance_m: a.distance_m,
     outcome,
     outcome_text: OUTCOME_TEXT[outcome],
@@ -234,6 +236,19 @@ function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): Age
 
 function amountLabel(amount: number | null): string | null {
   return amount === null ? null : `SLE ${amount.toLocaleString('en-US')}`
+}
+
+/** Coarse area centres, the same table the API uses when the customer declined location. */
+const AREA_POINTS: Record<string, { lat: number; lng: number }> = {
+  Lumley: { lat: 8.4405, lng: -13.2795 },
+  Aberdeen: { lat: 8.4842, lng: -13.2711 },
+  Wilberforce: { lat: 8.4617, lng: -13.2629 },
+  'Congo Cross': { lat: 8.479, lng: -13.256 },
+  Freetown: { lat: 8.4657, lng: -13.2317 },
+}
+
+function originFor(area: string): { lat: number; lng: number } {
+  return AREA_POINTS[area] ?? AREA_POINTS.Freetown!
 }
 
 export function demoSearch(req: SearchRequest): SearchResponse {
@@ -294,6 +309,7 @@ export function demoSearch(req: SearchRequest): SearchResponse {
       amount_label: amountLabel(amount),
       area: req.area === 'all' ? 'Freetown' : req.area,
       radius_m: req.radius_m ?? 2000,
+      origin: originFor(req.area === 'all' ? 'Freetown' : req.area),
     },
     recommended,
     closer_not_serving: closer,
@@ -315,6 +331,7 @@ export function demoAgent(id: string, tx: TransactionType | null, amount: number
     hours_text: a.hours_text,
     verified_label: a.verified ? 'Registered agent' : null,
     call_url: a.can_call ? 'tel:+23200000000' : null,
+    origin: originFor(a.area),
   }
 }
 

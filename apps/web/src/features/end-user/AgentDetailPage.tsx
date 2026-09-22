@@ -5,6 +5,7 @@ import { customerApi } from '@/services/customerApi'
 import { ApiRequestError } from '@/lib/api'
 import { usePendingVisit } from '@/hooks/usePendingVisit'
 import type { AgentDetail, TransactionType } from '@/types/public'
+import { RouteMap } from '@/features/map'
 import { ServiceStatus } from './components/ServiceStatus'
 import { FreshnessBadge } from './components/FreshnessBadge'
 import { DistanceLabel } from './components/DistanceLabel'
@@ -17,9 +18,16 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<AgentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { remember } = usePendingVisit()
+  // The way there opens under the agent, inside the app. ?map=1 (from a results card) opens it at once.
+  const [showMap, setShowMap] = useState(params.get('map') === '1')
 
   const tx = (params.get('tx') as TransactionType | null) ?? null
   const amount = params.get('amount') ? Number(params.get('amount')) : null
+
+  useEffect(() => {
+    if (agent && params.get('map') === '1') remember({ agentId: agent.id, agentName: agent.name, transaction: tx, amount })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per agent, when arriving with the map open
+  }, [agent?.id])
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -88,6 +96,10 @@ export default function AgentDetailPage() {
           </div>
         </Card>
 
+        {showMap && (
+          <RouteMap agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }} origin={agent.origin} distance_m={agent.distance_m} directions_url={agent.directions_url} />
+        )}
+
         <Card className="bg-canvas">
           <h2 className="text-base font-bold">What this means</h2>
           <p className="mt-1 text-sm text-muted">
@@ -101,17 +113,17 @@ export default function AgentDetailPage() {
       </div>
 
       <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-paper p-4">
-        <a
-          href={agent.directions_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() =>
-            remember({ agentId: agent.id, agentName: agent.name, transaction: tx, amount })
-          }
+        <button
+          type="button"
+          aria-expanded={showMap}
+          onClick={() => {
+            if (!showMap) remember({ agentId: agent.id, agentName: agent.name, transaction: tx, amount })
+            setShowMap((v) => !v)
+          }}
           className="inline-flex h-cta w-full items-center justify-center rounded-cta bg-brand text-lg font-bold text-ink"
         >
-          Get directions
-        </a>
+          {showMap ? 'Hide the map' : 'Get directions'}
+        </button>
         {agent.call_url && (
           <a
             href={agent.call_url}

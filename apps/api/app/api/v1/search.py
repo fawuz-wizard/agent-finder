@@ -54,10 +54,21 @@ class SearchRequest(BaseModel):
     radius_m: int = Field(default=2000, ge=200, le=20_000)
 
 
+class Point(PublicModel):
+    """A coarse point (~110 m): the agent's business point, or the origin the distance was
+    measured from. Never a customer's precise location."""
+
+    lat: float
+    lng: float
+
+
 class AgentResult(PublicModel):
     id: str
     name: str
     area: str
+    # Coarse business point, so the app can draw the way there without leaving.
+    lat: float
+    lng: float
     distance_m: int
     outcome: str
     outcome_text: str
@@ -76,6 +87,8 @@ class QueryEcho(PublicModel):
     amount_label: str | None
     area: str
     radius_m: int
+    # Where the distances were measured from: the blunted device point or the area centre.
+    origin: Point
 
 
 class SearchResponse(PublicModel):
@@ -96,6 +109,8 @@ def to_result(a: Agent, tx: str, amount: int | None, dist: int, now, ledger=None
         id=a.ref.replace("Agent ", "af-"),
         name=a.shop_name,
         area=a.street,
+        lat=round(a.lat, 3),
+        lng=round(a.lng, 3),
         distance_m=dist,
         outcome=out,
         outcome_text=PUBLIC_TEXT[out],
@@ -230,6 +245,7 @@ async def search(
             amount_label=amount_label(req.amount_sle),
             area=req.area,
             radius_m=req.radius_m,
+            origin=Point(lat=olat, lng=olng),
         ),
         recommended=recommended,
         closer_not_serving=closer,

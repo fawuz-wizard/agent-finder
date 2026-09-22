@@ -3,3 +3,4 @@
 export { GoogleMap, type GoogleMapProps, type LatLng } from './GoogleMap'
 export { buildAgentMarkerElement } from './AgentMarker'
 export { loadGoogleMaps, useMapLoader } from './useMapLoader'
+export { RouteMap, type RouteMapProps } from './RouteMap'

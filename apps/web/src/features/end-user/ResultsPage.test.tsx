@@ -100,6 +100,7 @@ describe('U3 — Results', () => {
         amount_label: 'SLE 2,000',
         area: 'Lumley',
         radius_m: 2000,
+        origin: { lat: 8.4405, lng: -13.2795 },
       },
       recommended: [],
       closer_not_serving: [],

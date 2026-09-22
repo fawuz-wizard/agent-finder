@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.search import AgentResult, to_result
+from app.api.v1.search import AgentResult, Point, to_result
 from app.core.errors import NotFoundError
 from app.db.models import Agent
 from app.db.session import get_session
@@ -30,6 +30,8 @@ class AgentDetail(AgentResult):
     hours_text: str
     verified_label: str | None = None
     call_url: str | None = None
+    # Where the distance was measured from, so the app can draw the way there.
+    origin: Point
 
 
 def ref_from_public_id(public_id: str) -> str:
@@ -64,6 +66,7 @@ async def agent_detail(
     )
     return AgentDetail(
         **base.model_dump(),
+        origin=Point(lat=olat, lng=olng),
         request_label=label,
         hours_text=a.hours_text,
         verified_label="Verified agent" if a.verified else None,
