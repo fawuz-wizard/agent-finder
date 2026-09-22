@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import AgentDetailPage from './AgentDetailPage'
 import { AgentResultCard } from './components/AgentResultCard'
 import type { AgentResult } from '@/types/public'
@@ -15,6 +15,8 @@ function at(path: string) {
     </MemoryRouter>,
   )
 }
+
+beforeEach(() => sessionStorage.clear())
 
 describe('directions stay inside the app', () => {
   it('opens the way to the agent under the agent, never in another app', async () => {
@@ -55,11 +57,25 @@ describe('directions stay inside the app', () => {
     }
     render(
       <MemoryRouter>
-        <AgentResultCard agent={agent} to="/agents/af-4821?tx=cash_out&amount=2000" onDirections={() => undefined} />
+        <AgentResultCard agent={agent} to="/agents/af-4821?tx=cash_out&amount=2000" />
       </MemoryRouter>,
     )
     const link = screen.getByRole('link', { name: /get directions/i })
     expect(link).toHaveAttribute('href', '/agents/af-4821?tx=cash_out&amount=2000&map=1')
     expect(link).not.toHaveAttribute('target')
+  })
+})
+
+describe('the outcome question follows a visit, not a look', () => {
+  it('opening the map remembers nothing; "I\'m going there" starts the visit once', async () => {
+    const user = userEvent.setup()
+    at('/agents/af-4821?tx=cash_out&amount=2000&map=1')
+    await screen.findByRole('img', { name: /sketch of the way to fatmata/i })
+    expect(sessionStorage.getItem('af.pendingVisit')).toBeNull()
+    await user.click(screen.getByRole('button', { name: /i'm going there/i }))
+    const pending = JSON.parse(sessionStorage.getItem('af.pendingVisit') ?? 'null')
+    expect(pending).toMatchObject({ agentId: 'af-4821', agentName: "Fatmata's Shop", transaction: 'cash_out', amount: 2000 })
+    expect(screen.getByRole('status')).toHaveTextContent(/only once, and you can skip it/i)
+    expect(screen.queryByRole('button', { name: /i'm going there/i })).not.toBeInTheDocument()
   })
 })

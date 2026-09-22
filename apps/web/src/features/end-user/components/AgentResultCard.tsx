@@ -10,12 +10,10 @@ export function AgentResultCard({
   agent,
   to,
   recommended = false,
-  onDirections,
 }: {
   agent: AgentResult
   to: string
   recommended?: boolean
-  onDirections?: (agent: AgentResult) => void
 }) {
   const actionable = agent.outcome === 'likely'
   return (
@@ -37,10 +35,9 @@ export function AgentResultCard({
         {agent.why && <WhyLine text={agent.why} />}
         {agent.note && <WhyLine text={agent.note} tone="note" />}
         <div className="relative z-10 flex">
-          {actionable && onDirections ? (
+          {actionable ? (
             <Link
               to={`${to}&map=1`}
-              onClick={() => onDirections(agent)}
               className="inline-flex h-control items-center rounded-card px-1 text-base font-bold text-brand-text hover:bg-brand-faint"
             >
               Get directions ›

@@ -4,8 +4,9 @@ import { usePendingVisit } from '@/hooks/usePendingVisit'
 import { OutcomeForm } from './OutcomeForm'
 
 /**
- * Asks for the outcome on the next visit to the home screen, at least 15 minutes after
- * directions were taken. Dismissing it is always one tap.
+ * Asks for the outcome on the next visit to the home screen, at least 15 minutes after the
+ * customer said they were going. Asked once per visit: answering, skipping or closing the
+ * sheet all end it, and simply looking at a map never starts it.
  */
 export function OutcomePrompt() {
   const { visit, due, clear } = usePendingVisit()
@@ -15,7 +16,10 @@ export function OutcomePrompt() {
   return (
     <Sheet
       open
-      onClose={() => setOpen(false)}
+      onClose={() => {
+        clear()
+        setOpen(false)
+      }}
       title={`Did it work at ${visit.agentName}?`}
     >
       <OutcomeForm

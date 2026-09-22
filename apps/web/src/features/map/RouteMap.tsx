@@ -15,6 +15,9 @@ export interface RouteMapProps {
   distance_m: number
   /** Kept as a quiet secondary link for people who want their own maps app. */
   directions_url: string
+  /** The customer says they are going. Only then does the "how did it go?" question follow. */
+  onGoing?: () => void
+  going?: boolean
 }
 
 function distanceText(m: number): string {
@@ -112,14 +115,34 @@ function SketchRoute({ agent, origin, distance_m }: { agent: RouteMapProps['agen
   )
 }
 
-export function RouteMap({ agent, origin, distance_m, directions_url }: RouteMapProps) {
+export function RouteMap({ agent, origin, distance_m, directions_url, onGoing, going = false }: RouteMapProps) {
   return (
     <section aria-label={`Way to ${agent.name}`} className="flex flex-col gap-2">
       {config.googleMapsApiKey ? <LiveRoute agent={agent} origin={origin} /> : <SketchRoute agent={agent} origin={origin} distance_m={distance_m} />}
       <p className="text-xs text-muted">
         {origin ? `Straight line, ${distanceText(distance_m)}, ${walkText(distance_m)}.` : 'Your location is not shared, so this shows the agent\'s area.'} Ask when you arrive.
       </p>
-      <a href={directions_url} target="_blank" rel="noopener noreferrer" className="self-start text-xs font-semibold text-brand-text underline">
+      {onGoing &&
+        (going ? (
+          <p className="text-sm font-semibold text-success-strong" role="status">
+            Noted. We will ask how it went later — only once, and you can skip it.
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={onGoing}
+            className="inline-flex h-control w-full items-center justify-center rounded-card border-2 border-brand-deep text-base font-bold text-brand-text"
+          >
+            I'm going there
+          </button>
+        ))}
+      <a
+        href={directions_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onGoing}
+        className="self-start text-xs font-semibold text-brand-text underline"
+      >
         Open in your maps app instead
       </a>
     </section>

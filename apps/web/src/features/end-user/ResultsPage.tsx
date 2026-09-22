@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Banner, Button } from '@/design'
 import { useSearch } from '@/hooks/useSearch'
-import { usePendingVisit } from '@/hooks/usePendingVisit'
-import type { AgentResult, SearchRequest, TransactionType } from '@/types/public'
+import type { SearchRequest, TransactionType } from '@/types/public'
 import { AgentResultCard } from './components/AgentResultCard'
 import { EmptyState, ErrorState, LoadingResults, OfflineBanner } from './components/states'
 
@@ -26,7 +25,6 @@ export default function ResultsPage() {
   const navigate = useNavigate()
   const req = useMemo(() => parse(params), [params])
   const { state, data, error, stale, lastUpdated, refresh } = useSearch(req)
-  const { remember } = usePendingVisit()
   const [showMore, setShowMore] = useState(false)
   // The view lives in the URL so a shared or refreshed link opens the same way.
   const view: View = params.get('view') === 'nearest' ? 'nearest' : 'recommended'
@@ -67,9 +65,6 @@ export default function ResultsPage() {
       </div>
     )
   }
-
-  const onDirections = (a: AgentResult) =>
-    remember({ agentId: a.id, agentName: a.name, transaction: req.transaction, amount: req.amount_sle })
 
   const detailTo = (id: string) =>
     `/agents/${id}?tx=${req.transaction}${req.amount_sle ? `&amount=${req.amount_sle}` : ''}&area=${encodeURIComponent(req.area)}`
@@ -133,7 +128,7 @@ export default function ResultsPage() {
                   agent={a.isRecommended ? { ...a, why: `Our recommendation for ${data.query.amount_label ?? 'this request'}.` } : a}
                   to={detailTo(a.id)}
                   recommended={a.isRecommended}
-                  onDirections={onDirections}
+                 
                 />
               ))}
 
@@ -143,7 +138,7 @@ export default function ResultsPage() {
                   Recommended — can handle your request
                 </h2>
                 {data.recommended.map((a) => (
-                  <AgentResultCard key={a.id} agent={a} to={detailTo(a.id)} recommended onDirections={onDirections} />
+                  <AgentResultCard key={a.id} agent={a} to={detailTo(a.id)} recommended />
                 ))}
               </section>
             )}
@@ -154,7 +149,7 @@ export default function ResultsPage() {
                   On your way — you will pass these
                 </h2>
                 {data.closer_not_serving.map((a) => (
-                  <AgentResultCard key={a.id} agent={a} to={detailTo(a.id)} onDirections={onDirections} />
+                  <AgentResultCard key={a.id} agent={a} to={detailTo(a.id)} />
                 ))}
               </section>
             )}
@@ -180,7 +175,7 @@ export default function ResultsPage() {
                     Other agents nearby
                   </h2>
                   {data.results.map((a) => (
-                    <AgentResultCard key={a.id} agent={a} to={detailTo(a.id)} onDirections={onDirections} />
+                    <AgentResultCard key={a.id} agent={a} to={detailTo(a.id)} />
                   ))}
                 </section>
               ) : (

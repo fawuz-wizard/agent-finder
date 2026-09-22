@@ -17,17 +17,13 @@ export default function AgentDetailPage() {
   const [params] = useSearchParams()
   const [agent, setAgent] = useState<AgentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { remember } = usePendingVisit()
+  const { visit, remember } = usePendingVisit()
   // The way there opens under the agent, inside the app. ?map=1 (from a results card) opens it at once.
+  // Looking at the map is not a visit: only "I'm going there" starts the outcome question.
   const [showMap, setShowMap] = useState(params.get('map') === '1')
 
   const tx = (params.get('tx') as TransactionType | null) ?? null
   const amount = params.get('amount') ? Number(params.get('amount')) : null
-
-  useEffect(() => {
-    if (agent && params.get('map') === '1') remember({ agentId: agent.id, agentName: agent.name, transaction: tx, amount })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per agent, when arriving with the map open
-  }, [agent?.id])
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -97,7 +93,14 @@ export default function AgentDetailPage() {
         </Card>
 
         {showMap && (
-          <RouteMap agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }} origin={agent.origin} distance_m={agent.distance_m} directions_url={agent.directions_url} />
+          <RouteMap
+            agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }}
+            origin={agent.origin}
+            distance_m={agent.distance_m}
+            directions_url={agent.directions_url}
+            going={visit?.agentId === agent.id}
+            onGoing={() => remember({ agentId: agent.id, agentName: agent.name, transaction: tx, amount })}
+          />
         )}
 
         <Card className="bg-canvas">
@@ -116,10 +119,7 @@ export default function AgentDetailPage() {
         <button
           type="button"
           aria-expanded={showMap}
-          onClick={() => {
-            if (!showMap) remember({ agentId: agent.id, agentName: agent.name, transaction: tx, amount })
-            setShowMap((v) => !v)
-          }}
+          onClick={() => setShowMap((v) => !v)}
           className="inline-flex h-cta w-full items-center justify-center rounded-cta bg-brand text-lg font-bold text-ink"
         >
           {showMap ? 'Hide the map' : 'Get directions'}
