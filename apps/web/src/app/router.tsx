@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
-import { AdminLayout, AgentLayout, CustomerLayout, DealerLayout } from './layouts'
+import { AgentLayout, CustomerLayout, DealerLayout } from './layouts'
 import { RequireRole } from '@/features/auth/RequireRole'
 import { ResultCardSkeleton } from '@/design'
 
@@ -24,9 +24,6 @@ const DealerFloatQueue = lazy(() => import('@/features/dealer/FloatQueuePage'))
 const DealerFloatReview = lazy(() => import('@/features/dealer/FloatReviewPage'))
 const DealerAttention = lazy(() => import('@/features/dealer/AttentionPage'))
 const DealerProfile = lazy(() => import('@/features/dealer/ProfilePage'))
-const AdminOverview = lazy(() => import('@/features/admin/OverviewPage'))
-const AdminAgents = lazy(() => import('@/features/admin/AgentsPage'))
-const AdminReports = lazy(() => import('@/features/admin/ReportsPage'))
 const NotFound = lazy(() => import('./NotFound'))
 
 function Fallback() {
@@ -94,15 +91,7 @@ const router = createBrowserRouter([
       },
     ],
   },
-  {
-    path: '/admin',
-    element: <AdminLayout />,
-    children: [
-      { index: true, element: withSuspense(<AdminOverview />) },
-      { path: 'agents', element: withSuspense(<AdminAgents />) },
-      { path: 'reports', element: withSuspense(<AdminReports />) },
-    ],
-  },
+  // /admin (features/admin, AdminLayout) is not routed for the pilot; it returns after the competition.
   { path: '*', element: withSuspense(<NotFound />) },
 ])
 

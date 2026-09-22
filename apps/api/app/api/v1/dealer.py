@@ -344,7 +344,7 @@ async def agent_detail(
 
 
 class ActionBody(BaseModel):
-    agent: str
+    agent: str = Field(max_length=60)
     action: Literal["contact", "call", "nudge", "escalate", "snooze", "resolve"]
     # Required for snooze and resolve: the signal row this action takes off my queue.
     signal_id: str | None = Field(default=None, min_length=5, max_length=80)

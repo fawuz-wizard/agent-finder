@@ -63,6 +63,7 @@ export function DealerLayout() {
 }
 
 /** Admin shell: desktop-oriented, left rail. */
+/** Not routed for the pilot (see router.tsx); the admin surface returns after the competition. */
 export function AdminLayout() {
   return (
     <div className="flex min-h-dvh">

@@ -132,8 +132,12 @@ AGENTS = [
 
 
 async def seed_if_empty() -> None:
+    """Plant the demo network only into an empty database. A dealer or an agent already
+    there — whatever SEED_ON_START says — means real data, and the seed stays out."""
     async with get_session_factory()() as db:
         if (await db.execute(select(Dealer.id).limit(1))).first():
+            return
+        if (await db.execute(select(Agent.ref).limit(1))).first():
             return
         now = now_utc()
         db.add(

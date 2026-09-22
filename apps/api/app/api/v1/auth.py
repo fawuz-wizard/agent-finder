@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,8 +27,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class SignInRequest(BaseModel):
-    ref: str = ""
-    pin: str
+    ref: str = Field(default="", max_length=60)
+    pin: str = Field(max_length=64)
     role: Literal["agent", "dealer"]
 
 

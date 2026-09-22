@@ -6,7 +6,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -22,12 +22,14 @@ class Settings(BaseSettings):
     # set DATABASE_URL=postgresql+asyncpg://... for Supabase/Postgres.
     database_url: str = Field(default="sqlite+aiosqlite:///./agentfinder.db")
     operator_adapter: Literal["fake", "none"] = "fake"
-    seed_on_start: bool = True
+    # Demo dealer, demo agents, PIN 1234 everywhere. Unset means: yes on a laptop or in tests,
+    # never in production, where the first boot must not plant demo PINs in a real database.
+    seed_on_start: bool | None = None
 
     # Comma-separated in the environment; NoDecode stops pydantic-settings JSON-parsing it first.
-    cors_origins: Annotated[list[str], NoDecode] = Field(
-        default=["http://localhost:5173", "http://127.0.0.1:5173"]
-    )
+    # Unset means the local dev servers in development, and a startup failure in production:
+    # an API nobody can call from the browser is a misconfiguration, not a safe default.
+    cors_origins: Annotated[list[str] | None, NoDecode] = None
 
     auth_mode: Literal["demo", "otp"] = "demo"
     supabase_url: str | None = None
@@ -43,6 +45,19 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _defaults_by_environment(self) -> Settings:
+        if self.seed_on_start is None:
+            self.seed_on_start = self.app_env != "production"
+        if self.cors_origins is None:
+            if self.app_env == "production":
+                raise ValueError(
+                    "CORS_ORIGINS must be set in production: a comma-separated list of the "
+                    "browser origins allowed to call the API, e.g. https://agentfinder.example"
+                )
+            self.cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        return self
 
     @property
     def is_production(self) -> bool:

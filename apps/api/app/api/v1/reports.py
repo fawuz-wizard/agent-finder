@@ -24,7 +24,7 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 class VisitReport(BaseModel):
-    agent_id: str
+    agent_id: str = Field(max_length=60)
     transaction: Literal["cash_out", "withdraw", "deposit", "send"] | None = None
     amount_sle: int | None = Field(default=None, ge=1)
     answer: Literal["yes", "no", "did_not_go"]

@@ -3,10 +3,10 @@ a freshness line and a maps URL — never a word, a range or a number tied to an
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +36,10 @@ FRESH_TIER = {"fresh": 0, "aging": 1, "may_have_changed": 2, "expired": 3}
 class SearchRequest(BaseModel):
     transaction: Literal["cash_out", "withdraw", "deposit", "send"]
     amount_sle: int | None = Field(default=None, ge=1, le=10_000_000)
-    area: str = "Lumley"
+    # Free text from the customer: trimmed, never empty, never longer than a street name.
+    area: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)] = (
+        "Lumley"
+    )
     lat: float | None = None
     lng: float | None = None
     radius_m: int = Field(default=2000, ge=200, le=20_000)
