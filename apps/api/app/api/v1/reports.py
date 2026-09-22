@@ -4,6 +4,7 @@ amount), and a rotating device key (never an identity)."""
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header
@@ -14,10 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agents import ref_from_public_id
 from app.core.errors import NotFoundError
-from app.db.models import Agent, OutcomeReport
+from app.db.models import Agent, OutcomeReport, SearchImpression
 from app.db.session import get_session
 from app.schemas.public.common import PublicModel
 from app.services import usage
+from app.services.ledger import CAPACITY_FAILURES
 from app.services.phrasing import amount_band, freshness_of, normalise_tx, now_utc, public_outcome
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -72,6 +74,31 @@ async def report(
             client_key=(x_client or "")[:64] or None,
         )
     )
+    # Teach the ranker: the latest unlabelled impression of this agent for this device in the
+    # last six hours is the one the customer acted on. Served → 1; not served for money → 0.
+    label = (
+        1
+        if body.answer == "yes"
+        else 0
+        if body.answer == "no" and (body.reason_code or "") in CAPACITY_FAILURES
+        else None
+    )
+    if label is not None and x_client:
+        imp = (
+            await db.execute(
+                select(SearchImpression)
+                .where(
+                    SearchImpression.agent_ref == ref,
+                    SearchImpression.client_key == x_client[:64],
+                    SearchImpression.label.is_(None),
+                    SearchImpression.at >= now - timedelta(hours=6),
+                )
+                .order_by(SearchImpression.at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if imp is not None:
+            imp.label, imp.labelled_at = label, now
     await usage.record(db, "report", "customer", x_client or "anonymous", ref)
     if body.answer != "did_not_go":
         await usage.record(db, "directions", "customer", x_client or "anonymous", ref)

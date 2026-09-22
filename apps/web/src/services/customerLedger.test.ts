@@ -56,3 +56,18 @@ describe('demo customer network — the operator feed', () => {
     }
   })
 })
+
+describe('demo customer network — the activity ranker', () => {
+  it('puts the agent with a live position and margin first, and never exposes the score', async () => {
+    setOperatorFeedDemo(true)
+    try {
+      await new Promise((r) => setTimeout(r, 20))
+      const res = await search(2000)
+      // Kadiatu's Kiosk is "most" by word and fresh, but has no feed; Fatmata's position was read minutes ago.
+      expect(res.recommended[0]!.name).toBe("Fatmata's Shop")
+      expect(JSON.stringify(res)).not.toMatch(/probability|features|trust/)
+    } finally {
+      setOperatorFeedDemo(false)
+    }
+  })
+})

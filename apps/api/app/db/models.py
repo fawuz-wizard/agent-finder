@@ -170,6 +170,36 @@ class Session(Base):
     revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+class SearchImpression(Base):
+    """The ranker's training log: what the system knew about one agent when it showed them
+    for one request, and — once the customer reported — whether the visit succeeded. Never
+    a location, never an identity: the customer's rotating device key and a distance."""
+
+    __tablename__ = "search_impressions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    client_key: Mapped[str | None] = mapped_column(String(64), index=True)
+    agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
+    transaction: Mapped[str] = mapped_column(String(12), nullable=False)
+    amount_band: Mapped[str | None] = mapped_column(String(12))
+    features_json: Mapped[str] = mapped_column(Text, nullable=False)
+    outcome_shown: Mapped[str] = mapped_column(String(12), nullable=False)
+    probability: Mapped[float] = mapped_column(Float, nullable=False)
+    label: Mapped[int | None] = mapped_column(Integer)  # 1 served, 0 not served for money
+    labelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RankerModel(Base):
+    """One row per fit of the ranker: the weights and how many labelled visits taught them."""
+
+    __tablename__ = "ranker_models"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    weights_json: Mapped[str] = mapped_column(Text, nullable=False)
+    trained_on: Mapped[int] = mapped_column(Integer, nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
 class UsageEvent(Base):
     """One row per real thing a real person did. This is how "10+ users" is counted."""
 

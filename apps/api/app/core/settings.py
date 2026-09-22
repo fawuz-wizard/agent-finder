@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # every phrase and the agent is never asked to refresh capacity. Off for the pilot with
     # real agents, on for the demo build; on for real once the Orange Money feed is connected.
     operator_feed: bool = False
+    # "activity": recommend by the success probability the ranker computes from what is known
+    # (position or ledger, recency, failures, trust, distance). "rules": the fixed order.
+    ranker: Literal["activity", "rules"] = "activity"
     # Demo dealer, demo agents, PIN 1234 everywhere. Unset means: yes on a laptop or in tests,
     # never in production, where the first boot must not plant demo PINs in a real database.
     seed_on_start: bool | None = None

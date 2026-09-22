@@ -3,6 +3,7 @@ a freshness line and a maps URL — never a word, a range or a number tied to an
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header
@@ -10,15 +11,19 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Agent
+from app.core.settings import get_settings
+from app.db.models import Agent, SearchImpression
 from app.db.session import get_session
 from app.schemas.public.common import PublicModel
 from app.services import usage
 from app.services.ledger import ledgers_for
 from app.services.phrasing import (
     AREA_POINTS,
+    NETWORK_RANGES,
     PUBLIC_TEXT,
     TRANSACTION_LABELS,
+    age_minutes,
+    amount_band,
     amount_label,
     capacity_updated_at,
     freshness_of,
@@ -28,6 +33,7 @@ from app.services.phrasing import (
     now_utc,
     public_outcome,
 )
+from app.services.ranker import current_model, features, probability
 from app.services.trust import RANK_TIER, trust_for
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -122,21 +128,65 @@ async def search(
     # Dealer-facing only: among agents who are all "likely", the one whose word has held up
     # goes first. It reorders; it never hides, and it never reaches the payload.
     rank = {a.ref.replace("Agent ", "af-"): RANK_TIER[trust[a.ref].label] for a in agents}
+    by_activity = get_settings().ranker == "activity"
+    model = await current_model(db) if by_activity else None
     scored = []
+    prob: dict[str, float] = {}
+    feats: dict[str, dict[str, float]] = {}
     for a in agents:
         dist = haversine_m(olat, olng, a.lat, a.lng)
         if dist > req.radius_m and a.area != req.area:
             continue
-        scored.append(to_result(a, tx, req.amount_sle, dist, now, ledgers.get(a.ref)))
-    scored.sort(
-        key=lambda r: (
-            TIER[r.outcome],
-            rank.get(r.id, 0),
-            FRESH_TIER[r.freshness],
-            r.distance_m,
-            r.id,
+        ledger = ledgers.get(a.ref)
+        r = to_result(a, tx, req.amount_sle, dist, now, ledger)
+        scored.append(r)
+        if model is not None and ledger is not None:
+            t = trust[a.ref]
+            side = ledger.side(tx)
+            f = features(
+                ceiling=side.ceiling(NETWORK_RANGES),
+                amount=req.amount_sle,
+                live=ledger.live,
+                feed_age_min=ledger.feed_age_min,
+                tx_last_hour=ledger.tx_last_hour,
+                failed_today=ledger.failed_for_float_today if ledger.live else ledger.events,
+                freshness_min=age_minutes(capacity_updated_at(a, ledger, now), now),
+                distance_m=dist,
+                trust_visits=t.visits,
+                trust_matched=t.matched,
+            )
+            feats[r.id] = f
+            prob[r.id] = probability(f, model.weights)
+    if model is not None:
+        # The phrase still gates: only "likely" agents are recommended. Within a phrase, the
+        # order is the probability a visit succeeds, computed from activity, not from words.
+        scored.sort(key=lambda r: (TIER[r.outcome], -prob.get(r.id, 0.0), r.distance_m, r.id))
+    else:
+        scored.sort(
+            key=lambda r: (
+                TIER[r.outcome],
+                rank.get(r.id, 0),
+                FRESH_TIER[r.freshness],
+                r.distance_m,
+                r.id,
+            )
         )
-    )
+    if model is not None:
+        for r in scored[:10]:
+            if r.id in feats:
+                db.add(
+                    SearchImpression(
+                        at=now,
+                        client_key=(x_client or "")[:64] or None,
+                        agent_ref=r.id.replace("af-", "Agent "),
+                        transaction=tx,
+                        amount_band=amount_band(req.amount_sle),
+                        features_json=json.dumps(feats[r.id]),
+                        outcome_shown=r.outcome,
+                        probability=prob[r.id],
+                    )
+                )
+        await db.commit()
 
     likely = [r for r in scored if r.outcome == "likely"]
     recommended = []

@@ -153,6 +153,7 @@ class Ledger:
     feed_age_min: int | None = None
     feed_source: str | None = None
     failed_for_float_today: int = 0
+    tx_last_hour: int = 0
 
     @property
     def live(self) -> bool:
@@ -263,6 +264,7 @@ async def ledgers_for(db: AsyncSession, agents: list[Agent], now: datetime) -> d
             ledger.feed_age_min = act.last_transaction_min_ago
             ledger.feed_source = act.source
             ledger.failed_for_float_today = act.failed_for_float_today
+            ledger.tx_last_hour = act.transactions_last_hour
     return out
 
 

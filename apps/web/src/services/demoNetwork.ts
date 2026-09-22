@@ -172,15 +172,48 @@ export function demoAgentName(id: string): string | null {
 }
 
 const TIER: Record<PublicOutcome, number> = { likely: 0, limited: 1, expired: 2, not_set: 3, closed: 4, hidden: 5 }
-const FRESH_TIER: Record<FreshnessState, number> = { fresh: 0, aging: 1, may_have_changed: 2, expired: 3 }
 
-/** Among agents who are all "likely": those whose word has held up first. Reorders only. */
-function trustTier(a: DemoAgent): number {
+/* ---------- the activity ranker: the same features and starting weights as the API ---------- */
+
+const WEIGHTS = {
+  bias: 0.6,
+  margin: 2.0,
+  recent_tx: 0.25,
+  minutes_since_tx: -0.006,
+  failed_today: -0.8,
+  freshness_min: -0.004,
+  distance_km: -0.3,
+  trust_rate: 1.5,
+  live: 0.5,
+} as const
+
+/** Share of this session's "likely" visits that matched, or a 0.7 prior with no record. */
+function trustRate(a: DemoAgent): number {
   const mine = visits.filter((v) => v.id === a.id)
-  if (mine.length < 3) return 0
+  if (mine.length < 3) return 0.7
   const failed = mine.filter((v) => v.answer === 'no' && v.reason && CAPACITY_FAILURES.includes(v.reason)).length
-  const rate = failed / mine.length
-  return rate <= 0.1 ? 0 : rate <= 0.34 ? 1 : 2
+  return (mine.length - failed) / mine.length
+}
+
+/** Probability that a visit for this request succeeds, from what the demo knows about the agent. */
+function successProbability(a: DemoAgent, tx: TransactionType, amount: number | null): number {
+  const ceiling = ceilingFor(a, sideFor(tx))
+  const feed = feedFor(a)
+  const margin =
+    amount === null ? (ceiling === null || ceiling > 0 ? 1 : -1) : ceiling === null ? 1 : Math.max(-1, Math.min(1, (ceiling - amount) / Math.max(amount, 1)))
+  const fresh = feed ? feed.ageMin : a.updated_min_ago
+  const failedToday = visits.filter((v) => v.id === a.id && v.answer === 'no' && v.reason && CAPACITY_FAILURES.includes(v.reason)).length
+  const z =
+    WEIGHTS.bias +
+    WEIGHTS.margin * margin +
+    WEIGHTS.recent_tx * (feed ? 2 : 0) +
+    WEIGHTS.minutes_since_tx * Math.min(fresh, 480) +
+    WEIGHTS.failed_today * Math.min(failedToday, 5) +
+    WEIGHTS.freshness_min * Math.min(fresh, 480) +
+    WEIGHTS.distance_km * Math.min(a.distance_m / 1000, 20) +
+    WEIGHTS.trust_rate * trustRate(a) +
+    WEIGHTS.live * (feed ? 1 : 0)
+  return 1 / (1 + Math.exp(-Math.max(-30, Math.min(30, z))))
 }
 
 function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): AgentResult {
@@ -206,13 +239,14 @@ function amountLabel(amount: number | null): string | null {
 export function demoSearch(req: SearchRequest): SearchResponse {
   const amount = req.amount_sle
   const all = AGENTS.filter((a) => req.area === 'all' || a.area === req.area || a.distance_m <= (req.radius_m ?? 2000))
-  const tier = new Map(all.map((a) => [a.id, trustTier(a)] as const))
+  // The phrase gates; within it, the order is the probability a visit succeeds, computed
+  // from activity, not from words. Never in the payload.
+  const prob = new Map(all.map((a) => [a.id, successProbability(a, req.transaction, amount)] as const))
   const ranked = all
     .map((a) => toResult(a, req.transaction, amount))
     .sort((x, y) =>
       TIER[x.outcome] - TIER[y.outcome] ||
-      (tier.get(x.id) ?? 0) - (tier.get(y.id) ?? 0) ||
-      FRESH_TIER[x.freshness] - FRESH_TIER[y.freshness] ||
+      (prob.get(y.id) ?? 0) - (prob.get(x.id) ?? 0) ||
       x.distance_m - y.distance_m ||
       x.id.localeCompare(y.id),
     )
