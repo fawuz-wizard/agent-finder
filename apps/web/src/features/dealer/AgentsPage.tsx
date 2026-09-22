@@ -5,6 +5,12 @@ import { operatorApi } from '@/services/operatorApi'
 import type { DealerAgentRow, DealerBucket } from '@/types/operator'
 
 const TONE: Record<DealerAgentRow['presence'], string> = { open: 'text-success', hidden: 'text-warning', closed: 'text-muted' }
+const RELIABILITY: Record<DealerAgentRow['reliability']['label'], string> = {
+  reliable: 'bg-success-tint text-success',
+  mixed: 'bg-warning-tint text-warning',
+  unreliable: 'bg-danger-tint text-danger',
+  new: 'bg-canvas text-muted',
+}
 
 const FILTERS: { key: DealerBucket | 'all'; label: string; empty: string }[] = [
   { key: 'all', label: 'All', empty: 'No agents are registered under you yet.' },
@@ -68,7 +74,12 @@ export default function DealerAgentsPage() {
                 <span className={`font-bold ${TONE[a.presence]}`}>{a.presence_text}</span>
                 <span className="text-muted">{a.declaration_text}</span>
               </div>
-              <p className="text-xs text-muted">{a.area}</p>
+              <p className="flex items-center justify-between gap-2 text-xs text-muted">
+                <span>{a.area}</span>
+                <span className={`rounded-pill px-2 py-0.5 text-[11px] font-bold ${RELIABILITY[a.reliability.label]}`} title={a.reliability.text}>
+                  {a.reliability.label_text}
+                </span>
+              </p>
             </Card>
           </Link>
         ))}

@@ -35,6 +35,7 @@ import type {
   DeclareBody,
   FloatForecast,
   FloatRisk,
+  Reliability,
 } from '@/types/operator'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, wordForFigure } from '@/types/operator'
 
@@ -62,6 +63,8 @@ interface AgentState {
   transactions: number
   successful: number
   problems: number
+  /** Last 14 days of visits where the customer was told "likely": how many, how many failed for money. */
+  history: { visits: number; failed: number }
 }
 
 function minutesAgo(min: number): number {
@@ -69,11 +72,11 @@ function minutesAgo(min: number): number {
 }
 
 const agents: AgentState[] = [
-  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null },
-  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null },
-  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null },
-  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null },
-  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null },
+  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null, history: { visits: 12, failed: 2 } },
+  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 9, failed: 0 } },
+  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null, history: { visits: 4, failed: 0 } },
+  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 6, failed: 0 } },
+  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 1, failed: 0 } },
 ]
 
 /** Operator-owned values. Present only because the demo adapter is switched on. */
@@ -581,6 +584,29 @@ export function demoDealerOverview(): DealerOverview {
   }
 }
 
+/* ---------- trust score: the same rule as the API, on the seeded history plus this session's visits ---------- */
+
+const TRUST_LABEL: Record<Reliability['label'], string> = {
+  reliable: 'Reliable',
+  mixed: 'Mixed',
+  unreliable: 'Unreliable',
+  new: 'No track record yet',
+}
+
+function trustOf(a: AgentState): Reliability {
+  const mine = visits.filter((v) => v.ref === a.ref)
+  const visitsN = a.history.visits + mine.length
+  const failed = a.history.failed + mine.filter((v) => v.answer === 'no' && v.reason && CAPACITY_FAILURES.includes(v.reason)).length
+  const matched = visitsN - failed
+  let label: Reliability['label'] = 'new'
+  if (visitsN >= 3) {
+    const rate = failed / visitsN
+    label = rate <= 0.1 ? 'reliable' : rate <= 0.34 ? 'mixed' : 'unreliable'
+  }
+  const text = label === 'new' ? 'Fewer than 3 visits confirmed in the last 14 days — no track record yet.' : `${matched} of ${visitsN} visits matched the status in the last 14 days.`
+  return { label, label_text: TRUST_LABEL[label], text, visits: visitsN, matched }
+}
+
 /* ---------- float demand forecast: the same rule as the API, on the demo's own evidence ---------- */
 
 const RISK_ORDER: Record<FloatRisk, number> = { high: 0, medium: 1, low: 2 }
@@ -662,7 +688,8 @@ export function demoAgentRows() {
       bucket: bucketOf(a),
       declaration_text: words,
       freshness_text: ageText(d.age_min),
-      attention: a.problems > 1 || d.freshness === 'expired' || a.presence === 'hidden',
+      attention: a.problems > 1 || d.freshness === 'expired' || a.presence === 'hidden' || trustOf(a).label === 'unreliable',
+      reliability: trustOf(a),
     }
   })
 }
@@ -681,6 +708,24 @@ export function demoSignals(): Signal[] {
 
 function allSignals(): Signal[] {
   const out: Signal[] = []
+  for (const a of agents) {
+    const t = trustOf(a)
+    if (t.label !== 'unreliable') continue
+    out.push({
+      id: `sig-trust-${a.ref}`,
+      agent_ref: a.ref,
+      agent_name: a.shop,
+      call_url: callUrl(a),
+      severity: 'high',
+      title: 'Status keeps failing customers',
+      sentence: `${t.visits - t.matched} of ${t.visits} customers told "likely" in the last 14 days could not be served for lack of money.`,
+      evidence: [
+        { at_text: '14 days', text: `${t.matched} matched`, tag: 'matched' },
+        { at_text: '14 days', text: `${t.visits - t.matched} failed`, tag: 'failed' },
+      ],
+      explanation: 'Customers are still sent here, but after agents whose word has held up. A call usually finds a cash problem or a habit.',
+    })
+  }
   const fatmata = find('Agent 024')
   if (fatmata.problems > 1) {
     out.push({
@@ -846,6 +891,7 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
     pending_float: pending ? decorate(pending) : null,
     availability_today: availability,
     open_signals: signals,
+    reliability: trustOf(a),
   }
 }
 

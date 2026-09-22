@@ -203,3 +203,33 @@ describe('float forecast', () => {
     expect(card).toHaveAttribute('href', '/dealer/float')
   })
 })
+
+describe('trust score', () => {
+  it('shows each agent how often their word held up, and never as a customer-facing thing', async () => {
+    signIn(ALL)
+    render(<App start="/dealer/agents" />)
+    const fatmata = (await screen.findByText(/Agent 024 · Fatmata's Shop/)).closest('a')!
+    expect(within(fatmata).getByText('Mixed')).toHaveAttribute('title', '10 of 12 visits matched the status in the last 14 days.')
+    const sento = screen.getByText(/Agent 031 · Sento Enterprise/).closest('a')!
+    expect(within(sento).getByText('Reliable')).toBeInTheDocument()
+    const amadu = screen.getByText(/Agent 038 · Amadu Corner Shop/).closest('a')!
+    expect(within(amadu).getByText('No track record yet')).toBeInTheDocument()
+  })
+
+  it('an unreliable word raises a high signal and flags the row, without touching the status', async () => {
+    const { demoRecordVisit, demoDealerAgentDetail } = await import('@/services/operatorDemo')
+    for (let n = 0; n < 3; n += 1) demoRecordVisit('Sento Enterprise', 'cash_out', 2000, 'no', 'could_not_complete')
+    // 9 + 3 visits, 3 failed → 25% → mixed; three more make it unreliable.
+    for (let n = 0; n < 3; n += 1) demoRecordVisit('Sento Enterprise', 'cash_out', 2000, 'no', 'less_than_requested')
+    const detail = demoDealerAgentDetail('Agent 031')
+    expect(detail.reliability.label).toBe('unreliable')
+    expect(detail.reliability.text).toBe('9 of 15 visits matched the status in the last 14 days.')
+    expect(detail.declaration.cash_out).toBe('some')
+    const over = await operatorApi.dealerOverview()
+    const sig = over.signals.find((s) => s.id === 'sig-trust-Agent 031')!
+    expect(sig.title).toBe('Status keeps failing customers')
+    expect(sig.sentence).toMatch(/6 of 15 customers/)
+    const rows = await operatorApi.dealerAgents()
+    expect(rows.find((r) => r.ref === 'Agent 031')!.attention).toBe(true)
+  })
+})

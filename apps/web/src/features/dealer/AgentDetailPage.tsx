@@ -70,6 +70,9 @@ export default function DealerAgentDetailPage() {
             <span className="text-xs font-semibold text-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '')}</span>
           </div>
           {d.freshness === 'expired' && <p className="mt-1 text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
+          <p className="mt-1 text-sm text-muted">
+            <span className="font-bold">{data.reliability.label_text}</span> · {data.reliability.text}
+          </p>
         </Card>
 
         <Card>

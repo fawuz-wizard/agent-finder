@@ -35,6 +35,7 @@ from app.services.phrasing import (
     freshness_of,
     now_utc,
 )
+from app.services.trust import trust_for
 
 router = APIRouter(tags=["dealer"])
 
@@ -95,8 +96,27 @@ async def signals_for(
     muted: set[str] = set()
     if agents and not include_muted:
         muted = await active_mutes(db, [a.ref for a in agents], now)
+    trust = await trust_for(db, agents, now)
     for a in agents:
         call_url = f"tel:{a.phone}" if a.phone else None
+        t = trust[a.ref]
+        if t.label == "unreliable":
+            out.append(
+                {
+                    "id": f"sig-trust-{a.ref}",
+                    "agent_ref": a.ref,
+                    "agent_name": a.shop_name,
+                    "call_url": call_url,
+                    "severity": "high",
+                    "title": "Status keeps failing customers",
+                    "sentence": f'{t.failed} of {t.visits} customers told "likely" in the last 14 days could not be served for lack of money.',  # noqa: E501
+                    "evidence": [
+                        {"at_text": "14 days", "text": f"{t.matched} matched", "tag": "matched"},
+                        {"at_text": "14 days", "text": f"{t.failed} failed", "tag": "failed"},
+                    ],
+                    "explanation": "Customers are still sent here, but after agents whose word has held up. A call usually finds a cash problem or a habit.",  # noqa: E501
+                }
+            )
         reps = (
             (
                 await db.execute(
@@ -244,7 +264,9 @@ async def agents_list(
 ) -> list[dict]:
     now = now_utc()
     rows = []
-    for a in await my_agents(db, p.subject):
+    agents = await my_agents(db, p.subject)
+    trust = await trust_for(db, agents, now)
+    for a in agents:
         d = declaration_of(a, now)
         problems = (
             await db.execute(
@@ -269,7 +291,9 @@ async def agents_list(
                 "freshness_text": age_text(d.age_min if d.age_min < 10**6 else None),
                 "attention": int(problems) > 1
                 or d.freshness == "expired"
-                or a.presence == "hidden",
+                or a.presence == "hidden"
+                or trust[a.ref].label == "unreliable",
+                "reliability": trust[a.ref].as_dict(),
             }
         )
     return rows
@@ -330,12 +354,14 @@ async def agent_detail(
         .all()
     )
     sigs = [s for s in await signals_for(db, [a], now)]
+    trust = (await trust_for(db, [a], now))[a.ref]
     return {
         "ref": a.ref,
         "name": a.person_name,
         "shop_name": a.shop_name,
         "area": a.street,
         "declaration": declaration_of(a, now).model_dump(),
+        "reliability": trust.as_dict(),
         "today": {
             "transactions": tx.get("transactions"),
             "successful": tx.get("successful"),

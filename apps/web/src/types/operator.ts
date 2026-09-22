@@ -168,6 +168,19 @@ export type DealerBucket = 'active' | 'limited' | 'hidden' | 'closed'
 
 export type DealerCounts = Record<DealerBucket, number>
 
+/**
+ * Trust score: how often the agent's word matched what customers found, from visit reports
+ * against the status shown at the time. Dealer-facing only; it ranks and flags, never changes
+ * a word, and a customer never sees it.
+ */
+export interface Reliability {
+  label: 'reliable' | 'mixed' | 'unreliable' | 'new'
+  label_text: string
+  text: string
+  visits: number
+  matched: number
+}
+
 export interface DealerAgentRow {
   ref: string
   name: string
@@ -179,6 +192,7 @@ export interface DealerAgentRow {
   declaration_text: string
   freshness_text: string
   attention: boolean
+  reliability: Reliability
 }
 
 export interface Signal {
@@ -294,6 +308,7 @@ export interface DealerAgentDetail {
   pending_float: FloatRequest | null
   availability_today: { time_text: string; text: string; tone: 'neutral' | 'warning' }[]
   open_signals: number
+  reliability: Reliability
 }
 
 export type DealerAction = 'contact' | 'call' | 'nudge' | 'escalate'

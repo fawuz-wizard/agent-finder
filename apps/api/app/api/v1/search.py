@@ -27,6 +27,7 @@ from app.services.phrasing import (
     now_utc,
     public_outcome,
 )
+from app.services.trust import RANK_TIER, trust_for
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -114,13 +115,25 @@ async def search(
     olat, olng = origin_for(req)
     agents = (await db.execute(select(Agent))).scalars().all()
     ledgers = await ledgers_for(db, agents, now)
+    trust = await trust_for(db, agents, now)
+    # Dealer-facing only: among agents who are all "likely", the one whose word has held up
+    # goes first. It reorders; it never hides, and it never reaches the payload.
+    rank = {a.ref.replace("Agent ", "af-"): RANK_TIER[trust[a.ref].label] for a in agents}
     scored = []
     for a in agents:
         dist = haversine_m(olat, olng, a.lat, a.lng)
         if dist > req.radius_m and a.area != req.area:
             continue
         scored.append(to_result(a, tx, req.amount_sle, dist, now, ledgers.get(a.ref)))
-    scored.sort(key=lambda r: (TIER[r.outcome], FRESH_TIER[r.freshness], r.distance_m, r.id))
+    scored.sort(
+        key=lambda r: (
+            TIER[r.outcome],
+            rank.get(r.id, 0),
+            FRESH_TIER[r.freshness],
+            r.distance_m,
+            r.id,
+        )
+    )
 
     likely = [r for r in scored if r.outcome == "likely"]
     recommended = []
