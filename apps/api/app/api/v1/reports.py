@@ -8,13 +8,13 @@ from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agents import ref_from_public_id
-from app.core.errors import NotFoundError
+from app.core.errors import AppError, NotFoundError
 from app.db.models import Agent, OutcomeReport, SearchImpression
 from app.db.session import get_session
 from app.schemas.public.common import PublicModel
@@ -23,18 +23,28 @@ from app.services.ledger import CAPACITY_FAILURES
 from app.services.phrasing import amount_band, freshness_of, normalise_tx, now_utc, public_outcome
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+MAX_COMMENT_CHARS = 1000
 
 
 class VisitReport(BaseModel):
     agent_id: str = Field(max_length=60)
     transaction: Literal["cash_out", "withdraw", "deposit", "send"] | None = None
     amount_sle: int | None = Field(default=None, ge=1)
-    answer: Literal["yes", "no", "did_not_go"]
+    answer: Literal["yes", "no", "did_not_go", "comment"]
     reason_code: str | None = Field(default=None, max_length=32)
     rating: int | None = Field(default=None, ge=1, le=5)
-    comment: str | None = Field(default=None, max_length=280)
+    comment: str | None = Field(default=None, max_length=MAX_COMMENT_CHARS)
     source: Literal["search", "direct"] = "search"
     client_token: str = Field(min_length=8, max_length=64)
+
+    @model_validator(mode="after")
+    def validate_comment_only_report(self) -> VisitReport:
+        if self.answer == "comment":
+            if not self.comment or not self.comment.strip():
+                raise ValueError("Add a comment before sending.")
+            if self.rating is not None:
+                raise ValueError("A comment-only report cannot include a rating.")
+        return self
 
 
 class ReportAccepted(PublicModel):
@@ -57,6 +67,26 @@ async def report(
         raise NotFoundError("We could not find that agent.")
     now = now_utc()
     tx = normalise_tx(body.transaction) if body.transaction else None
+    client_key = (x_client or "")[:64] or None
+    if body.rating is not None and client_key:
+        recent_rating = (
+            await db.execute(
+                select(OutcomeReport.id)
+                .where(
+                    OutcomeReport.agent_ref == ref,
+                    OutcomeReport.client_key == client_key,
+                    OutcomeReport.rating.is_not(None),
+                    OutcomeReport.at >= now - timedelta(hours=24),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if recent_rating:
+            raise AppError(
+                "You have already rated this agent recently. Please try again tomorrow.",
+                code="rating_cooldown",
+                status_code=429,
+            )
     db.add(
         OutcomeReport(
             id=body.client_token,
@@ -66,12 +96,18 @@ async def report(
             amount_band=amount_band(body.amount_sle),
             answer=body.answer,
             reason_code=body.reason_code,
-            outcome_at_report=public_outcome(a, tx or "cash_out", body.amount_sle, now),
-            freshness_at_report=freshness_of(a.declared_at, now),
+            outcome_at_report=(
+                public_outcome(a, tx or "cash_out", body.amount_sle, now)
+                if body.answer != "comment"
+                else None
+            ),
+            freshness_at_report=(
+                freshness_of(a.declared_at, now) if body.answer != "comment" else None
+            ),
             rating=body.rating,
             comment=body.comment,
             source=body.source,
-            client_key=(x_client or "")[:64] or None,
+            client_key=client_key,
         )
     )
     # Teach the ranker: the latest unlabelled impression of this agent for this device in the
@@ -100,7 +136,7 @@ async def report(
         if imp is not None:
             imp.label, imp.labelled_at = label, now
     await usage.record(db, "report", "customer", x_client or "anonymous", ref)
-    if body.answer != "did_not_go":
+    if body.answer in ("yes", "no"):
         await usage.record(db, "directions", "customer", x_client or "anonymous", ref)
     try:
         await db.commit()

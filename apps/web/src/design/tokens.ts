@@ -5,7 +5,7 @@
  */
 export const colors = {
   brand: '#FF7900',
-  brandDeep: '#E85D04',
+  brandDeep: '#E86E00',
   brandText: '#C24E00',
   brandLight: '#FFF1E6',
   brandFaint: '#FFF8F2',

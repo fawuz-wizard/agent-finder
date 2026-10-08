@@ -18,9 +18,11 @@ function DemoRibbon() {
 /** Customer shell: one column, 360 px first, no navigation chrome beyond the header. */
 export function CustomerLayout() {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col">
+    <div data-theme="dark" className="flex min-h-dvh w-full flex-col bg-app-bg">
       <DemoRibbon />
-      <Outlet />
+      <main className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col md:max-w-3xl xl:max-w-6xl">
+        <Outlet />
+      </main>
     </div>
   )
 }

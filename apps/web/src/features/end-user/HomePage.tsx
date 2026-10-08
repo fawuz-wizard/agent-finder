@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Card, Wordmark } from '@/design'
+import { Button, Wordmark } from '@/design'
 import { AREAS } from '@/lib/reference'
 import type { TransactionType } from '@/types/public'
 import { TransactionTypeSelector } from './components/TransactionTypeSelector'
@@ -20,7 +20,7 @@ export default function HomePage() {
   const [params] = useSearchParams()
   const initialTx = params.get('tx')
   const [transaction, setTransaction] = useState<TransactionType | null>(
-    initialTx === 'cash_out' || initialTx === 'deposit' || initialTx === 'send' ? initialTx : 'cash_out',
+    initialTx === 'cash_out' || initialTx === 'deposit' ? initialTx : 'cash_out',
   )
   const [amount, setAmount] = useState(() => params.get('amount') ?? '')
   const [area, setArea] = useState<string>(() => params.get('area') ?? AREAS[0])
@@ -43,12 +43,12 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-5 p-4">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 bg-app-bg p-4 text-white">
       <header className="flex h-12 items-center justify-between">
         {params.get('from') === 'host' ? (
           <Link
             to="/"
-            className="-ml-2 flex h-control items-center gap-1 rounded-card px-2 text-base font-semibold text-muted"
+            className="-ml-2 flex h-control items-center gap-1 rounded-card px-2 text-base font-semibold text-white/70"
           >
             <span aria-hidden="true" className="text-xl leading-none">
               ‹
@@ -56,7 +56,7 @@ export default function HomePage() {
             Back
           </Link>
         ) : (
-          <Wordmark />
+          <span className="flex items-center gap-2 text-base font-bold"><span className="text-brand-text">☰</span> Max it</span>
         )}
         {params.get('from') === 'host' && <Wordmark />}
       </header>
@@ -95,23 +95,21 @@ export default function HomePage() {
         </div>
       )}
 
-      <h1 className="text-xl font-bold leading-tight">What do you need?</h1>
-      <TransactionTypeSelector value={transaction} onChange={setTransaction} />
-      <AmountInput value={amount} onChange={setAmount} error={error} />
+      <section className="mt-3 flex flex-col gap-4 rounded-card bg-app-surface p-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold leading-tight">What do you need?</h1>
+        </div>
+        <TransactionTypeSelector value={transaction} onChange={setTransaction} />
+        <AmountInput value={amount} onChange={setAmount} error={error} />
+        <Button size="cta" onClick={submit}>Find an agent</Button>
+        <p className="text-center text-xs text-white/55">Search within 500 m · {t('disclaimer')}</p>
+      </section>
 
-      <Button size="cta" onClick={submit}>
-        Find an agent
-      </Button>
-
-      <Card className="bg-canvas">
-        <p className="text-sm text-muted">{t('disclaimer')}</p>
-      </Card>
-
-      <nav className="mt-auto flex flex-wrap items-center gap-2 pt-2 text-base font-semibold text-brand-text">
+      <nav className="mt-auto flex w-full items-center justify-between gap-2 pt-2 text-base font-semibold text-brand-text">
         <Link to="/how-availability-works" className="flex h-control items-center rounded-card px-2">
           How availability works
         </Link>
-        <Link to="/report-a-visit" className="flex h-control items-center rounded-card px-2">
+        <Link to="/report-a-visit" className="ml-auto flex h-control items-center justify-end rounded-card px-2 text-right">
           Report a visit
         </Link>
       </nav>

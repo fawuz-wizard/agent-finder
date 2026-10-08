@@ -11,29 +11,31 @@ const POINTS = [
 /** U4 — the trust explanation. Four sentences, plain language, one way out. */
 export default function HowAvailabilityWorksPage() {
   return (
-    <div className="flex flex-1 flex-col gap-5 p-4">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 bg-app-bg p-4 text-white">
       <header className="flex items-center gap-3">
-        <button type="button" onClick={() => history.back()} aria-label="Back" className="-ml-2 flex h-control w-control items-center justify-center rounded-card text-2xl leading-none text-muted">
+        <button type="button" onClick={() => history.back()} aria-label="Back" className="-ml-2 flex h-control w-control items-center justify-center rounded-card text-2xl leading-none text-white/70 transition-colors hover:bg-white/10">
           ‹
         </button>
         <h1 className="text-xl font-bold">How availability works</h1>
       </header>
 
-      <ol className="flex flex-col gap-4">
+      <p className="text-sm text-white/60">A quick guide to what the availability message means.</p>
+
+      <ol className="flex flex-col gap-3">
         {POINTS.map((p, i) => (
-          <li key={p} className="flex gap-3">
+          <li key={p} className="flex gap-3 rounded-card border border-white/10 bg-app-panel p-4">
             <span
               aria-hidden="true"
-              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-pill bg-brand-light text-sm font-bold text-brand-text"
+              className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-brand text-sm font-bold text-ink"
             >
               {i + 1}
             </span>
-            <p className="text-base leading-relaxed">{p}</p>
+            <p className="text-base leading-relaxed text-white/85">{p}</p>
           </li>
         ))}
       </ol>
 
-      <p className="text-sm text-muted">Availability is hidden overnight (20:00–07:00) for agents' safety.</p>
+      <p className="rounded-card bg-app-surface p-3 text-sm leading-relaxed text-white/65">Availability is hidden overnight (20:00–07:00) for agents’ safety.</p>
 
       <Link to="/find" className="mt-auto">
         <Button size="cta">Got it</Button>

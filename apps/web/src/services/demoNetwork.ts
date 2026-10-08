@@ -56,9 +56,10 @@ const FRESHNESS_WINDOWS = { fresh: 90, aging: 120, may_have_changed: 240 } as co
 
 const AGENTS: DemoAgent[] = [
   { id: 'af-4821', name: "Fatmata's Shop", area: 'Lumley', street: 'Lumley Junction', distance_m: 300, open: true, hidden: false, cash: 'most', float: 'some', updated_min_ago: 6, hours_text: 'Open today 07:00–20:00', can_call: true, verified: true, lat: 8.4405, lng: -13.2795, feed: { balance: 12400, float: 8450 } },
-  { id: 'af-7315', name: "Mohamed's Store", area: 'Lumley', street: 'Lumley Road', distance_m: 120, open: true, hidden: false, cash: 'small', float: 'most', updated_min_ago: 25, hours_text: 'Open today 08:00–19:00', can_call: true, lat: 8.4412, lng: -13.2781 },
-  { id: 'af-1902', name: 'Aminata Trading', area: 'Lumley', street: 'Lumley Junction', distance_m: 210, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 305, hours_text: 'Open today 07:30–20:00', can_call: false, lat: 8.4399, lng: -13.2808 },
-  { id: 'af-6644', name: "Kadiatu's Kiosk", area: 'Lumley', street: 'Lumley Beach Road', distance_m: 650, open: true, hidden: false, cash: 'most', float: 'some', updated_min_ago: 14, hours_text: 'Open today 08:00–21:00', can_call: true, lat: 8.4371, lng: -13.2852 },
+  { id: 'af-7315', name: "Mohamed's Store", area: 'Lumley', street: 'Lumley Road', distance_m: 120, open: true, hidden: false, cash: 'small', float: 'most', updated_min_ago: 25, hours_text: 'Open today 08:00–19:00', can_call: false, lat: 8.4412, lng: -13.2781 },
+  { id: 'af-1902', name: 'Aminata Trading', area: 'Lumley', street: 'Lumley Junction', distance_m: 210, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 18, hours_text: 'Open today 07:30–20:00', can_call: false, lat: 8.4399, lng: -13.2808 },
+  { id: 'af-6644', name: "Kadiatu's Kiosk", area: 'Lumley', street: 'Lumley Beach Road', distance_m: 340, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 14, hours_text: 'Open today 08:00–21:00', can_call: false, lat: 8.4382, lng: -13.2825 },
+  { id: 'af-2870', name: 'Coco and Sons', area: 'Lumley', street: 'Lumley Market Road', distance_m: 280, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 11, hours_text: 'Open today 08:00–20:00', can_call: false, lat: 8.4392, lng: -13.2765 },
   { id: 'af-5570', name: 'Sento Enterprise', area: 'Aberdeen', street: 'Sir Samuel Lewis Road', distance_m: 1400, open: true, hidden: false, cash: 'some', float: 'small', updated_min_ago: 48, hours_text: 'Open today 08:00–18:00', can_call: false, lat: 8.4842, lng: -13.2711, feed: { balance: 4900, float: 3100 } },
   { id: 'af-2210', name: 'Salamatu Shop', area: 'Lumley', street: 'Wilkinson Road', distance_m: 880, open: false, hidden: false, cash: 'most', float: 'most', updated_min_ago: 62, hours_text: 'Opens 07:00', can_call: false, lat: 8.4448, lng: -13.2749, feed: { balance: 7300, float: 6050 } },
   { id: 'af-3388', name: 'Ibrahim Cash Point', area: 'Wilberforce', street: 'Wilberforce Street', distance_m: 1900, open: true, hidden: true, cash: 'some', float: 'some', updated_min_ago: 20, hours_text: 'Open today 09:00–18:00', can_call: false, lat: 8.4617, lng: -13.2629, feed: { balance: 21000, float: 15600 } },
@@ -72,18 +73,19 @@ function freshnessOf(min: number): FreshnessState {
   return 'expired'
 }
 
-function freshnessText(min: number): string {
+function freshnessText(min: number, source?: string): string {
   const state = freshnessOf(min)
   const age = min < 60 ? `${min} min ago` : `${Math.floor(min / 60)} h ${min % 60 ? `${min % 60} min ` : ''}ago`
-  if (state === 'expired') return `Updated ${age} — expired`
-  if (state === 'may_have_changed') return `Updated ${age} — may have changed`
-  return `Updated ${age}`
+  const base = `Updated ${age}${source ? ` · ${source}` : ''}`
+  if (state === 'expired') return `${base} — expired`
+  if (state === 'may_have_changed') return `${base} — may have changed`
+  return base
 }
 
 const OUTCOME_TEXT: Record<PublicOutcome, string> = {
   likely: 'Can likely handle your request',
-  unknown: 'No record yet for this amount — ask when you arrive',
-  limited: 'Limited — may not cover this amount',
+  unknown: 'Not enough recent activity to estimate availability',
+  limited: 'Availability uncertain for this request',
   expired: 'Status expired — ask before you go',
   closed: 'Closed',
   hidden: 'Availability hidden',
@@ -105,6 +107,7 @@ interface DemoVisit {
   reason: string | null
 }
 const visits: DemoVisit[] = []
+const demoRatings: { id: string; score: number; at: number }[] = []
 const BAND_FLOORS: [number, number][] = [[500, 1], [2_000, 501], [5_000, 2_001], [10_000, 5_001], [50_000, 10_001], [Number.POSITIVE_INFINITY, 50_001]]
 const BAND_MIDPOINTS: [number, number][] = [[500, 250], [2_000, 1_250], [5_000, 3_500], [10_000, 7_500], [50_000, 30_000], [Number.POSITIVE_INFINITY, 50_000]]
 const CAPACITY_FAILURES = ['could_not_complete', 'less_than_requested']
@@ -114,18 +117,31 @@ function bandValue(table: [number, number][], amount: number): number {
 }
 
 export function recordDemoVisit(body: VisitReport): void {
-  if (body.answer === 'did_not_go' || body.amount_sle === null) return
+  if (body.rating !== null && body.rating !== undefined) {
+    const recent = demoRatings.some((r) => r.id === body.agent_id && Date.now() - r.at < 24 * 60 * 60 * 1000)
+    if (recent) throw new Error('You have already rated this agent recently. Please try again tomorrow.')
+    demoRatings.push({ id: body.agent_id, score: body.rating, at: Date.now() })
+  }
+  if (body.answer !== 'yes' && body.answer !== 'no') return
+  if (body.amount_sle === null) return
   const side = body.transaction === 'deposit' ? 'float' : 'cash'
   visits.push({ id: body.agent_id, side, amount: body.amount_sle, answer: body.answer, reason: body.reason_code ?? null })
 }
+
+function ratingSummary(id: string): { rating_average: number | null; rating_count: number } {
+  const scores = demoRatings.filter((r) => r.id === id).map((r) => r.score)
+  return scores.length >= 3
+    ? { rating_average: Math.round((scores.reduce((sum, value) => sum + value, 0) / scores.length) * 10) / 10, rating_count: scores.length }
+    : { rating_average: null, rating_count: 0 }
+}
+
+const FEED_SOURCE = 'Orange (demo)'
 
 let feedOn = config.operatorFeed
 /** Demo control: flip the simulated operator feed for the customer surface. */
 export function setDemoOperatorFeed(on: boolean): void {
   feedOn = on
 }
-const FEED_SOURCE = 'Orange (demo)'
-
 /** The operator's position for one agent, simulated from the clock exactly as the API's fake adapter does. */
 function feedFor(a: DemoAgent): { cash: number; float: number; ageMin: number } | null {
   if (!feedOn || !a.feed) return null
@@ -222,6 +238,8 @@ function successProbability(a: DemoAgent, tx: TransactionType, amount: number | 
 
 function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): AgentResult {
   const outcome = outcomeFor(a, tx, amount)
+  const feed = feedFor(a)
+  const freshnessAge = feed?.ageMin ?? a.updated_min_ago
   return {
     id: a.id,
     name: a.name,
@@ -231,10 +249,11 @@ function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): Age
     distance_m: a.distance_m,
     outcome,
     outcome_text: OUTCOME_TEXT[outcome],
-    freshness: freshnessOf(feedFor(a)?.ageMin ?? a.updated_min_ago),
-    freshness_text: feedFor(a) ? `${freshnessText(feedFor(a)!.ageMin)} · ${FEED_SOURCE}` : freshnessText(a.updated_min_ago),
+    freshness: freshnessOf(freshnessAge),
+    freshness_text: freshnessText(freshnessAge, feed ? FEED_SOURCE : undefined),
     directions_url: `https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lng}`,
     can_call: a.can_call,
+    ...ratingSummary(a.id),
   }
 }
 
@@ -244,7 +263,7 @@ function amountLabel(amount: number | null): string | null {
 
 /** Coarse area centres, the same table the API uses when the customer declined location. */
 const AREA_POINTS: Record<string, { lat: number; lng: number }> = {
-  Lumley: { lat: 8.4405, lng: -13.2795 },
+  Lumley: { lat: 8.4378, lng: -13.2795 },
   Aberdeen: { lat: 8.4842, lng: -13.2711 },
   Wilberforce: { lat: 8.4617, lng: -13.2629 },
   'Congo Cross': { lat: 8.479, lng: -13.256 },
@@ -257,11 +276,15 @@ function originFor(area: string): { lat: number; lng: number } {
 
 export function demoSearch(req: SearchRequest): SearchResponse {
   const amount = req.amount_sle
-  const all = AGENTS.filter((a) => req.area === 'all' || a.area === req.area || a.distance_m <= (req.radius_m ?? 2000))
+  const origin = originFor(req.area)
+  const radius = req.radius_m ?? 500
+  const scoped = AGENTS
+    .map((a) => ({ ...a, distance_m: distanceBetween(origin, a) }))
+    .filter((a) => !a.hidden && a.open && a.distance_m <= 20_000)
   // The phrase gates; within it, the order is the probability a visit succeeds, computed
   // from activity, not from words. Never in the payload.
-  const prob = new Map(all.map((a) => [a.id, successProbability(a, req.transaction, amount)] as const))
-  const ranked = all
+  const prob = new Map(scoped.map((a) => [a.id, successProbability(a, req.transaction, amount)] as const))
+  const ranked = scoped
     .map((a) => toResult(a, req.transaction, amount))
     .sort((x, y) =>
       TIER[x.outcome] - TIER[y.outcome] ||
@@ -270,38 +293,35 @@ export function demoSearch(req: SearchRequest): SearchResponse {
       x.id.localeCompare(y.id),
     )
 
-  const likely = ranked.filter((r) => r.outcome === 'likely')
+  // Nearest includes every visible/open nearby agent with its honest public capacity
+  // outcome. Recommended is the subset that can likely handle this request.
+  const coreAll = ranked.filter((r) => r.distance_m <= radius)
+  const coreNearest = coreAll
+    .sort((a, b) => a.distance_m - b.distance_m || a.id.localeCompare(b.id))
+    .slice(0, 10)
+  const likely = coreAll
+    .filter((r) => r.outcome === 'likely')
+    .sort((a, b) => (prob.get(b.id) ?? 0) - (prob.get(a.id) ?? 0) || a.distance_m - b.distance_m || a.id.localeCompare(b.id))
   const recommended = likely.slice(0, 2).map((r, i) => ({
     ...r,
     why:
       i === 0
-        ? `Nearest agent that can likely handle ${amountLabel(amount) ?? 'your request'} right now.`
-        : 'Also likely able, a little further.',
+        ? `Recent activity suggests this agent may handle ${amountLabel(amount) ?? 'your request'}.`
+        : 'Another strong activity match for your request.',
   }))
   const recommendedIds = new Set(recommended.map((r) => r.id))
-  const top = recommended[0]
-
-  // Agents the customer physically passes on the way to the recommendation. Shown in
-  // walking order, labelled with why they are not the recommendation — the customer is
-  // standing there and may know something we do not, so this is information, not a verdict.
-  const closer = top
-    ? ranked
-        .filter((r) => !recommendedIds.has(r.id) && r.distance_m < top.distance_m)
-        .sort((a, b) => a.distance_m - b.distance_m)
-        .map((r) => ({
-          ...r,
-          note:
-            r.outcome === 'limited'
-              ? `May not cover ${amountLabel(amount) ?? 'this request'} — worth asking if you are passing.`
-              : r.outcome === 'expired'
-                ? 'Status too old to rely on — worth asking if you are passing.'
-                : r.outcome === 'closed'
-                  ? 'Closed right now.'
-                  : 'Not available for this request.',
-        }))
-    : []
-  const closerIds = new Set(closer.map((r) => r.id))
-  const rest = ranked.filter((r) => !recommendedIds.has(r.id) && !closerIds.has(r.id))
+  const rest = likely.filter((r) => !recommendedIds.has(r.id))
+  const furtherAway = likely.length > 0
+    ? []
+    : ranked
+        .filter((r) => r.distance_m > radius)
+        .sort((a, b) =>
+          TIER[a.outcome] - TIER[b.outcome] ||
+          (prob.get(b.id) ?? 0) - (prob.get(a.id) ?? 0) ||
+          a.distance_m - b.distance_m ||
+          a.id.localeCompare(b.id),
+        )
+        .slice(0, 2)
 
   const nothingFresh = ranked.length > 0 && ranked.every((r) => r.freshness === 'expired')
 
@@ -312,30 +332,42 @@ export function demoSearch(req: SearchRequest): SearchResponse {
       amount_sle: amount,
       amount_label: amountLabel(amount),
       area: req.area === 'all' ? 'Freetown' : req.area,
-      radius_m: req.radius_m ?? 2000,
+      radius_m: radius,
       origin: originFor(req.area === 'all' ? 'Freetown' : req.area),
     },
     recommended,
-    closer_not_serving: closer,
-    results: rest.slice(0, 10 - recommended.length - closer.length),
-    total: ranked.length,
+    closer_not_serving: coreNearest.filter((r) => r.outcome !== 'likely'),
+    results: rest.slice(0, 10 - recommended.length),
+    further_away: furtherAway,
+    total: coreAll.length + furtherAway.length,
     generated_at: new Date().toISOString(),
     banner: nothingFresh ? 'All nearby statuses are older than 4 hours — ask before you go.' : null,
   }
 }
 
-export function demoAgent(id: string, tx: TransactionType | null, amount: number | null): AgentDetail | null {
+function distanceBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const radius = 6_371_000
+  const rad = (n: number) => (n * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat)
+  const dLng = rad(b.lng - a.lng)
+  const v = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return Math.round(2 * radius * Math.asin(Math.sqrt(v)))
+}
+
+export function demoAgent(id: string, tx: TransactionType | null, amount: number | null, area = 'Lumley'): AgentDetail | null {
   const a = AGENTS.find((x) => x.id === id)
   if (!a) return null
   const transaction = tx ?? 'cash_out'
-  const base = toResult(a, transaction, amount)
+  const origin = originFor(area)
+  const base = toResult({ ...a, distance_m: distanceBetween(origin, a) }, transaction, amount)
   return {
     ...base,
     request_label: `For ${TRANSACTION_LABELS[transaction]}${amount ? ` · ${amountLabel(amount)}` : ''}`,
     hours_text: a.hours_text,
+    open_now: a.open,
     verified_label: a.verified ? 'Registered agent' : null,
     call_url: a.can_call ? 'tel:+23200000000' : null,
-    origin: originFor(a.area),
+    origin,
   }
 }
 

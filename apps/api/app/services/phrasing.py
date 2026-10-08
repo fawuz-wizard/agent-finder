@@ -15,12 +15,12 @@ NETWORK_RANGES = SideThresholds(some_max_sle=10_000, small_max_sle=500)
 TRANSACTION_LABELS = {"cash_out": "Cash out", "deposit": "Deposit", "send": "Send"}
 PUBLIC_TEXT = {
     "likely": "Can likely handle your request",
-    "limited": "Limited — may not cover this amount",
+    "limited": "Availability uncertain for this request",
     "expired": "Status expired — ask before you go",
     "closed": "Closed",
     "hidden": "Availability hidden",
     "not_set": "Status not set",
-    "unknown": "No record yet for this amount — ask when you arrive",
+    "unknown": "Not enough recent activity to estimate availability",
 }
 CAPACITY_LABEL = {"most": "Most", "some": "Some", "small": "Small", "none": "None"}
 PRESENCE_LABEL = {"open": "Open · serving", "hidden": "Hidden", "closed": "Closed"}
@@ -159,7 +159,7 @@ def amount_band(amount: int | None) -> str | None:
 
 # Coarse area centroids used when the customer declined location.
 AREA_POINTS = {
-    "Lumley": (8.4405, -13.2795),
+    "Lumley": (8.4378, -13.2795),
     "Aberdeen": (8.4842, -13.2711),
     "Wilberforce": (8.4617, -13.2629),
     "Congo Cross": (8.4790, -13.2560),

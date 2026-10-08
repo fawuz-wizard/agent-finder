@@ -2,11 +2,11 @@
  * Public customer types. These mirror the API's public view contract exactly.
  *
  * NOTHING private may appear here: no balance, capacity word, range bound, signal,
- * hide event, report count, rating, comment or audit field. If a field would let a
+ * hide event, report count, individual rating, comment or audit field. If a field would let a
  * customer infer an agent's holdings, it does not belong in this file.
  */
 
-export type TransactionType = 'cash_out' | 'deposit' | 'send'
+export type TransactionType = 'cash_out' | 'deposit'
 
 /** The six public phrases. The server decides which one applies; the client only renders it. */
 export type PublicOutcome = 'likely' | 'unknown' | 'limited' | 'expired' | 'closed' | 'hidden' | 'not_set'
@@ -42,6 +42,9 @@ export interface AgentResult {
   /** Maps hand-off URL built by the server from the coarse business point. */
   directions_url: string
   can_call: boolean
+  /** Public aggregate only, hidden until at least three ratings exist. */
+  rating_average?: number | null
+  rating_count?: number
 }
 
 export interface SearchQueryEcho {
@@ -59,10 +62,12 @@ export interface SearchResponse {
   query: SearchQueryEcho
   /** Nearest agents that can likely serve this request (0–2). */
   recommended: AgentResult[]
-  /** Nearer than the recommendation, but the outcome is not "likely". */
+  /** Open, visible nearby agents whose outcome is not "likely", for the Nearest list. */
   closer_not_serving: AgentResult[]
-  /** Everything else, already ranked by the server. */
+  /** Additional likely matches, in nearest-first order. */
   results: AgentResult[]
+  /** Up to two open options beyond the core radius, returned only when no core agent is likely. */
+  further_away?: AgentResult[]
   total: number
   /** ISO timestamp the server produced this answer. */
   generated_at: string
@@ -74,6 +79,7 @@ export interface AgentDetail extends AgentResult {
   /** Outcome restated against the customer's own request, e.g. "For Cash out · SLE 2,000". */
   request_label: string
   hours_text: string
+  open_now?: boolean
   verified_label?: string | null
   /** Present only when the agent opted in; never rendered as plain text. */
   call_url?: string | null
@@ -81,7 +87,7 @@ export interface AgentDetail extends AgentResult {
   origin: Point
 }
 
-export type OutcomeAnswer = 'yes' | 'no' | 'did_not_go'
+export type OutcomeAnswer = 'yes' | 'no' | 'did_not_go' | 'comment'
 
 export interface OutcomeReason {
   code: string
@@ -94,7 +100,7 @@ export interface VisitReport {
   amount_sle: number | null
   answer: OutcomeAnswer
   reason_code?: string | null
-  /** Optional and network-only. Never displayed to any customer. */
+  /** Optional, up to 1,000 characters, and private to the Orange network. */
   rating?: number | null
   comment?: string | null
   source: 'search' | 'direct'
@@ -121,11 +127,9 @@ export interface SearchRequest {
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {
   cash_out: 'Cash out',
   deposit: 'Deposit',
-  send: 'Send',
 }
 
 export const TRANSACTION_HINTS: Record<TransactionType, string> = {
   cash_out: 'Take cash out',
   deposit: 'Put cash in',
-  send: 'Send money to someone',
 }

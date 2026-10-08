@@ -1,7 +1,7 @@
 import { TRANSACTION_HINTS, TRANSACTION_LABELS, type TransactionType } from '@/types/public'
 import { cn } from '@/design'
 
-const ORDER: TransactionType[] = ['cash_out', 'deposit', 'send']
+const ORDER: TransactionType[] = ['cash_out', 'deposit']
 
 /** Radio group, 48 px targets, keyboard-navigable. Selection is the first thing the customer states. */
 export function TransactionTypeSelector({

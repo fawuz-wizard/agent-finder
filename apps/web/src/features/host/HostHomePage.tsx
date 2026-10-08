@@ -65,7 +65,7 @@ export default function HostHomePage() {
           type="button"
           onClick={() => navigate('/find?from=host')}
           aria-label="Agent Finder"
-          className="absolute rounded-[7px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+          className="absolute rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#171717]"
           style={{
             left: BANNER.left * scale,
             top: BANNER.top * scale,

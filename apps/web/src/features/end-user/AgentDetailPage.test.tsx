@@ -29,18 +29,22 @@ describe('directions stay inside the app', () => {
     await user.click(cta)
     const sketch = await screen.findByRole('img', { name: /sketch of the way to fatmata's shop: 300 m to the/i })
     expect(sketch).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /hide the map/i })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: /hide map/i })).toHaveAttribute('aria-expanded', 'true')
     // The maps-app hand-off is still there, but quiet and secondary.
-    expect(screen.getByRole('link', { name: /open in your maps app instead/i })).toHaveAttribute('target', '_blank')
+    expect(screen.getByRole('link', { name: /open walking directions in maps/i })).toHaveAttribute('target', '_blank')
   })
 
-  it('arrives with the map open when a results card sent the customer here', async () => {
+  it('keeps the map closed until the customer chooses directions', async () => {
+    const user = userEvent.setup()
     at('/agents/af-4821?tx=cash_out&amount=2000&map=1')
+    await screen.findByText("Fatmata's Shop")
+    expect(screen.queryByRole('img', { name: /sketch of the way to fatmata/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /get directions/i }))
     expect(await screen.findByRole('img', { name: /sketch of the way to fatmata/i })).toBeInTheDocument()
-    expect(screen.getByText(/straight line, 300 m, about 4 min walk/i)).toBeInTheDocument()
+    expect(screen.getByText(/straight-line distance, 300 m, about 4 min walk/i)).toBeInTheDocument()
   })
 
-  it('the results card links into the app, not out of it', () => {
+  it('the results card opens the shop details before directions', () => {
     const agent: AgentResult = {
       id: 'af-4821',
       name: "Fatmata's Shop",
@@ -60,8 +64,8 @@ describe('directions stay inside the app', () => {
         <AgentResultCard agent={agent} to="/agents/af-4821?tx=cash_out&amount=2000" />
       </MemoryRouter>,
     )
-    const link = screen.getByRole('link', { name: /get directions/i })
-    expect(link).toHaveAttribute('href', '/agents/af-4821?tx=cash_out&amount=2000&map=1')
+    const link = screen.getByRole('link', { name: /view shop/i })
+    expect(link).toHaveAttribute('href', '/agents/af-4821?tx=cash_out&amount=2000')
     expect(link).not.toHaveAttribute('target')
   })
 })
@@ -69,7 +73,9 @@ describe('directions stay inside the app', () => {
 describe('the outcome question follows a visit, not a look', () => {
   it('opening the map remembers nothing; "I\'m going there" starts the visit once', async () => {
     const user = userEvent.setup()
-    at('/agents/af-4821?tx=cash_out&amount=2000&map=1')
+    at('/agents/af-4821?tx=cash_out&amount=2000')
+    await screen.findByText("Fatmata's Shop")
+    await user.click(screen.getByRole('button', { name: /get directions/i }))
     await screen.findByRole('img', { name: /sketch of the way to fatmata/i })
     expect(sessionStorage.getItem('af.pendingVisit')).toBeNull()
     await user.click(screen.getByRole('button', { name: /i'm going there/i }))

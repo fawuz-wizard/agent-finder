@@ -9,7 +9,7 @@
 @theme {
   /* Brand */
   --color-brand: #ff7900;            /* Primary Orange — fills, with ink text */
-  --color-brand-deep: #e85d04;       /* Deep Orange — borders, selection, large text */
+  --color-brand-deep: #e86e00;       /* Orange palette orange-600 */
   --color-brand-text: #c24e00;       /* Accessible Orange — small text and links (AA on white) */
   --color-brand-light: #fff1e6;      /* Light Orange — selected tints */
   /* Dashboard line series — validated together for colour-vision deficiency */
@@ -37,6 +37,17 @@
   --color-night: #1e2430;            /* night-mode surfaces, same in both themes */
   --color-night-text: #dce3f0;
 
+  /* Orange OUDS dark mode surfaces: bg primary, secondary, tertiary, inverse-low. */
+  --color-app-bg: #141414;
+  --color-app-card: #1f1f1f;
+  --color-app-panel: #23211a;
+  --color-app-surface: #333333;
+  --color-app-selected: #33200d;
+  --color-app-tab-active: #4a4a4a;
+  --color-app-star: #ffc56e;
+  --color-app-highlight: #ffa554;
+  --color-app-success: #94f0a4;
+
   /* Demo host shell only — the simulated super-app the customer module is embedded in.
      Never used by Agent Finder's own screens. */
   --color-host-bg: #171515;
@@ -51,7 +62,7 @@
   --color-host-promo-deep: #8f7b3a;
 
   /* Type: system stack, no web fonts */
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --text-xs: 0.75rem;   /* 12 — SMS hints only */
   --text-sm: 0.875rem;  /* 14 — labels, freshness, helper */
   --text-base: 1rem;    /* 16 — body, controls */
@@ -73,7 +84,7 @@
   --shadow-sheet: 0 -4px 24px rgb(0 0 0 / 0.18);
 }
 
-/* Dark theme: near-black, brand fills unchanged, brand text lifted for contrast. */
+/* Light small text stays darker for contrast; dark brand text uses Orange's #FF7900. */
 :root {
   color-scheme: light dark;
 }
@@ -84,11 +95,11 @@
     --color-canvas: #0d0d0d;
     --color-line: #2c2c2c;
     --color-muted: #a8ada8;
-    --color-brand-text: #ffa24d;
+    --color-brand-text: #ff7900;
     --color-brand-light: #33200d;
     --color-brand-faint: #1f160e;
-    --color-success: #4cc26a;
-    --color-success-strong: #7fe09a;
+    --color-success: #94f0a4;
+    --color-success-strong: #94f0a4;
     --color-warning: #ffd166;
     --color-danger: #f2837a;
     --color-success-tint: #12301b;
@@ -96,17 +107,18 @@
     --color-danger-tint: #3d1512;
   }
 }
-:root[data-theme='dark'] {
+:root[data-theme='dark'],
+[data-theme='dark'] {
   --color-ink: #f2f3f0;
   --color-paper: #1a1a1a;
   --color-canvas: #0d0d0d;
   --color-line: #2c2c2c;
   --color-muted: #a8ada8;
-  --color-brand-text: #ffa24d;
+  --color-brand-text: #ff7900;
   --color-brand-light: #33200d;
   --color-brand-faint: #1f160e;
-  --color-success: #4cc26a;
-  --color-success-strong: #7fe09a;
+  --color-success: #94f0a4;
+  --color-success-strong: #94f0a4;
   --color-warning: #ffd166;
   --color-danger: #f2837a;
   --color-success-tint: #12301b;

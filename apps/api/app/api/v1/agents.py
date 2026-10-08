@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.search import AgentResult, Point, to_result
+from app.api.v1.search import AgentResult, Point, rating_summaries, to_result
 from app.core.errors import NotFoundError
 from app.db.models import Agent
 from app.db.session import get_session
@@ -29,6 +29,7 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 class AgentDetail(AgentResult):
     request_label: str
     hours_text: str
+    open_now: bool
     verified_label: str | None = None
     call_url: str | None = None
     # Where the distance was measured from, so the app can draw the way there.
@@ -44,6 +45,7 @@ async def agent_detail(
     public_id: str,
     transaction: Literal["cash_out", "withdraw", "deposit", "send"] | None = Query(default=None),
     amount_sle: int | None = Query(default=None, ge=1),
+    area: str = Query(default="Lumley", min_length=1, max_length=60),
     lat: float | None = None,
     lng: float | None = None,
     db: AsyncSession = Depends(get_session),
@@ -58,10 +60,13 @@ async def agent_detail(
     olat, olng = (
         (round(lat, 3), round(lng, 3))
         if lat is not None and lng is not None
-        else AREA_POINTS.get(a.area, AREA_POINTS["Freetown"])
+        else AREA_POINTS.get(area, AREA_POINTS["Freetown"])
     )
     ledger = (await ledgers_for(db, [a], now))[a.ref]
     base = to_result(a, tx, amount_sle, haversine_m(olat, olng, a.lat, a.lng), now, ledger)
+    base.rating_average, base.rating_count = (await rating_summaries(db, [a.ref])).get(
+        a.ref, (None, 0)
+    )
     label = f"For {TRANSACTION_LABELS[tx]}" + (
         f" · {amount_label(amount_sle)}" if amount_sle else ""
     )
@@ -70,6 +75,7 @@ async def agent_detail(
         origin=Point(lat=olat, lng=olng),
         request_label=label,
         hours_text=schedule.hours_text(a, now),
+        open_now=schedule.is_open_by_schedule(a, now),
         verified_label="Verified agent" if a.verified else None,
         call_url=f"tel:{a.phone}" if a.phone_visible and a.phone else None,
     )

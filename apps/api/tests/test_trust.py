@@ -4,9 +4,18 @@ flags; never a word changed, never shown to a customer."""
 from __future__ import annotations
 
 import pytest
+from app.core.settings import get_settings
 from app.services.trust import score
 
 HDR = {"X-Client": "cust-trust"}
+
+
+@pytest.fixture
+def rules_ranker(monkeypatch):
+    monkeypatch.setenv("RANKER", "rules")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_score_labels_by_failure_rate_with_a_minimum_track_record():
@@ -53,12 +62,18 @@ async def kadiatu(client):
 
 @pytest.mark.asyncio
 async def test_unreliable_word_ranks_after_a_reliable_one_and_flags_the_dealer(
-    client, dealer, kadiatu, frozen_clock
+    client, dealer, kadiatu, frozen_clock, rules_ranker
 ):
     async def order():
         r = await client.post(
             "/api/v1/search",
-            json={"transaction": "cash_out", "amount_sle": 2000, "area": "Lumley"},
+            json={
+                "transaction": "cash_out",
+                "amount_sle": 2000,
+                "area": "Lumley",
+                "lat": 8.439,
+                "lng": -13.283,
+            },
             headers=HDR,
         )
         return [x["name"] for x in r.json()["recommended"]], r.text

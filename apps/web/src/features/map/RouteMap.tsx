@@ -4,7 +4,7 @@
  * the same coarse points. The customer never has to leave Max it to see where to go. No route
  * service is called — it is the straight line and an honest walking estimate.
  */
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { config } from '@/lib/config'
 import { GoogleMap, type LatLng } from './GoogleMap'
 import { buildAgentMarkerElement } from './AgentMarker'
@@ -13,6 +13,8 @@ export interface RouteMapProps {
   agent: { name: string; lat: number; lng: number }
   origin: LatLng | null
   distance_m: number
+  /** True when the demo area centre stands in for device GPS. */
+  originIsSimulated?: boolean
   /** Kept as a quiet secondary link for people who want their own maps app. */
   directions_url: string
   /** The customer says they are going. Only then does the "how did it go?" question follow. */
@@ -115,12 +117,24 @@ function SketchRoute({ agent, origin, distance_m }: { agent: RouteMapProps['agen
   )
 }
 
-export function RouteMap({ agent, origin, distance_m, directions_url, onGoing, going = false }: RouteMapProps) {
+export function RouteMap({ agent, origin, distance_m, directions_url, originIsSimulated = false, onGoing, going = false }: RouteMapProps) {
+  const [travelMode, setTravelMode] = useState<'walking' | 'driving'>('walking')
+  const mapsUrl = new URL(directions_url)
+  mapsUrl.searchParams.set('travelmode', travelMode)
+  if (origin) mapsUrl.searchParams.set('origin', `${origin.lat},${origin.lng}`)
+
   return (
     <section aria-label={`Way to ${agent.name}`} className="flex flex-col gap-2">
       {config.googleMapsApiKey ? <LiveRoute agent={agent} origin={origin} /> : <SketchRoute agent={agent} origin={origin} distance_m={distance_m} />}
+      <div className="flex gap-2" role="group" aria-label="Directions travel mode">
+        {(['walking', 'driving'] as const).map((mode) => (
+          <button key={mode} type="button" aria-pressed={travelMode === mode} onClick={() => setTravelMode(mode)} className={`h-10 flex-1 rounded-card border text-sm font-semibold capitalize transition-colors ${travelMode === mode ? 'border-brand bg-brand text-ink' : 'border-line bg-paper text-ink'}`}>
+            {mode}
+          </button>
+        ))}
+      </div>
       <p className="text-xs text-muted">
-        {origin ? `Straight line, ${distanceText(distance_m)}, ${walkText(distance_m)}.` : 'Your location is not shared, so this shows the agent\'s area.'} Ask when you arrive.
+        {origin ? `${originIsSimulated ? 'Simulated demo location · ' : ''}Straight-line distance, ${distanceText(distance_m)}, ${walkText(distance_m)}.` : 'Your location is not shared, so this shows the agent\'s area.'} Ask when you arrive.
       </p>
       {onGoing &&
         (going ? (
@@ -137,13 +151,13 @@ export function RouteMap({ agent, origin, distance_m, directions_url, onGoing, g
           </button>
         ))}
       <a
-        href={directions_url}
+        href={mapsUrl.toString()}
         target="_blank"
         rel="noopener noreferrer"
         onClick={onGoing}
         className="self-start text-xs font-semibold text-brand-text underline"
       >
-        Open in your maps app instead
+        Open {travelMode} directions in Maps
       </a>
     </section>
   )

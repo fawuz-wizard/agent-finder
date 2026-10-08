@@ -93,7 +93,7 @@ class OutcomeReport(Base):
     )
     transaction: Mapped[str | None] = mapped_column(String(12))
     amount_band: Mapped[str | None] = mapped_column(String(12))  # never the exact amount
-    answer: Mapped[str] = mapped_column(String(12), nullable=False)  # yes|no|did_not_go
+    answer: Mapped[str] = mapped_column(String(12), nullable=False)  # yes|no|did_not_go|comment
     reason_code: Mapped[str | None] = mapped_column(String(32))
     # What the customer was told at report time — so a signal can compare claim vs outcome.
     outcome_at_report: Mapped[str | None] = mapped_column(String(12))

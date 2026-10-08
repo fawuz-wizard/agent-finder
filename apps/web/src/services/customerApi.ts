@@ -46,16 +46,17 @@ export const customerApi = {
 
   agent(
     id: string,
-    ctx: { transaction: TransactionType | null; amount_sle: number | null },
+    ctx: { transaction: TransactionType | null; amount_sle: number | null; area: string },
     signal?: AbortSignal,
   ): Promise<AgentDetail> {
     if (config.useLiveApi) {
       const q = new URLSearchParams()
       if (ctx.transaction) q.set('transaction', ctx.transaction)
       if (ctx.amount_sle !== null) q.set('amount_sle', String(ctx.amount_sle))
+      q.set('area', ctx.area)
       return api.get<AgentDetail>(`/api/v1/agents/${encodeURIComponent(id)}?${q.toString()}`, signal)
     }
-    const found = demoAgent(id, ctx.transaction, ctx.amount_sle)
+    const found = demoAgent(id, ctx.transaction, ctx.amount_sle, ctx.area)
     if (!found) return Promise.reject(new Error('agent_not_found'))
     return delay(found, signal)
   },
@@ -66,7 +67,11 @@ export const customerApi = {
     // through a dynamic import, so no operator code ships in the customer's bundle.
     recordDemoVisit(body)
     const shop = demoAgentName(body.agent_id)
-    if (shop && body.answer !== 'did_not_go' && body.amount_sle !== null) {
+    if (
+      shop &&
+      (body.answer === 'yes' || body.answer === 'no') &&
+      body.amount_sle !== null
+    ) {
       const tx = body.transaction === 'deposit' ? 'deposit' : 'cash_out'
       void import('./operatorDemo').then((m) =>
         m.demoRecordVisit(shop, tx, body.amount_sle!, body.answer as 'yes' | 'no', body.reason_code ?? null),

@@ -90,7 +90,17 @@ async def test_schedule_endpoints_drive_what_customers_see(client, agent, frozen
     )
     assert r.status_code == 200 and r.json()["today"]["today"] == ["08:00", "13:00"]
     frozen_clock.now = frozen_clock.now.replace(hour=13, minute=5)
-    assert (await _fatmata(client))["outcome"] == "closed"
+    search = await client.post(
+        "/api/v1/search",
+        json={"transaction": "cash_out", "amount_sle": 2000, "area": "Lumley"},
+        headers={"X-Client": "schedule-customer"},
+    )
+    shown = search.json()
+    assert all(
+        item["name"] != "Fatmata's Shop"
+        for group in ("recommended", "closer_not_serving", "results", "further_away")
+        for item in shown.get(group, [])
+    )
     home = (await client.get("/api/v1/agent/home", headers=agent)).json()
     assert (
         home["schedule"]["open_now"] is False

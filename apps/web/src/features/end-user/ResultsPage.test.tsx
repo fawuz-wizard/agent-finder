@@ -24,29 +24,24 @@ function renderResults(query = '?tx=cash_out&amount=2000&area=Lumley') {
 afterEach(() => vi.restoreAllMocks())
 
 describe('U3 — Results', () => {
-  it('separates the recommendation from a nearer agent that may not serve', async () => {
+  it('shows likely matches under Recommended and links to nearer uncertain options', async () => {
     renderResults()
-    const recommended = await screen.findByRole('region', { name: /recommended — can handle your request/i })
+    const recommended = await screen.findByRole('region', { name: /recommended agents/i })
     expect(within(recommended).getByText("Fatmata's Shop")).toBeInTheDocument()
-    expect(within(recommended).getByText(/Nearest agent that can likely handle SLE 2,000/)).toBeInTheDocument()
-
-    // The customer walks past this one on the way, so it is named and explained rather than hidden.
-    const closer = screen.getByRole('region', { name: /on your way/i })
-    expect(within(closer).getByText("Mohamed's Store")).toBeInTheDocument()
-    expect(within(closer).getByText(/May not cover SLE 2,000 — worth asking if you are passing/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /closer open agents may have uncertain availability.*see nearest/i })).toBeInTheDocument()
   })
 
-  it('switches to distance order on the Nearest tab and keeps the recommendation marked', async () => {
+  it('switches to distance order on Nearest and includes uncertain agents', async () => {
     const user = userEvent.setup()
     renderResults()
     await screen.findByText("Fatmata's Shop")
 
-    await user.click(screen.getByRole('tab', { name: /nearest/i }))
+    await user.click(screen.getByRole('tab', { name: /nearest \(/i }))
 
     const names = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-    expect(names[0]).toBe("Mohamed's Store") // 120 m — nearest, even though it may not serve
+    expect(names[0]).toBe('Aminata Trading') // nearest to the simulated Lumley search point
     expect(names.indexOf("Fatmata's Shop")).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Our recommendation for SLE 2,000/)).toHaveLength(1)
+    expect(screen.getByText('Availability uncertain for this request')).toBeInTheDocument()
   })
 
   it('never leaks a private field into the customer view', async () => {
@@ -110,7 +105,7 @@ describe('U3 — Results', () => {
       banner: null,
     })
     renderResults()
-    expect(await screen.findByText('No agent is likely to handle this right now')).toBeInTheDocument()
+    expect(await screen.findByText('No open agents found in this area')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Change transaction or amount' })).toBeInTheDocument()
   })
 })

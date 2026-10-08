@@ -60,7 +60,17 @@ async def test_feed_position_replaces_words_and_the_refresh_prompt(feed_on, clie
         headers=agent,
     )
     assert r.status_code == 200 and r.json()["presence"] == "hidden"
-    assert (await _fatmata(client, 2_000))["outcome"] == "hidden"
+    hidden_search = await client.post(
+        "/api/v1/search", json={**SEARCH, "amount_sle": 2_000}, headers=HDR
+    )
+    visible_results = sum(
+        (
+            hidden_search.json()[key]
+            for key in ("recommended", "closer_not_serving", "results", "further_away")
+        ),
+        [],
+    )
+    assert all(row["name"] != "Fatmata's Shop" for row in visible_results)
     # And the dealer sees the live words, not the stale ones.
     rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
     fat = [x for x in rows if x["ref"] == "Agent 024"][0]
@@ -68,16 +78,17 @@ async def test_feed_position_replaces_words_and_the_refresh_prompt(feed_on, clie
 
 
 @pytest.mark.asyncio
-async def test_feed_makes_a_stale_declaration_irrelevant(feed_on, client, dealer):
-    # Agent 038 declared three days ago. Without the feed that is "expired"; with it, the
-    # position is read now, so customers get a real answer and the dealer no such signal.
+async def test_feed_does_not_add_farther_agents_when_core_matches_exist(feed_on, client, dealer):
+    # Amadu is outside 500 m. A live feed must not make him appear as a farther alternative
+    # when an open, likely match already exists in the customer's core area.
     r = await client.post("/api/v1/search", json={**SEARCH, "amount_sle": 500}, headers=HDR)
-    amadu = [
-        x
-        for x in r.json()["recommended"] + r.json()["closer_not_serving"] + r.json()["results"]
-        if x["name"] == "Amadu Corner Shop"
-    ]  # noqa: E501
-    assert amadu and amadu[0]["outcome"] in ("likely", "limited")
+    body = r.json()
+    assert body["recommended"]
+    customer_results = sum(
+        (body[key] for key in ("recommended", "closer_not_serving", "results", "further_away")),
+        [],
+    )
+    assert all(row["name"] != "Amadu Corner Shop" for row in customer_results)
     over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
     assert all(s["id"] != "sig-stale-Agent 038" for s in over["signals"])
     assert over["counts"]["closed"] == sum(

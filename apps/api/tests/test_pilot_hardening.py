@@ -151,7 +151,7 @@ async def test_other_free_text_fields_are_bounded(client, agent, dealer):
             "answer": "yes",
             "source": "search",
             "client_token": "tok-long",
-            "comment": "c" * 281,
+            "comment": "c" * 1001,
         },
         headers={"X-Client": "t"},
     )

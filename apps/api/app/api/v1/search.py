@@ -8,11 +8,11 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings
-from app.db.models import Agent, SearchImpression
+from app.db.models import Agent, OutcomeReport, SearchImpression
 from app.db.session import get_session
 from app.schemas.public.common import PublicModel
 from app.services import usage
@@ -48,6 +48,7 @@ TIER = {
     "hidden": 6,
 }
 FRESH_TIER = {"fresh": 0, "aging": 1, "may_have_changed": 2, "expired": 3}
+FALLBACK_RADIUS_M = 20_000
 
 
 class SearchRequest(BaseModel):
@@ -59,7 +60,7 @@ class SearchRequest(BaseModel):
     )
     lat: float | None = None
     lng: float | None = None
-    radius_m: int = Field(default=2000, ge=200, le=20_000)
+    radius_m: int = Field(default=500, ge=500, le=500)
 
 
 class Point(PublicModel):
@@ -86,6 +87,8 @@ class AgentResult(PublicModel):
     note: str | None = None
     directions_url: str
     can_call: bool
+    rating_average: float | None = None
+    rating_count: int = 0
 
 
 class QueryEcho(PublicModel):
@@ -104,6 +107,7 @@ class SearchResponse(PublicModel):
     recommended: list[AgentResult]
     closer_not_serving: list[AgentResult]
     results: list[AgentResult]
+    further_away: list[AgentResult] = Field(default_factory=list)
     total: int
     generated_at: str
     banner: str | None = None
@@ -136,6 +140,27 @@ def origin_for(req: SearchRequest) -> tuple[float, float]:
     return AREA_POINTS.get(req.area, AREA_POINTS["Freetown"])
 
 
+async def rating_summaries(
+    db: AsyncSession, refs: list[str]
+) -> dict[str, tuple[float | None, int]]:
+    if not refs:
+        return {}
+    rows = await db.execute(
+        select(
+            OutcomeReport.agent_ref,
+            func.avg(OutcomeReport.rating),
+            func.count(OutcomeReport.rating),
+        )
+        .where(OutcomeReport.agent_ref.in_(refs), OutcomeReport.rating.is_not(None))
+        .group_by(OutcomeReport.agent_ref)
+    )
+    # Suppress sparse ratings so one submission cannot define an agent's public score.
+    return {
+        ref: (round(float(avg), 1), int(count)) if count >= 3 else (None, 0)
+        for ref, avg, count in rows
+    }
+
+
 @router.post("", response_model=SearchResponse, summary="Rank nearby agents for one request")
 async def search(
     req: SearchRequest,
@@ -158,7 +183,7 @@ async def search(
     feats: dict[str, dict[str, float]] = {}
     for a in agents:
         dist = haversine_m(olat, olng, a.lat, a.lng)
-        if dist > req.radius_m and a.area != req.area:
+        if dist > FALLBACK_RADIUS_M:
             continue
         ledger = ledgers.get(a.ref)
         r = to_result(a, tx, req.amount_sle, dist, now, ledger)
@@ -211,36 +236,51 @@ async def search(
                 )
         await db.commit()
 
-    likely = [r for r in scored if r.outcome == "likely"]
+    # Keep the 500 m core separate from the wider fallback zone. Every visible open
+    # core agent can appear in Nearest; farther options are returned only when no core
+    # agent is a likely match, and are capped at two.
+    open_visible = [r for r in scored if r.outcome not in ("closed", "hidden")]
+    core_all = [r for r in open_visible if r.distance_m <= req.radius_m]
+    core_nearest = sorted(core_all, key=lambda r: (r.distance_m, r.id))[:10]
+    likely = [r for r in core_all if r.outcome == "likely"]
+    likely.sort(
+        key=lambda r: (
+            -prob.get(r.id, 0.0),
+            rank.get(r.id, 0),
+            FRESH_TIER[r.freshness],
+            r.distance_m,
+            r.id,
+        )
+    )
     recommended = []
     for i, r in enumerate(likely[:2]):
         r.why = (
-            f"Nearest agent that can likely handle {amount_label(req.amount_sle) or 'your request'} right now."  # noqa: E501
+            f"Strong activity match for {amount_label(req.amount_sle) or 'your request'}; availability may change."  # noqa: E501
             if i == 0
-            else "Also likely able, a little further."
+            else "Another strong activity match nearby."
         )
         recommended.append(r)
-    rec_ids = {r.id for r in recommended}
-    top = recommended[0] if recommended else None
-    closer = []
-    if top:
-        for r in sorted(
-            (x for x in scored if x.id not in rec_ids and x.distance_m < top.distance_m),
-            key=lambda x: x.distance_m,
-        ):
-            r.note = (
-                f"May not cover {amount_label(req.amount_sle) or 'this request'} — worth asking if you are passing."  # noqa: E501
-                if r.outcome == "limited"
-                else "Status too old to rely on — worth asking if you are passing."
-                if r.outcome == "expired"
-                else "Closed right now."
-                if r.outcome == "closed"
-                else "Not available for this request."
-            )
-            closer.append(r)
-    closer_ids = {r.id for r in closer}
-    rest = [r for r in scored if r.id not in rec_ids and r.id not in closer_ids]
-    nothing_fresh = bool(scored) and all(r.freshness == "expired" for r in scored)
+    results = likely[2:10]
+    closer = [r for r in core_nearest if r.outcome != "likely"]
+    further_away = []
+    if not likely:
+        further_away = sorted(
+            (r for r in open_visible if r.distance_m > req.radius_m),
+            key=lambda r: (
+                TIER[r.outcome],
+                -prob.get(r.id, 0.0),
+                FRESH_TIER[r.freshness],
+                r.distance_m,
+                r.id,
+            ),
+        )[:2]
+    response_agents = {r.id: r for r in [*recommended, *results, *closer, *further_away]}
+    ratings = await rating_summaries(
+        db, [r.id.replace("af-", "Agent ") for r in response_agents.values()]
+    )
+    for r in response_agents.values():
+        r.rating_average, r.rating_count = ratings.get(r.id.replace("af-", "Agent "), (None, 0))
+    nothing_fresh = bool(open_visible) and all(r.freshness == "expired" for r in open_visible)
 
     await usage.record(db, "search", "customer", x_client or "anonymous")
     await db.commit()
@@ -257,8 +297,9 @@ async def search(
         ),
         recommended=recommended,
         closer_not_serving=closer,
-        results=rest[: max(0, 10 - len(recommended) - len(closer))],
-        total=len(scored),
+        results=results,
+        further_away=further_away,
+        total=len(core_all) + len(further_away),
         generated_at=now.isoformat(),
         banner="All nearby statuses are older than 4 hours — ask before you go."
         if nothing_fresh

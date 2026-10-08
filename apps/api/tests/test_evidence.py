@@ -107,7 +107,13 @@ async def test_confirmed_visits_become_evidence_when_there_is_no_note(client, de
         detail["evidence"]["cash"]["text"]
         == "3 confirmed visits in the last 30 days, usually up to about SLE 5,000"
     )  # noqa: E501
-    r = await client.post("/api/v1/search", json={**SEARCH, "amount_sle": 6_000}, headers=HDR)
+    # Centre the demo customer near Kadiatu so this test isolates capacity evidence from the
+    # unrelated question of which seeded shops happen to fall inside Lumley's 500 m radius.
+    r = await client.post(
+        "/api/v1/search",
+        json={**SEARCH, "amount_sle": 6_000, "lat": 8.4371, "lng": -13.2852},
+        headers=HDR,
+    )
     d = r.json()
     kadiatu = [
         x

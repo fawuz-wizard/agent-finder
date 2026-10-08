@@ -133,7 +133,9 @@ async def test_rules_mode_keeps_the_fixed_order_and_logs_nothing(monkeypatch, cl
     get_settings.cache_clear()
     try:
         r = await client.post(
-            "/api/v1/search", json={**SEARCH, "amount_sle": 2_000}, headers={"X-Client": "dev-r3"}
+            "/api/v1/search",
+            json={**SEARCH, "amount_sle": 2_000, "lat": 8.439, "lng": -13.283},
+            headers={"X-Client": "dev-r3"},
         )
         assert [x["name"] for x in r.json()["recommended"]] == ["Kadiatu's Kiosk", "Fatmata's Shop"]
         async with dbsession.get_session_factory()() as db:

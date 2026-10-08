@@ -25,13 +25,15 @@ Browser (React PWA) ──HTTPS JSON──► FastAPI (/api/v1) ──asyncpg─
 
 ## Request path for a search (from the API stage onward)
 
-1. `POST /api/v1/search` validates `{tx_type, amount_sle?, lat, lng | area, radius_m?}`.
-2. PostGIS `ST_DWithin` on the GIST index returns agents within the radius with `ST_Distance`.
+1. `POST /api/v1/search` validates `{transaction, amount_sle?, lat, lng | area, radius_m: 500}`.
+2. The service returns agents strictly within 500 m of the coarse origin, with `ST_Distance`.
 3. For each agent the service fetches the private category and thresholds, calls
    `domain.capacity.compare`, then discards the private values.
 4. `domain.freshness` classifies the status age; `domain.visibility` applies closed / hidden / night.
 5. `domain.ranking` orders by outcome tier → freshness → distance → id (deterministic).
-6. The public response carries the phrase, freshness label, distance and location — nothing else.
+6. Only open, visible agents likely to handle the selected request are returned, nearest first.
+   The public response carries the phrase, freshness, distance, location and an aggregate rating
+   only after at least three ratings — no private capacity values or individual feedback.
 
 ## Layout
 

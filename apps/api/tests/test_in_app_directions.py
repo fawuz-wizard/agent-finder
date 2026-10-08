@@ -4,6 +4,7 @@ distance was measured from, so the map is drawn under the agent, never in anothe
 from __future__ import annotations
 
 import pytest
+from app.services.phrasing import AREA_POINTS
 
 HDR = {"X-Client": "cust-map"}
 
@@ -16,7 +17,8 @@ async def test_results_and_detail_carry_coarse_points_and_the_origin(client):
         headers=HDR,
     )
     body = r.json()
-    assert body["query"]["origin"] == {"lat": 8.4405, "lng": -13.2795}  # the area centre
+    area_lat, area_lng = AREA_POINTS["Lumley"]
+    assert body["query"]["origin"] == {"lat": area_lat, "lng": area_lng}
     fat = [x for x in body["recommended"] if x["name"] == "Fatmata's Shop"][0]
     assert fat["lat"] == 8.441 and fat["lng"] == -13.28  # rounded to ~110 m
     assert len(str(fat["lat"]).split(".")[1]) <= 3
