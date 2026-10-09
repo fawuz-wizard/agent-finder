@@ -73,3 +73,20 @@ jobs:
               print("PostGIS", v); await c.close()
           asyncio.run(main())
           PY
+
+  api-image:
+    name: API — container image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image hosts will run
+        run: docker build -t agent-finder-api apps/api
+      - name: Boot it against SQLite and hit /health
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            -e APP_ENV=test -e SEED_ON_START=false -e OPERATOR_ADAPTER=none \
+            -e DATABASE_URL=sqlite+aiosqlite:////tmp/smoke.db agent-finder-api
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/health && break; sleep 1; done
+          curl -sf http://localhost:8000/health
+          docker logs api | tail -5
+          docker rm -f api

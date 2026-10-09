@@ -1,0 +1,30 @@
+# Render blueprint: the API as a Docker web service. The database is Supabase (Postgres +
+# PostGIS); the web app is on Vercel. Create the blueprint from this repository, then fill the
+# values marked sync: false in the Render dashboard before the first deploy.
+services:
+  - type: web
+    name: agent-finder-api
+    runtime: docker
+    rootDir: apps/api
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: AUTH_MODE
+        value: demo            # PINs for the pilot; switch to otp when Orange's OTP is wired
+      - key: SEED_ON_START
+        value: "false"         # never plant demo accounts in a real database
+      - key: OPERATOR_ADAPTER
+        value: none            # no fake money in production; the Orange adapter comes later
+      - key: RANKER
+        value: activity
+      - key: DATABASE_URL
+        sync: false            # postgresql+asyncpg://… from Supabase (connection pooling URL)
+      - key: CORS_ORIGINS
+        sync: false            # https://<web app>.vercel.app,https://localhost,http://localhost,capacitor://localhost
+      - key: LOG_LEVEL
+        value: INFO
