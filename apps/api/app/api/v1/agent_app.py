@@ -657,6 +657,7 @@ async def profile(
         "active": a.active,
         # The shop on the map: the agent can pin it from the phone while standing there.
         "located": a.lat is not None and a.lng is not None,
+        "location_confirmed": bool(a.location_confirmed),
         "location_source": a.location_source,
         "lat": a.lat,
         "lng": a.lng,
@@ -690,6 +691,7 @@ async def set_location(
     check_point(body.lat, body.lng)
     a.lat, a.lng = round(body.lat, 5), round(body.lng, 5)
     a.location_source = "agent"
+    a.location_confirmed = False
     if body.street and body.street.strip():
         a.street = body.street.strip()
     db.add(

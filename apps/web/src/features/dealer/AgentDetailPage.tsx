@@ -83,6 +83,7 @@ export default function DealerAgentDetailPage() {
         </Card>
 
         {(!data.located || !data.active) && <PlacementCard detail={data} onSaved={refresh} />}
+        {data.located && data.active && !data.location_confirmed && <ConfirmCard detail={data} onSaved={refresh} />}
 
         <Card>
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Orange record</p>
@@ -96,7 +97,7 @@ export default function DealerAgentDetailPage() {
               {data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : '—'} · {data.city ?? '—'}
             </p>
             <p className="text-sm text-muted">On the map</p>
-            <p className="text-right text-sm font-bold">{data.located ? 'Yes' : 'No'}</p>
+            <p className="text-right text-sm font-bold">{data.located ? (data.location_confirmed ? 'Yes' : 'Pinned, not confirmed') : 'No'}</p>
             <p className="text-sm text-muted">Source</p>
             <p className="text-right text-sm font-bold">{data.source === 'orange_file' ? "Orange's file" : 'Registered in the app'}</p>
           </div>
@@ -158,6 +159,42 @@ export default function DealerAgentDetailPage() {
         <p className="text-center text-xs text-muted">Every action is recorded with your name. None of them changes the agent's status.</p>
       </div>
     </div>
+  )
+}
+
+/** The agent pinned the shop from the phone. Nobody is sent there until the aggregator confirms. */
+function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
+  async function confirm() {
+    setBusy(true)
+    setError(null)
+    try {
+      await operatorApi.confirmLocation(detail.ref)
+      toast.show(`${detail.shop_name} is on the map`)
+      onSaved()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not confirm.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Card className="border-warning bg-warning-tint/40" aria-labelledby="confirm-location">
+      <p id="confirm-location" className="text-xs font-bold uppercase tracking-wider text-muted">Pin waiting for your confirmation</p>
+      <p className="text-sm">
+        The agent pinned the shop at <b>{detail.area}</b>. Customers are not sent there until you confirm it is right.
+      </p>
+      {error && (
+        <p role="alert" className="text-sm font-semibold text-danger">
+          {error}
+        </p>
+      )}
+      <Button size="control" className="mt-1" onClick={confirm} disabled={busy}>
+        {busy ? 'Confirming…' : 'Confirm this location'}
+      </Button>
+    </Card>
   )
 }
 

@@ -107,6 +107,7 @@ async def place(apply: bool, pin: str | None, everyone: bool = False) -> dict[st
             if apply:
                 a.lat, a.lng = lat, lng
                 a.location_source = "placed"
+                a.location_confirmed = True  # demonstration only; a person's pin replaces it
             counts["placed"] += 1
         if pin:
             for a in agents:

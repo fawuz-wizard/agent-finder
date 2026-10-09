@@ -44,7 +44,7 @@ from app.services.phrasing import (
     is_open_now,
     now_utc,
 )
-from app.services.points import check_point
+from app.services.points import check_point, on_map
 from app.services.trust import trust_for
 
 router = APIRouter(tags=["dealer"])
@@ -237,9 +237,7 @@ def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     if a.presence == "hidden":
         return "hidden"
     if (
-        a.lat is None
-        or a.lng is None
-        or not a.active
+        not on_map(a)
         or a.presence == "closed"
         or not is_open_now(a, now)
         or (not live and freshness_of(capacity_updated_at(a, ledger, now), now) == "expired")
@@ -338,6 +336,8 @@ async def agents_list(
                 or trust[a.ref].label == "unreliable",
                 "reliability": trust[a.ref].as_dict(),
                 "located": a.lat is not None and a.lng is not None,
+                "location_confirmed": bool(a.location_confirmed),
+                "location_source": a.location_source,
                 "active": a.active,
                 "region": a.region,
                 "city": a.city,
@@ -436,6 +436,8 @@ async def agent_detail(
         ],
         "open_signals": len(sigs),
         "located": a.lat is not None and a.lng is not None,
+        "location_confirmed": bool(a.location_confirmed),
+        "location_source": a.location_source,
         "active": a.active,
         "region": a.region,
         "city": a.city,
@@ -751,6 +753,8 @@ def registered_out(a: Agent, now: datetime) -> dict:
         "lat": a.lat,
         "lng": a.lng,
         "located": a.lat is not None and a.lng is not None,
+        "location_confirmed": bool(a.location_confirmed),
+        "location_source": a.location_source,
         "active": a.active,
         "region": a.region,
         "city": a.city,
@@ -795,6 +799,7 @@ async def register_agent(
         street=body.street.strip(),
         lat=round(body.lat, 5),
         location_source="dealer",
+        location_confirmed=True,
         lng=round(body.lng, 5),
         phone=body.phone.replace(" ", "") if body.phone else None,
         phone_visible=body.phone_visible,
@@ -846,6 +851,7 @@ async def edit_agent(
         check_point(body.lat, body.lng)
         a.lat, a.lng = round(body.lat, 5), round(body.lng, 5)
         a.location_source = "dealer"
+        a.location_confirmed = True
     if (body.open_time is None) != (body.close_time is None):
         raise AppError("Give both opening and closing time.", code="invalid_hours")
     if body.open_time and body.close_time:
@@ -873,6 +879,38 @@ async def edit_agent(
     )
     await db.commit()
     return registered_out(a, now)
+
+
+@router.post(
+    "/dealer/agents/{ref}/confirm-location",
+    summary="Confirm the point the agent pinned — customers are sent there from now on",
+)
+async def confirm_location(
+    ref: str,
+    p: Principal = Depends(require_permission("MANAGE_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """An agent's own pin waits here. The aggregator, who knows where the shop is, confirms
+    it; only then is the shop on the customer map. Recorded as an action in the dealer's name."""
+    a = (
+        await db.execute(select(Agent).where(Agent.ref == ref, Agent.dealer_id == p.subject))
+    ).scalar_one_or_none()
+    if a is None:
+        raise NotFoundError("Not available.")
+    if a.lat is None or a.lng is None:
+        raise AppError("This agent has no pin to confirm yet.", code="no_location")
+    a.location_confirmed = True
+    db.add(
+        Action(
+            at=now_utc(),
+            actor=p.name,
+            agent_ref=a.ref,
+            action="confirm_location",
+            note=f"{p.name} confirmed the location of {a.shop_name}",
+        )
+    )
+    await db.commit()
+    return registered_out(a)
 
 
 @router.post("/dealer/agents/{ref}/pin", summary="Set a new PIN for an agent under me")
@@ -943,6 +981,8 @@ async def report_rows(db: AsyncSession, p: Principal, now: datetime) -> list[dic
                 "city": a.city or "",
                 "street": a.street,
                 "located": a.lat is not None and a.lng is not None,
+                "location_confirmed": bool(a.location_confirmed),
+                "location_source": a.location_source,
                 "active_at_orange": a.active,
                 "verified": a.verified,
                 "source": a.source,

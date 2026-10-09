@@ -350,4 +350,17 @@ describe('report and records', () => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
+
+  it('a pin the agent made waits for the aggregator to confirm, then customers are sent there', async () => {
+    const user = userEvent.setup()
+    signIn([...ALL, PERMISSIONS.manageAgent])
+    const real = await operatorApi.dealerAgent('Agent 024')
+    vi.spyOn(operatorApi, 'dealerAgent').mockResolvedValue({ ...real, located: true, location_confirmed: false, location_source: 'agent' })
+    const confirm = vi.spyOn(operatorApi, 'confirmLocation')
+    render(<App start="/dealer/agents/Agent%20024" />)
+    expect(await screen.findByText(/Pin waiting for your confirmation/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /confirm this location/i }))
+    expect(confirm).toHaveBeenCalledWith('Agent 024')
+    vi.restoreAllMocks()
+  })
 })

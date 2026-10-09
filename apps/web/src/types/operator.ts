@@ -237,6 +237,8 @@ export interface AgentProfile {
   active: boolean
   /** The shop on the map. The agent can pin it from the phone while standing at the shop. */
   located: boolean
+  /** A pin goes live for customers only once the aggregator confirms it. */
+  location_confirmed: boolean
   location_source: 'dealer' | 'agent' | 'placed' | null
   lat: number | null
   lng: number | null
@@ -280,6 +282,8 @@ export interface DealerAgentRow {
   capacity_text: string
   /** False until a dealer pins the shop; an unlocated agent is never shown to customers. */
   located: boolean
+  /** A pin goes live for customers only once the aggregator confirms it. */
+  location_confirmed: boolean
   /** Orange's account status; an inactive agent is never shown to customers. */
   active: boolean
   region: 'east' | 'north' | 'west' | 'south' | null
@@ -409,6 +413,9 @@ export interface DealerAgentDetail {
   /** Where the current ceiling per side comes from: operator | dealer | visits | none. */
   evidence: { cash: { source: string; text: string }; float: { source: string; text: string } }
   located: boolean
+  /** A pin goes live for customers only once the aggregator confirms it. */
+  location_confirmed: boolean
+  location_source?: 'dealer' | 'agent' | 'placed' | null
   active: boolean
   region: 'east' | 'north' | 'west' | 'south' | null
   city: string | null
@@ -448,6 +455,8 @@ export interface RegisteredAgent {
   lat: number | null
   lng: number | null
   located: boolean
+  /** A pin goes live for customers only once the aggregator confirms it. */
+  location_confirmed: boolean
   active: boolean
   region: 'east' | 'north' | 'west' | 'south' | null
   city: string | null
@@ -503,6 +512,8 @@ export interface DealerReportRow {
   city: string
   street: string
   located: boolean
+  /** A pin goes live for customers only once the aggregator confirms it. */
+  location_confirmed: boolean
   active_at_orange: boolean
   verified: boolean
   source: string

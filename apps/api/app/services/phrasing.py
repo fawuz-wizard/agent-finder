@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from app.domain.capacity import SideThresholds, compare
 from app.domain.freshness import DEFAULT_WINDOWS, freshness_state
 from app.domain.types import CapacityCategory, FreshnessState, PublicOutcome
+from app.services.points import on_map
 
 NETWORK_RANGES = SideThresholds(some_max_sle=10_000, small_max_sle=500)
 
@@ -202,16 +203,20 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
     the agent chose. Consequence, not input: the ranges appear here, never on the buttons.
     With a ledger, each side also says what the agent's own figure and the confirmed visits
     since add up to, and names the failed visit that lowered a ceiling."""
-    if agent.lat is None or agent.lng is None or not getattr(agent, "active", True):
+    if not on_map(agent):
+        if not getattr(agent, "active", True):
+            why = "Your Orange Money account is marked inactive, so you are not shown."
+        elif agent.lat is None or agent.lng is None:
+            why = (
+                "Your shop is not on the map yet. Pin it from Profile while standing at the shop, "
+                "or ask your aggregator."
+            )
+        else:
+            why = "Your pin is waiting for your aggregator to confirm it. Customers see you after that."
         return {
             "state": "unlocated",
             "headline": "Customers cannot find you yet",
-            "explanation": (
-                "Your shop is not on the map yet. Pin it from Profile while standing at the shop, "
-                "or ask your aggregator."
-                if agent.lat is None or agent.lng is None
-                else "Your Orange Money account is marked inactive, so you are not shown."
-            ),
+            "explanation": why,
             "sides": [],
         }
     state = public_outcome(agent, "cash_out", None, now, ledger)

@@ -103,6 +103,7 @@ export default function DealerAgentsPage() {
                 </span>
                 {!a.active && <span className="rounded-pill bg-danger-tint px-2.5 py-0.5 text-xs font-bold text-danger">Inactive at Orange</span>}
                 {a.active && !a.located && <span className="rounded-pill bg-warning-tint px-2.5 py-0.5 text-xs font-bold text-warning">Not on the map</span>}
+                {a.active && a.located && !a.location_confirmed && <span className="rounded-pill bg-warning-tint px-2.5 py-0.5 text-xs font-bold text-warning">Pin to confirm</span>}
               </div>
               <p className="text-sm text-muted">{a.capacity_text}</p>
             </Card>

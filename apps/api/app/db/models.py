@@ -48,6 +48,9 @@ class Agent(Base, TimestampMixin):
     lng: Mapped[float | None] = mapped_column(Float)
     # Who put the shop on the map: dealer | agent | placed (script, until someone pins it).
     location_source: Mapped[str | None] = mapped_column(String(10))
+    # A location goes live only once confirmed: an aggregator's own pin is, an agent's pin
+    # waits for the aggregator, a placed point is demo-only and counts as confirmed.
+    location_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Orange's identifiers and record, from the file or typed at registration. Dealer-side only.
     agent_code: Mapped[str | None] = mapped_column(String(20), unique=True)
     msisdn: Mapped[str | None] = mapped_column(String(32), unique=True)

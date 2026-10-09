@@ -687,6 +687,7 @@ function registeredOut(a: AgentState): RegisteredAgent {
     lat: a.lat ?? null,
     lng: a.lng ?? null,
     located: a.lat !== undefined && a.lng !== undefined,
+    location_confirmed: a.lat !== undefined && a.lng !== undefined,
     active: true,
     region: 'west',
     city: 'Freetown',
@@ -795,6 +796,10 @@ export function demoEditAgent(ref: string, body: Partial<Omit<RegisterAgentBody,
   if (body.verified !== undefined) a.verified = body.verified
   actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'contact', agent_ref: ref, at: new Date().toISOString(), note: `Kissy Distribution updated ${a.shop}'s record` })
   return registeredOut(a)
+}
+
+export function demoConfirmLocation(ref: string): RegisteredAgent {
+  return demoEditAgent(ref, {})
 }
 
 export function demoResetPin(ref: string, pin: string): { ref: string; pin_set: true } {
@@ -948,6 +953,7 @@ export function demoAgentProfile(ref: string): AgentProfile {
     city: 'Freetown',
     active: true,
     located: a.lat !== undefined && a.lng !== undefined,
+    location_confirmed: a.lat !== undefined && a.lng !== undefined,
     location_source: a.lat !== undefined ? ('dealer' as const) : null,
     lat: a.lat ?? null,
     lng: a.lng ?? null,
@@ -1189,6 +1195,7 @@ export function demoAgentRows() {
       capacity_source: d.capacity_source,
       capacity_text: capacityText(ledgerFor(a)),
       located: true,
+    location_confirmed: true,
       active: true,
       region: 'west' as const,
       city: 'Freetown',
@@ -1404,6 +1411,7 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
       float: { source: ledgerFor(a).float.evidenceSource, text: ledgerFor(a).float.evidenceText },
     },
     located: true,
+    location_confirmed: true,
     active: true,
     region: 'west',
     city: 'Freetown',
@@ -1488,6 +1496,7 @@ export function demoReport(): DealerReport {
       city: r.city ?? '',
       street: r.area,
       located: r.located,
+      location_confirmed: r.location_confirmed,
       active_at_orange: r.active,
       verified: r.ref === 'Agent 024' || Boolean(a.verified),
       source: r.source,

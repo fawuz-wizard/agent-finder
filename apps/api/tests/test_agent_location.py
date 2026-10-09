@@ -33,8 +33,22 @@ async def test_agent_pins_the_shop_and_appears_on_the_map(client, agent, dealer)
     assert r.status_code == 200, r.text
     out = r.json()
     assert out["located"] is True and out["location_source"] == "agent"
+    assert out["location_confirmed"] is False
     assert out["lat"] == 8.46251 and out["area"] == "Lumley Beach Road, by the bank"
+    # Not live yet: the aggregator confirms the pin first.
+    assert (await client.get("/api/v1/agents/af-024")).status_code == 404
+    waiting = (await client.get("/api/v1/agent/home", headers=agent)).json()["customers_see"]
+    assert waiting["state"] == "unlocated" and "confirm" in waiting["explanation"]
+    rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
+    mine = [x for x in rows if x["ref"] == "Agent 024"][0]
+    assert mine["located"] and mine["location_confirmed"] is False
+    c = await client.post("/api/v1/dealer/agents/Agent 024/confirm-location", headers=dealer)
+    assert c.status_code == 200, c.text
+    assert c.json()["located"] is True
     assert (await client.get("/api/v1/agents/af-024")).status_code == 200
+    assert (
+        await client.post("/api/v1/dealer/agents/Agent 024/confirm-location", headers=agent)
+    ).status_code == 404
     # Nothing else moved: presence and the customers' phrase are as before.
     home2 = (await client.get("/api/v1/agent/home", headers=agent)).json()
     assert home2["declaration"]["presence"] == home["declaration"]["presence"]

@@ -49,6 +49,9 @@ WHAT: dict[str, tuple[str, str]] = {
     "short_address": ("ADDRESS1", "Too short to be a street or landmark; complete it."),
 }
 
+# The team keeps addresses as Orange gives them; only missing ones go on the sheet.
+SKIP = {"address_is_city_only", "short_address"}
+
 
 def main(src: str, dst: str) -> int:
     rows = read_table(Path(src).expanduser())
@@ -71,7 +74,9 @@ def main(src: str, dst: str) -> int:
         )
         for res, r in zip(results, rows, strict=True):
             for issue in res.issues:
-                field, what = WHAT.get(issue, (issue, "Check this row."))
+                if issue in SKIP or issue not in WHAT:
+                    continue
+                field, what = WHAT[issue]
                 value = ""
                 for col in field.split(" / "):
                     value = r.get(col.strip(), "") if col != "whole row" else ""

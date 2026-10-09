@@ -173,6 +173,7 @@ async def seed_if_empty() -> None:
                     street=street,
                     lat=lat,
                     lng=lng,
+                    location_confirmed=True,
                     phone="+23276000000",
                     phone_visible=(ref == "Agent 024"),
                     verified=verified,

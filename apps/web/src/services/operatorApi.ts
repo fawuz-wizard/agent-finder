@@ -243,6 +243,13 @@ export const operatorApi = {
     }
   },
 
+  /** The agent pinned the shop; the aggregator confirms it and customers are sent there. */
+  confirmLocation(ref: string): Promise<RegisteredAgent> {
+    if (config.useLiveApi)
+      return api.post<RegisteredAgent>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/confirm-location`, {})
+    return delay(demo.demoConfirmLocation(ref))
+  },
+
   resetPin(ref: string, pin: string): Promise<{ ref: string; pin_set: true }> {
     if (config.useLiveApi) return api.post(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/pin`, { pin })
     try {

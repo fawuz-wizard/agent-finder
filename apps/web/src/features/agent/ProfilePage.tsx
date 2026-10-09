@@ -103,7 +103,7 @@ export default function ProfilePage() {
               <b>{data.street}</b>
               <span className="text-muted">
                 {' '}
-                · {data.location_source === 'agent' ? 'pinned by you' : data.location_source === 'dealer' ? 'pinned by your aggregator' : "placed from Orange's record, not yet checked"}
+                · {data.location_source === 'agent' ? (data.location_confirmed ? 'pinned by you, confirmed' : 'pinned by you, waiting for your aggregator to confirm') : data.location_source === 'dealer' ? 'pinned by your aggregator' : 'placed for a demonstration, not yet checked'}
               </span>
             </p>
           ) : (
