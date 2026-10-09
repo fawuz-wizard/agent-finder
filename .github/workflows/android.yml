@@ -69,7 +69,13 @@ jobs:
           npm run build
 
       - name: Copy assets into the Android project
-        run: npx cap sync android
+        # A plain-http API (a laptop on the phone's hotspot) is only reachable from the app's
+        # https://localhost page if the shell allows mixed content; see capacitor.config.ts.
+        env:
+          CAP_ALLOW_HTTP: ${{ startsWith(env.API_BASE_URL, 'http://') && '1' || '' }}
+        run: |
+          echo "CAP_ALLOW_HTTP=${CAP_ALLOW_HTTP:-<unset>}"
+          npx cap sync android
 
       - name: Assemble debug APK
         working-directory: apps/web/android
