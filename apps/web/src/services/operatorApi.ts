@@ -26,9 +26,11 @@ import type {
   Session,
   SignalMuteKind,
   SignalMuted,
+  DealerReport,
   DeclareBody,
   FloatForecast,
   LoggedTransaction,
+  RecordKind,
   RegisterAgentBody,
   RegisteredAgent,
   TransactionBand,
@@ -282,6 +284,21 @@ export const operatorApi = {
     } catch (e) {
       return Promise.reject(e instanceof Error ? e : new Error('That value is not available.'))
     }
+  },
+
+  /** The Global Report for my agents: status, location, activity — never money. */
+  report(signal?: AbortSignal): Promise<DealerReport> {
+    if (config.useLiveApi) return api.get<DealerReport>('/api/v1/dealer/report', signal)
+    return delay(demo.demoReport(), signal)
+  },
+
+  /** One record table as CSV text, for the team to study. */
+  async recordsCsv(kind: RecordKind | 'report'): Promise<string> {
+    if (config.useLiveApi) {
+      const path = kind === 'report' ? '/api/v1/dealer/report.csv' : `/api/v1/dealer/records/${kind}.csv`
+      return api.text(path)
+    }
+    return delay(demo.demoRecordsCsv(kind))
   },
 
   audit(signal?: AbortSignal): Promise<AuditEntry[]> {

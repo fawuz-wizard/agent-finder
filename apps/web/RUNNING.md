@@ -108,6 +108,18 @@ A development SQLite database created before these columns existed needs them ad
 `.venv/bin/python -m scripts.add_missing_columns agentfinder.db`. Findings from the real file
 are in `docs/data/orange-file-profile.md`.
 
+## Report and records (the team's console)
+
+Dealer → **Profile → Report and records**. The Global Report of the Orange meeting at the
+dealer's level: one row per agent with region, city, whether it is on the map, Orange's
+status, presence, what it usually covers, reliability and today's activity — never a balance.
+Six CSV exports of the pilot's own records for that dealer's agents: searches shown, customer
+reports, logged transactions, dealer actions, usage events and financial reveals. Nothing in
+them identifies a customer (no device keys) and no comment text is exported. Endpoints:
+`GET /api/v1/dealer/report`, `/dealer/report.csv`, `/dealer/records/{kind}.csv?since=YYYY-MM-DD`
+(`kind` in searches, reports, transactions, actions, usage, audit; default the last 30 days).
+Downloads work in a browser; on a phone, use the web app for exports.
+
 ## Showing both at once
 
 Open two browser windows (or two phones on the same network):
@@ -203,7 +215,7 @@ first to sign with the pilot key):
 ## Other commands
 
 ```bash
-npm test          # 79 tests
+npm test          # 80 tests
 npm run typecheck
 npm run lint
 npm run build     # production build

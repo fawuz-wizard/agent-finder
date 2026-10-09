@@ -40,6 +40,9 @@ import type {
   RegisteredAgent,
   LoggedTransaction,
   TransactionBand,
+  DealerReport,
+  DealerReportRow,
+  RecordKind,
   DayHours,
   Schedule,
   ScheduleState,
@@ -1452,4 +1455,66 @@ export function demoRevealFinancial(ref: string, key: 'balance' | 'float', purpo
 
 export function demoAudit(): AuditEntry[] {
   return [...audit]
+}
+
+/* ---------- the Global Report and the record exports (mirrors the API) ---------- */
+
+export function demoReport(): DealerReport {
+  const rows: DealerReportRow[] = demoAgentRows().map((r) => {
+    const a = find(r.ref)
+    const d = declarationOf(a)
+    return {
+      agent_ref: r.ref,
+      agent_code: '',
+      shop_name: r.name,
+      region: r.region ?? '',
+      city: r.city ?? '',
+      street: r.area,
+      located: r.located,
+      active_at_orange: r.active,
+      verified: r.ref === 'Agent 024' || Boolean(a.verified),
+      source: r.source,
+      presence: r.presence,
+      bucket: r.bucket,
+      capacity: r.capacity_text,
+      status_age_min: d.age_min,
+      reliability: r.reliability.label,
+      found_you_today: a.found_you,
+      reported_problems_today: a.problems,
+      logged_transactions_today: loggedToday(a),
+    }
+  })
+  const by = (key: (r: DealerReportRow) => string) =>
+    rows.reduce<Record<string, number>>((acc, r) => ({ ...acc, [key(r) || 'unknown']: (acc[key(r) || 'unknown'] ?? 0) + 1 }), {})
+  return {
+    generated_at: new Date().toISOString(),
+    dealer: 'Kissy Distribution',
+    agents: rows.length,
+    located: rows.filter((r) => r.located).length,
+    active_at_orange: rows.filter((r) => r.active_at_orange).length,
+    by_region: by((r) => r.region),
+    by_bucket: by((r) => r.bucket),
+    rows,
+  }
+}
+
+function csvOf<T extends object>(rows: T[]): string {
+  if (!rows.length) return ''
+  const keys = Object.keys(rows[0]!) as (keyof T)[]
+  const cell = (v: unknown) => {
+    const s = v === null || v === undefined ? '' : String(v)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  return [keys.join(','), ...rows.map((r) => keys.map((k) => cell(r[k])).join(','))].join('\n') + '\n'
+}
+
+export function demoRecordsCsv(kind: RecordKind | 'report'): string {
+  if (kind === 'report') return csvOf(demoReport().rows)
+  if (kind === 'actions') return csvOf(actions.map((x) => ({ at: x.at, agent_ref: x.agent_ref, action: x.action, note: x.note, signal_id: x.signal_id ?? '' })))
+  if (kind === 'audit') return csvOf(audit.map((x) => ({ at: x.at, agent_ref: x.agent_ref, actor: x.actor, field: x.field, purpose: x.purpose })))
+  if (kind === 'transactions')
+    return csvOf(agents.flatMap((a) => (a.txLog ?? []).map((t) => ({ at: new Date(t.at).toISOString(), agent_ref: a.ref, transaction: t.tx, amount_band: t.band, source: 'agent' }))))
+  if (kind === 'reports')
+    return csvOf(visits.map((v) => ({ at: new Date(v.at).toISOString(), agent_ref: v.ref, transaction: v.tx, amount_band: '', answer: v.answer, reason_code: v.reason ?? '', source: 'search' })))
+  return csvOf([])
 }

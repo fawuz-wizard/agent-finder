@@ -13,6 +13,7 @@ import DealerFloatReviewPage from './FloatReviewPage'
 import DealerAttentionPage from './AttentionPage'
 import DealerAgentsPage from './AgentsPage'
 import DealerFloatQueuePage from './FloatQueuePage'
+import DealerProfilePage from './ProfilePage'
 import RegisterAgentPage from './RegisterAgentPage'
 
 const ALL = [PERMISSIONS.viewAgent, PERMISSIONS.viewFinancial, PERMISSIONS.manageFloat, PERMISSIONS.viewHistory, PERMISSIONS.contact, PERMISSIONS.escalate]
@@ -35,6 +36,7 @@ function App({ start }: { start: string }) {
             <Route path="/dealer/float/:id" element={<DealerFloatReviewPage />} />
             <Route path="/dealer/attention" element={<DealerAttentionPage />} />
             <Route path="/dealer/attention/:id" element={<DealerAttentionPage />} />
+            <Route path="/dealer/profile" element={<DealerProfilePage />} />
           </Routes>
         </MemoryRouter>
       </SessionProvider>
@@ -327,6 +329,25 @@ describe('agents from Orange\'s file', () => {
     render(<App start="/dealer/agents/Agent%20024" />)
     expect(await screen.findByText(/marked inactive at Orange/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pin this shop/i })).not.toBeInTheDocument()
+    vi.restoreAllMocks()
+  })
+})
+
+describe('report and records', () => {
+  it('the profile shows the Global Report figures and exports CSVs of my agents, never money', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    const csv = vi.spyOn(operatorApi, 'recordsCsv')
+    vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:x', revokeObjectURL: () => undefined })
+    render(<App start="/dealer/profile" />)
+    expect(await screen.findByText(/agents ·/)).toBeInTheDocument()
+    expect(screen.getByText(/on the map/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /customer reports \(csv\)/i }))
+    expect(csv).toHaveBeenCalledWith('reports')
+    const text = await operatorApi.recordsCsv('report')
+    expect(text.split('\n')[0]).toMatch(/^agent_ref,agent_code,shop_name,region/)
+    expect(text).not.toMatch(/12,400|12400|balance/)
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 })

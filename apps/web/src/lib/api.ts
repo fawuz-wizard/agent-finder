@@ -97,6 +97,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<HealthResponse>('/health'),
+  /** A text body (CSV) from an authenticated GET. */
+  text: async (path: string): Promise<string> => {
+    const res = await fetch(`${config.apiBaseUrl}${path}`, {
+      headers: { Accept: 'text/csv', 'X-Client': clientKey(), ...(bearer() ? { Authorization: `Bearer ${bearer()}` } : {}) },
+    }).catch(() => {
+      throw new ApiRequestError(0, { code: 'network_error', message: 'No connection. Check your network and try again.', request_id: null })
+    })
+    if (!res.ok) throw new ApiRequestError(res.status, { code: 'http_error', message: res.statusText, request_id: null })
+    return res.text()
+  },
   get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'GET', signal: signal ?? null }),
   post: <T>(path: string, body: unknown, signal?: AbortSignal, headers?: Record<string, string>) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body), signal: signal ?? null, ...(headers ? { headers } : {}) }),

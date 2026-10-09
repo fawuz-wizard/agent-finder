@@ -3,10 +3,13 @@ read. Every response here is behind a named permission; money is masked unless r
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+import csv
+import io
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,10 +20,12 @@ from app.core.errors import AppError, NotFoundError
 from app.db.models import (
     Action,
     Agent,
+    AgentTransaction,
     AuditLog,
     AvailabilityEvent,
     FloatRequest,
     OutcomeReport,
+    SearchImpression,
     UsageEvent,
 )
 from app.db.session import get_session
@@ -901,3 +906,245 @@ async def reset_pin(
     )
     await db.commit()
     return {"ref": a.ref, "pin_set": True}
+
+
+# ---- Report and records: what the team studies, what Orange asked to export ------------------
+#
+# The Global Report of the Orange meeting, at the dealer's level for the pilot: one row per
+# agent with status, location, region, activity today and reliability — never a balance. The
+# records exports are the pilot's event tables for this dealer's agents, as CSV, with nothing
+# that identifies a customer (no device keys, no free-text comments) and nothing financial.
+
+
+def _csv(rows: list[dict], filename: str) -> Response:
+    buf = io.StringIO()
+    if rows:
+        w = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+async def report_rows(db: AsyncSession, p: Principal, now: datetime) -> list[dict]:
+    agents = await my_agents(db, p.subject)
+    trust = await trust_for(db, agents, now)
+    ledgers = await ledgers_for(db, agents, now)
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = []
+    for a in agents:
+        ledger = ledgers.get(a.ref)
+        d = declaration_of(a, now, ledger)
+        counts = await count_today(db, a.ref, start)
+        rows.append(
+            {
+                "agent_ref": a.ref,
+                "agent_code": a.agent_code or "",
+                "shop_name": a.shop_name,
+                "region": a.region or "",
+                "city": a.city or "",
+                "street": a.street,
+                "located": a.lat is not None and a.lng is not None,
+                "active_at_orange": a.active,
+                "verified": a.verified,
+                "source": a.source,
+                "presence": a.presence,
+                "bucket": bucket_of(a, now, ledger),
+                "capacity": capacity_text(ledger),
+                "status_age_min": d.age_min if d.age_min < 10**6 else "",
+                "reliability": trust[a.ref].label,
+                "found_you_today": counts["found"],
+                "reported_problems_today": counts["problems"],
+                "logged_transactions_today": counts["logged"],
+                "orange_april_cash_in": a.orange_cash_in if a.orange_cash_in is not None else "",
+                "orange_april_cash_out": a.orange_cash_out if a.orange_cash_out is not None else "",
+                "orange_april_tx_count": a.orange_tx_count if a.orange_tx_count is not None else "",
+            }
+        )
+    return rows
+
+
+async def count_today(db: AsyncSession, ref: str, start: datetime) -> dict[str, int]:
+    found = (
+        await db.execute(
+            select(func.count())
+            .select_from(UsageEvent)
+            .where(
+                UsageEvent.kind == "directions", UsageEvent.agent_ref == ref, UsageEvent.at >= start
+            )
+        )
+    ).scalar_one()
+    problems = (
+        await db.execute(
+            select(func.count())
+            .select_from(OutcomeReport)
+            .where(
+                OutcomeReport.agent_ref == ref,
+                OutcomeReport.answer == "no",
+                OutcomeReport.at >= start,
+            )
+        )
+    ).scalar_one()
+    logged = (
+        await db.execute(
+            select(func.count())
+            .select_from(AgentTransaction)
+            .where(AgentTransaction.agent_ref == ref, AgentTransaction.at >= start)
+        )
+    ).scalar_one()
+    return {"found": int(found), "problems": int(problems), "logged": int(logged)}
+
+
+@router.get(
+    "/dealer/report",
+    summary="The Global Report for my agents — status, location, activity, never money",
+)
+async def dealer_report(
+    p: Principal = Depends(require_permission("VIEW_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    now = now_utc()
+    rows = await report_rows(db, p, now)
+    by_region: dict[str, int] = {}
+    by_bucket: dict[str, int] = {}
+    for r in rows:
+        by_region[r["region"] or "unknown"] = by_region.get(r["region"] or "unknown", 0) + 1
+        by_bucket[r["bucket"]] = by_bucket.get(r["bucket"], 0) + 1
+    return {
+        "generated_at": now.isoformat(),
+        "dealer": p.name,
+        "agents": len(rows),
+        "located": sum(1 for r in rows if r["located"]),
+        "active_at_orange": sum(1 for r in rows if r["active_at_orange"]),
+        "by_region": by_region,
+        "by_bucket": by_bucket,
+        "rows": rows,
+    }
+
+
+@router.get("/dealer/report.csv", summary="The same report as a CSV file")
+async def dealer_report_csv(
+    p: Principal = Depends(require_permission("VIEW_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> Response:
+    now = now_utc()
+    return _csv(await report_rows(db, p, now), f"agent-report-{date.today().isoformat()}.csv")
+
+
+RECORD_KINDS = ("searches", "reports", "transactions", "actions", "usage", "audit")
+
+
+@router.get(
+    "/dealer/records/{kind}.csv",
+    summary="Export one record table for my agents as CSV — no customer identity, no comments, no money",  # noqa: E501
+)
+async def records_csv(
+    kind: str,
+    since: date | None = None,
+    p: Principal = Depends(require_permission("VIEW_AGENT_HISTORY")),
+    db: AsyncSession = Depends(get_session),
+) -> Response:
+    if kind not in RECORD_KINDS:
+        raise NotFoundError("Not available.")
+    now = now_utc()
+    refs = [a.ref for a in await my_agents(db, p.subject)]
+    start = (
+        datetime(since.year, since.month, since.day, tzinfo=UTC)
+        if since
+        else now - timedelta(days=30)
+    )
+    rows: list[dict] = []
+    if kind == "searches":
+        q = select(SearchImpression).where(
+            SearchImpression.agent_ref.in_(refs), SearchImpression.at >= start
+        )
+        for x in (await db.execute(q.order_by(SearchImpression.at))).scalars().all():
+            rows.append(
+                {
+                    "at": _aware(x.at).isoformat(),
+                    "agent_ref": x.agent_ref,
+                    "transaction": x.transaction,
+                    "amount_band": x.amount_band or "",
+                    "outcome_shown": x.outcome_shown,
+                    "probability": round(x.probability, 4),
+                    "visit_result": ""
+                    if x.label is None
+                    else ("served" if x.label else "not_served"),
+                }
+            )
+    elif kind == "reports":
+        q = select(OutcomeReport).where(
+            OutcomeReport.agent_ref.in_(refs), OutcomeReport.at >= start
+        )
+        for x in (await db.execute(q.order_by(OutcomeReport.at))).scalars().all():
+            rows.append(
+                {
+                    "at": _aware(x.at).isoformat(),
+                    "agent_ref": x.agent_ref,
+                    "transaction": x.transaction or "",
+                    "amount_band": x.amount_band or "",
+                    "answer": x.answer,
+                    "reason_code": x.reason_code or "",
+                    "outcome_at_report": x.outcome_at_report or "",
+                    "freshness_at_report": x.freshness_at_report or "",
+                    "rating": x.rating if x.rating is not None else "",
+                    "source": x.source,
+                }
+            )
+    elif kind == "transactions":
+        q = select(AgentTransaction).where(
+            AgentTransaction.agent_ref.in_(refs), AgentTransaction.at >= start
+        )
+        for x in (await db.execute(q.order_by(AgentTransaction.at))).scalars().all():
+            rows.append(
+                {
+                    "at": _aware(x.at).isoformat(),
+                    "agent_ref": x.agent_ref,
+                    "transaction": x.transaction,
+                    "amount_band": x.amount_band,
+                    "source": x.source,
+                }
+            )
+    elif kind == "actions":
+        q = select(Action).where(Action.agent_ref.in_(refs), Action.at >= start)
+        for x in (await db.execute(q.order_by(Action.at))).scalars().all():
+            rows.append(
+                {
+                    "at": _aware(x.at).isoformat(),
+                    "agent_ref": x.agent_ref,
+                    "action": x.action,
+                    "actor": x.actor,
+                    "note": x.note,
+                    "signal_id": x.signal_id or "",
+                }
+            )
+    elif kind == "usage":
+        q = select(UsageEvent).where(
+            (UsageEvent.agent_ref.in_(refs)) | (UsageEvent.actor_kind == "customer"),
+            UsageEvent.at >= start,
+        )
+        for x in (await db.execute(q.order_by(UsageEvent.at))).scalars().all():
+            rows.append(
+                {
+                    "at": _aware(x.at).isoformat(),
+                    "kind": x.kind,
+                    "actor_kind": x.actor_kind,
+                    "agent_ref": x.agent_ref or "",
+                }
+            )
+    elif kind == "audit":
+        q = select(AuditLog).where(AuditLog.agent_ref.in_(refs), AuditLog.at >= start)
+        for x in (await db.execute(q.order_by(AuditLog.at))).scalars().all():
+            rows.append(
+                {
+                    "at": _aware(x.at).isoformat(),
+                    "agent_ref": x.agent_ref,
+                    "actor": x.actor,
+                    "field": x.field,
+                    "purpose": x.purpose,
+                }
+            )
+    return _csv(rows, f"{kind}-{date.today().isoformat()}.csv")

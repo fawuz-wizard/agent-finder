@@ -484,6 +484,50 @@ export interface ActionLogged {
   until?: string | null
 }
 
+/** The Global Report at the dealer's level: one row per agent, never money. */
+export interface DealerReportRow {
+  agent_ref: string
+  agent_code: string
+  shop_name: string
+  region: string
+  city: string
+  street: string
+  located: boolean
+  active_at_orange: boolean
+  verified: boolean
+  source: string
+  presence: string
+  bucket: DealerBucket
+  capacity: string
+  status_age_min: number | ''
+  reliability: Reliability['label']
+  found_you_today: number
+  reported_problems_today: number
+  logged_transactions_today: number
+}
+
+export interface DealerReport {
+  generated_at: string
+  dealer: string
+  agents: number
+  located: number
+  active_at_orange: number
+  by_region: Record<string, number>
+  by_bucket: Record<string, number>
+  rows: DealerReportRow[]
+}
+
+/** The record tables the team can export. Each is this dealer's agents only, no identity, no comments. */
+export type RecordKind = 'searches' | 'reports' | 'transactions' | 'actions' | 'usage' | 'audit'
+export const RECORD_KINDS: { kind: RecordKind; label: string }[] = [
+  { kind: 'searches', label: 'Searches shown' },
+  { kind: 'reports', label: 'Customer reports' },
+  { kind: 'transactions', label: 'Logged transactions' },
+  { kind: 'actions', label: 'Dealer actions' },
+  { kind: 'usage', label: 'Usage events' },
+  { kind: 'audit', label: 'Financial reveals' },
+]
+
 /** What the server writes BEFORE it returns a financial value. Never the value itself. */
 export interface AuditEntry {
   id: string
