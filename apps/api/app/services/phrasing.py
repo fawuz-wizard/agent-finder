@@ -212,7 +212,10 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
                 "or ask your aggregator."
             )
         else:
-            why = "Your pin is waiting for your aggregator to confirm it. Customers see you after that."
+            why = (
+                "Your pin is waiting for your aggregator to confirm it. "
+                "Customers see you after that."
+            )
         return {
             "state": "unlocated",
             "headline": "Customers cannot find you yet",

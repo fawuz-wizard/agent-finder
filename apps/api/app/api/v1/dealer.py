@@ -910,7 +910,7 @@ async def confirm_location(
         )
     )
     await db.commit()
-    return registered_out(a)
+    return registered_out(a, now_utc())
 
 
 @router.post("/dealer/agents/{ref}/pin", summary="Set a new PIN for an agent under me")
