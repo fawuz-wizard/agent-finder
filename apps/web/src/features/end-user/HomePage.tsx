@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Wordmark } from '@/design'
 import { AREAS } from '@/lib/reference'
+import { useCoarseLocation } from '@/hooks/useCoarseLocation'
 import type { TransactionType } from '@/types/public'
 import { TransactionTypeSelector } from './components/TransactionTypeSelector'
 import { AmountInput } from './components/AmountInput'
@@ -26,6 +27,9 @@ export default function HomePage() {
   const [area, setArea] = useState<string>(() => params.get('area') ?? AREAS[0])
   const [pickArea, setPickArea] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The phone's own position, blunted to ~110 m, so "agents around you" means around you. The
+  // area stays as the label and as the fallback when the position is denied or unavailable.
+  const location = useCoarseLocation(true)
 
   function submit() {
     if (!transaction) {
@@ -39,6 +43,10 @@ export default function HomePage() {
     setError(null)
     const q = new URLSearchParams({ tx: transaction, area })
     if (amount) q.set('amount', amount)
+    if (location.point) {
+      q.set('lat', String(location.point.lat))
+      q.set('lng', String(location.point.lng))
+    }
     navigate(`/search?${q.toString()}`)
   }
 
@@ -74,6 +82,19 @@ export default function HomePage() {
         {area}
         <span className="text-base font-semibold text-brand-text">Change</span>
       </button>
+
+      <p className="-mt-3 flex items-center gap-2 text-xs text-white/55" role="status">
+        {location.state === 'ready'
+          ? 'Searching around your location'
+          : location.state === 'locating'
+            ? 'Finding your location…'
+            : `Location off — searching around ${area}`}
+        {(location.state === 'denied' || location.state === 'unavailable') && (
+          <button type="button" onClick={location.request} className="font-semibold text-brand-text underline">
+            Try again
+          </button>
+        )}
+      </p>
 
       {pickArea && (
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Choose your area">

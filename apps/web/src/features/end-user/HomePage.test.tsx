@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import HomePage from './HomePage'
 
 function LocationProbe() {
@@ -20,7 +20,30 @@ function renderHome() {
   )
 }
 
+afterEach(() => vi.unstubAllGlobals())
+
 describe('U1 — Home', () => {
+  it('searches around the phone\'s own position when it is shared, blunted to about 110 m', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      geolocation: {
+        getCurrentPosition: (ok: (p: unknown) => void) =>
+          ok({ coords: { latitude: 8.470123456, longitude: -13.260987654 } }),
+      },
+    })
+    renderHome()
+    expect(await screen.findByText('Searching around your location')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
+    await user.click(screen.getByRole('button', { name: 'Find an agent' }))
+    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Lumley&amount=2000&lat=8.47&lng=-13.261')
+  })
+
+  it('falls back to the chosen area, and says so, when location is off', async () => {
+    renderHome()
+    expect(await screen.findByText(/Location off — searching around Lumley/)).toBeInTheDocument()
+  })
+
   it('states the transaction first and carries it into the search', async () => {
     const user = userEvent.setup()
     renderHome()

@@ -31,6 +31,11 @@ Vite prints a local address, usually `http://localhost:5173`.
 
 The outcome prompt appears on the home screen about 20 seconds after taking directions (15 minutes in a live deployment — `outcomePromptAfterMs` in `src/lib/config.ts`).
 
+**Location.** `/find` asks the phone for its position (blunted to about 110 m before it is used
+anywhere) and searches the 500 m core around it; the results say "Your location". If the
+position is denied or unavailable, it searches around the chosen area and says so, with a
+"Try again". The APK declares the location permission and asks on first use.
+
 ## Agent and dealer side
 
 | URL | What it is |
@@ -173,7 +178,7 @@ first to sign with the pilot key):
 ## Other commands
 
 ```bash
-npm test          # 72 tests
+npm test          # 77 tests
 npm run typecheck
 npm run lint
 npm run build     # production build

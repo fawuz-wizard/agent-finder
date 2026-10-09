@@ -5,13 +5,20 @@ import { useSearch } from '@/hooks/useSearch'
 import type { SearchRequest, TransactionType } from '@/types/public'
 import { AgentResultCard } from './components/AgentResultCard'
 import { EmptyState, ErrorState, LoadingResults, OfflineBanner } from './components/states'
+import { pointFrom } from './searchPoint'
 
 function parse(params: URLSearchParams): SearchRequest | null {
   const tx = params.get('tx') as TransactionType | null
   if (tx !== 'cash_out' && tx !== 'deposit') return null
   const raw = params.get('amount')
   const amount = raw && Number(raw) > 0 ? Number(raw) : null
-  return { transaction: tx, amount_sle: amount, area: params.get('area') ?? 'Lumley', radius_m: 500 }
+  const req: SearchRequest = { transaction: tx, amount_sle: amount, area: params.get('area') ?? 'Lumley', radius_m: 500 }
+  const point = pointFrom(params)
+  if (point) {
+    req.lat = point.lat
+    req.lng = point.lng
+  }
+  return req
 }
 
 /**
@@ -69,7 +76,9 @@ export default function ResultsPage() {
   }
 
   const detailTo = (id: string) =>
-    `/agents/${id}?tx=${req.transaction}${req.amount_sle ? `&amount=${req.amount_sle}` : ''}&area=${encodeURIComponent(req.area)}`
+    `/agents/${id}?tx=${req.transaction}${req.amount_sle ? `&amount=${req.amount_sle}` : ''}&area=${encodeURIComponent(req.area)}${
+      req.lat !== undefined && req.lng !== undefined ? `&lat=${req.lat}&lng=${req.lng}` : ''
+    }`
 
   const summary = data
     ? `${data.query.transaction_label}${data.query.amount_label ? ` · ${data.query.amount_label}` : ''} · ${data.query.area}`
@@ -92,7 +101,7 @@ export default function ResultsPage() {
       </header>
 
       <div className="flex flex-col gap-4 p-4">
-        <div className="flex items-center justify-between rounded-card bg-app-surface px-4 py-3 text-sm font-semibold"><span>{summary}</span><span className="text-app-highlight">500 m core · Simulated location</span></div>
+        <div className="flex items-center justify-between rounded-card bg-app-surface px-4 py-3 text-sm font-semibold"><span>{summary}</span><span className="text-app-highlight">{req.lat !== undefined ? '500 m core · Your location' : `500 m core · Around ${req.area}`}</span></div>
         {stale && <OfflineBanner since={lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null} />}
         {data?.banner && <Banner tone="warning">{data.banner}</Banner>}
 

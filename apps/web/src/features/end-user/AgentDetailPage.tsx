@@ -10,6 +10,7 @@ import { ServiceStatus } from './components/ServiceStatus'
 import { FreshnessBadge } from './components/FreshnessBadge'
 import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
+import { pointFrom } from './searchPoint'
 
 function ratingToken(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -35,6 +36,8 @@ export default function AgentDetailPage() {
   const tx = (params.get('tx') as TransactionType | null) ?? null
   const amount = params.get('amount') ? Number(params.get('amount')) : null
   const area = params.get('area') ?? 'Lumley'
+  const point = pointFrom(params)
+  const pointKey = point ? `${point.lat},${point.lng}` : ''
 
   useEffect(() => {
     if (showMap) mapRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
@@ -66,7 +69,7 @@ export default function AgentDetailPage() {
     const ctrl = new AbortController()
     setError(null)
     customerApi
-      .agent(id, { transaction: tx, amount_sle: amount, area }, ctrl.signal)
+      .agent(id, { transaction: tx, amount_sle: amount, area, ...(point ?? {}) }, ctrl.signal)
       .then(setAgent)
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === 'AbortError') return
@@ -77,7 +80,8 @@ export default function AgentDetailPage() {
         )
       })
     return () => ctrl.abort()
-  }, [id, tx, amount, area])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, tx, amount, area, pointKey])
 
   if (error) {
     return (
@@ -147,7 +151,7 @@ export default function AgentDetailPage() {
               agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }}
               origin={agent.origin}
               distance_m={agent.distance_m}
-              originIsSimulated
+              originIsSimulated={!point}
               directions_url={agent.directions_url}
               going={visit?.agentId === agent.id}
               onGoing={() => remember({ agentId: agent.id, agentName: agent.name, transaction: tx, amount })}

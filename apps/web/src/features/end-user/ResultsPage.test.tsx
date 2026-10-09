@@ -79,6 +79,24 @@ describe('U3 — Results', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('/find?tx=cash_out&amount=2000&area=Lumley')
   })
 
+  it('sends the shared position to the search and measures from it, and says so', async () => {
+    const spy = vi.spyOn(customerApi, 'search')
+    renderResults('?tx=cash_out&amount=2000&area=Lumley&lat=8.4405&lng=-13.2795')
+    await screen.findByText("Fatmata's Shop")
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ lat: 8.441, lng: -13.28 }), expect.anything())
+    expect(screen.getByText('500 m core · Your location')).toBeInTheDocument()
+    // Fatmata's own point: she is the closest to the phone now, and the link carries the point.
+    const link = screen.getByRole('link', { name: "Fatmata's Shop" })
+    expect(link.getAttribute('href')).toContain('lat=8.441')
+    expect(screen.getAllByRole('heading', { level: 3 })[0]).toHaveTextContent("Fatmata's Shop")
+  })
+
+  it('says which area it searched around when no position was shared', async () => {
+    renderResults()
+    await screen.findByText("Fatmata's Shop")
+    expect(screen.getByText('500 m core · Around Lumley')).toBeInTheDocument()
+  })
+
   it('offers a next action when the search fails', async () => {
     vi.spyOn(customerApi, 'search').mockRejectedValue(new Error('down'))
     renderResults()

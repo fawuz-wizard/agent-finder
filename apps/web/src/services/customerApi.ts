@@ -46,7 +46,7 @@ export const customerApi = {
 
   agent(
     id: string,
-    ctx: { transaction: TransactionType | null; amount_sle: number | null; area: string },
+    ctx: { transaction: TransactionType | null; amount_sle: number | null; area: string; lat?: number; lng?: number },
     signal?: AbortSignal,
   ): Promise<AgentDetail> {
     if (config.useLiveApi) {
@@ -54,9 +54,13 @@ export const customerApi = {
       if (ctx.transaction) q.set('transaction', ctx.transaction)
       if (ctx.amount_sle !== null) q.set('amount_sle', String(ctx.amount_sle))
       q.set('area', ctx.area)
+      if (ctx.lat !== undefined && ctx.lng !== undefined) {
+        q.set('lat', String(ctx.lat))
+        q.set('lng', String(ctx.lng))
+      }
       return api.get<AgentDetail>(`/api/v1/agents/${encodeURIComponent(id)}?${q.toString()}`, signal)
     }
-    const found = demoAgent(id, ctx.transaction, ctx.amount_sle, ctx.area)
+    const found = demoAgent(id, ctx.transaction, ctx.amount_sle, ctx.area, ctx.lat, ctx.lng)
     if (!found) return Promise.reject(new Error('agent_not_found'))
     return delay(found, signal)
   },

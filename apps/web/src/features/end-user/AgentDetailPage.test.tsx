@@ -70,6 +70,19 @@ describe('directions stay inside the app', () => {
   })
 })
 
+describe('distances from the customer\'s own position', () => {
+  it('measures from the shared point and no longer calls the origin simulated', async () => {
+    const user = userEvent.setup()
+    at('/agents/af-4821?tx=cash_out&amount=2000&lat=8.4405&lng=-13.2795')
+    await screen.findByText("Fatmata's Shop")
+    // The blunted point (~110 m grid) lands about 80 m from her shop: a real, short distance.
+    expect(screen.getByLabelText(/^\d{2} m away$/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /get directions/i }))
+    expect(await screen.findByText(/Straight-line distance/)).toBeInTheDocument()
+    expect(screen.queryByText(/Simulated demo location/)).not.toBeInTheDocument()
+  })
+})
+
 describe('the outcome question follows a visit, not a look', () => {
   it('opening the map remembers nothing; "I\'m going there" starts the visit once', async () => {
     const user = userEvent.setup()

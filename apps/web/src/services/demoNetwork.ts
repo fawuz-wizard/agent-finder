@@ -310,7 +310,11 @@ function originFor(area: string): { lat: number; lng: number } {
 
 export function demoSearch(req: SearchRequest): SearchResponse {
   const amount = req.amount_sle
-  const origin = originFor(req.area)
+  // The blunted device point when the customer shared it; the area centre otherwise.
+  const origin =
+    req.lat !== undefined && req.lng !== undefined
+      ? { lat: Number(req.lat.toFixed(3)), lng: Number(req.lng.toFixed(3)) }
+      : originFor(req.area)
   const radius = req.radius_m ?? 500
   const scoped = AGENTS
     .map((a) => ({ ...a, distance_m: distanceBetween(origin, a) }))
@@ -367,7 +371,7 @@ export function demoSearch(req: SearchRequest): SearchResponse {
       amount_label: amountLabel(amount),
       area: req.area === 'all' ? 'Freetown' : req.area,
       radius_m: radius,
-      origin: originFor(req.area === 'all' ? 'Freetown' : req.area),
+      origin,
     },
     recommended,
     closer_not_serving: coreNearest.filter((r) => r.outcome !== 'likely'),
@@ -388,11 +392,18 @@ function distanceBetween(a: { lat: number; lng: number }, b: { lat: number; lng:
   return Math.round(2 * radius * Math.asin(Math.sqrt(v)))
 }
 
-export function demoAgent(id: string, tx: TransactionType | null, amount: number | null, area = 'Lumley'): AgentDetail | null {
+export function demoAgent(
+  id: string,
+  tx: TransactionType | null,
+  amount: number | null,
+  area = 'Lumley',
+  lat?: number,
+  lng?: number,
+): AgentDetail | null {
   const a = AGENTS.find((x) => x.id === id)
   if (!a) return null
   const transaction = tx ?? 'cash_out'
-  const origin = originFor(area)
+  const origin = lat !== undefined && lng !== undefined ? { lat: Number(lat.toFixed(3)), lng: Number(lng.toFixed(3)) } : originFor(area)
   const base = toResult({ ...a, distance_m: distanceBetween(origin, a) }, transaction, amount)
   return {
     ...base,
