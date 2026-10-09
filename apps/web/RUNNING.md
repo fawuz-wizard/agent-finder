@@ -51,6 +51,27 @@ The outcome prompt appears on the home screen about 20 seconds after taking dire
 
 `Agent 024` is the one to demo: a stale declaration so "Still correct?" appears, a pending float request, and two customer-reported problems.
 
+## Registering a real agent (dealer)
+
+Sign in as the dealer, open **Agents → Register agent**. Any agent you work with can be
+registered, whether or not Orange's file lists them: shop and person, the agent number (or the
+next free one from 101), the shop's location (stand at the shop and tap *Use my location*, or
+type the coordinates), hours, phone, the initial PIN, and what the agent usually handles. Tick
+*checked against Orange's record* only when you did: that alone shows customers the
+"Verified agent" badge. The note on what they usually handle sets what amounts read as likely;
+customers never see the figures.
+
+Customers see the shop once the agent signs in with that number and PIN and sets **Open**.
+The record, location and hours can be corrected later (`PUT /api/v1/dealer/agents/{ref}`), and
+the PIN reset (`POST /api/v1/dealer/agents/{ref}/pin`).
+
+This needs the dealer permission `MANAGE_AGENT`. The seed grants it; a database created before
+it existed needs it added once:
+
+```bash
+cd apps/api && .venv/bin/python -c "import sqlite3;c=sqlite3.connect('agentfinder.db');c.execute(\"update dealers set permissions=permissions||',MANAGE_AGENT' where permissions not like '%MANAGE_AGENT%'\");c.commit()"
+```
+
 ## Showing both at once
 
 Open two browser windows (or two phones on the same network):
@@ -142,7 +163,7 @@ first to sign with the pilot key):
 ## Other commands
 
 ```bash
-npm test          # 66 tests
+npm test          # 70 tests
 npm run typecheck
 npm run lint
 npm run build     # production build

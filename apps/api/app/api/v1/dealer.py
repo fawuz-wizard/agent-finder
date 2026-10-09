@@ -637,3 +637,246 @@ async def usage_summary(
     p: Principal = Depends(require_role("dealer")), db: AsyncSession = Depends(get_session)
 ) -> dict:
     return await usage.summary(db)
+
+
+# ---- Registration: the dealer brings an agent onto the platform ----------------------------
+#
+# Registration never depends on Orange's file. A dealer registers any agent they work with —
+# shop, person, agent number, a coarse location, hours, phone, the initial PIN and a note of
+# what the agent usually handles. `verified` is the dealer's own statement that the agent was
+# checked against Orange's records; it is the only thing that shows customers the badge. The
+# words are not asked: what the agent can cover comes from the note, and later from history.
+
+SL_LAT = (6.8, 10.1)
+SL_LNG = (-13.5, -10.2)
+TIME_RE = r"^(?:[01]\d|2[0-3]):[0-5]\d$"
+
+
+class RegisterBody(BaseModel):
+    # "Agent 101" or just "101"; left out, the next free number is assigned.
+    ref: str | None = Field(default=None, max_length=20)
+    person_name: str = Field(min_length=1, max_length=120)
+    shop_name: str = Field(min_length=1, max_length=120)
+    area: str = Field(min_length=1, max_length=80)
+    street: str = Field(min_length=1, max_length=120)
+    lat: float
+    lng: float
+    phone: str | None = Field(default=None, max_length=32, pattern=r"^\+?[0-9 ]{6,20}$")
+    phone_visible: bool = False
+    open_time: str = Field(default="07:00", pattern=TIME_RE)
+    close_time: str = Field(default="20:00", pattern=TIME_RE)
+    pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
+    usual_max_sle: int | None = Field(default=None, ge=0, le=10_000_000)
+    usual_float_max_sle: int | None = Field(default=None, ge=0, le=10_000_000)
+    usual_daily_transactions: int | None = Field(default=None, ge=0, le=10_000)
+    # "I checked this agent against Orange's record." Shows customers the badge; nothing else.
+    verified: bool = False
+
+
+class EditBody(BaseModel):
+    person_name: str | None = Field(default=None, min_length=1, max_length=120)
+    shop_name: str | None = Field(default=None, min_length=1, max_length=120)
+    area: str | None = Field(default=None, min_length=1, max_length=80)
+    street: str | None = Field(default=None, min_length=1, max_length=120)
+    lat: float | None = None
+    lng: float | None = None
+    phone: str | None = Field(default=None, max_length=32, pattern=r"^\+?[0-9 ]{6,20}$")
+    phone_visible: bool | None = None
+    open_time: str | None = Field(default=None, pattern=TIME_RE)
+    close_time: str | None = Field(default=None, pattern=TIME_RE)
+    verified: bool | None = None
+
+
+class PinBody(BaseModel):
+    pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
+
+
+def normalise_ref(raw: str) -> str:
+    v = raw.strip()
+    if v.lower().startswith("agent "):
+        v = v[6:].strip()
+    if not v.isdigit() or not 1 <= len(v) <= 6:
+        raise AppError("The agent number must be digits, e.g. 101.", code="invalid_ref")
+    return f"Agent {v.zfill(3)}"
+
+
+def check_point(lat: float, lng: float) -> None:
+    if not (SL_LAT[0] <= lat <= SL_LAT[1] and SL_LNG[0] <= lng <= SL_LNG[1]):
+        raise AppError(
+            "That location is outside Sierra Leone. Check the latitude and longitude.",
+            code="invalid_location",
+        )
+
+
+def _hours(open_time: str, close_time: str) -> tuple[int, int]:
+    from app.services.schedule import parse_hhmm
+
+    o, c = parse_hhmm(open_time), parse_hhmm(close_time)
+    if o >= c:
+        raise AppError("Opening time must be before closing time.", code="invalid_hours")
+    return o, c
+
+
+async def next_free_ref(db: AsyncSession) -> str:
+    refs = (await db.execute(select(Agent.ref))).scalars().all()
+    numbers = [int(r[6:]) for r in refs if r.startswith("Agent ") and r[6:].isdigit()]
+    # Pilot registrations start at 101, clear of the seeded 0xx numbers.
+    return f"Agent {(max([*numbers, 100]) + 1):03d}"
+
+
+def registered_out(a: Agent, now: datetime) -> dict:
+    from app.services import schedule
+
+    return {
+        "ref": a.ref,
+        "public_id": a.ref.replace("Agent ", "af-"),
+        "person_name": a.person_name,
+        "shop_name": a.shop_name,
+        "area": a.area,
+        "street": a.street,
+        "lat": a.lat,
+        "lng": a.lng,
+        "phone": a.phone,
+        "phone_visible": a.phone_visible,
+        "hours_text": schedule.hours_text(a, now),
+        "verified": a.verified,
+        "usual": _usual_of(a),
+        "next_step": (
+            "Give the agent their number and PIN. Customers see the shop once the agent signs "
+            "in and sets Open."
+        ),
+    }
+
+
+@router.post(
+    "/dealer/agents",
+    status_code=201,
+    summary="Register an agent under me — any agent, whether or not Orange's file has them",
+)
+async def register_agent(
+    body: RegisterBody,
+    p: Principal = Depends(require_permission("MANAGE_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    from app.core.auth import hash_pin
+    from app.services import schedule
+
+    now = now_utc()
+    check_point(body.lat, body.lng)
+    o, c = _hours(body.open_time, body.close_time)
+    ref = normalise_ref(body.ref) if body.ref else await next_free_ref(db)
+    if (await db.execute(select(Agent.ref).where(Agent.ref == ref))).first():
+        raise AppError(f"{ref} is already registered.", code="exists", status_code=409)
+    a = Agent(
+        ref=ref,
+        dealer_id=p.subject,
+        person_name=body.person_name.strip(),
+        shop_name=body.shop_name.strip(),
+        area=body.area.strip(),
+        street=body.street.strip(),
+        lat=round(body.lat, 5),
+        lng=round(body.lng, 5),
+        phone=body.phone.replace(" ", "") if body.phone else None,
+        phone_visible=body.phone_visible,
+        verified=body.verified,
+        pin_hash=hash_pin(body.pin, ref),
+        presence="open",
+        open_hour=o // 60,
+        close_hour=max(o // 60 + 1, c // 60),
+        usual_max_sle=body.usual_max_sle,
+        usual_float_max_sle=body.usual_float_max_sle,
+        usual_daily_transactions=body.usual_daily_transactions,
+        night_mode=True,
+    )
+    schedule.set_weekly(a, {d: [body.open_time, body.close_time] for d in schedule.DAYS})
+    db.add(a)
+    db.add(
+        Action(
+            at=now,
+            actor=p.name,
+            agent_ref=ref,
+            action="register",
+            note=f"{p.name} registered {a.shop_name} as {ref}"
+            + (" · checked against Orange's record" if body.verified else ""),
+        )
+    )
+    await usage.record(db, "register", "dealer", p.subject, ref)
+    await db.commit()
+    return registered_out(a, now)
+
+
+@router.put("/dealer/agents/{ref}", summary="Correct an agent's record, location or hours")
+async def edit_agent(
+    ref: str,
+    body: EditBody,
+    p: Principal = Depends(require_permission("MANAGE_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    from app.services import schedule
+
+    now = now_utc()
+    a = (
+        await db.execute(select(Agent).where(Agent.ref == ref, Agent.dealer_id == p.subject))
+    ).scalar_one_or_none()
+    if a is None:
+        raise NotFoundError("Not available.")
+    if (body.lat is None) != (body.lng is None):
+        raise AppError("Give both latitude and longitude.", code="invalid_location")
+    if body.lat is not None and body.lng is not None:
+        check_point(body.lat, body.lng)
+        a.lat, a.lng = round(body.lat, 5), round(body.lng, 5)
+    if (body.open_time is None) != (body.close_time is None):
+        raise AppError("Give both opening and closing time.", code="invalid_hours")
+    if body.open_time and body.close_time:
+        o, c = _hours(body.open_time, body.close_time)
+        a.open_hour, a.close_hour = o // 60, max(o // 60 + 1, c // 60)
+        schedule.set_weekly(a, {d: [body.open_time, body.close_time] for d in schedule.DAYS})
+    for name in ("person_name", "shop_name", "area", "street"):
+        v = getattr(body, name)
+        if v is not None:
+            setattr(a, name, v.strip())
+    if body.phone is not None:
+        a.phone = body.phone.replace(" ", "") or None
+    if body.phone_visible is not None:
+        a.phone_visible = body.phone_visible
+    if body.verified is not None:
+        a.verified = body.verified
+    db.add(
+        Action(
+            at=now,
+            actor=p.name,
+            agent_ref=a.ref,
+            action="register",
+            note=f"{p.name} updated {a.shop_name}'s record",
+        )
+    )
+    await db.commit()
+    return registered_out(a, now)
+
+
+@router.post("/dealer/agents/{ref}/pin", summary="Set a new PIN for an agent under me")
+async def reset_pin(
+    ref: str,
+    body: PinBody,
+    p: Principal = Depends(require_permission("MANAGE_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    from app.core.auth import hash_pin
+
+    a = (
+        await db.execute(select(Agent).where(Agent.ref == ref, Agent.dealer_id == p.subject))
+    ).scalar_one_or_none()
+    if a is None:
+        raise NotFoundError("Not available.")
+    a.pin_hash = hash_pin(body.pin, a.ref)
+    db.add(
+        Action(
+            at=now_utc(),
+            actor=p.name,
+            agent_ref=a.ref,
+            action="register",
+            note=f"{p.name} set a new PIN for {a.shop_name}",
+        )
+    )
+    await db.commit()
+    return {"ref": a.ref, "pin_set": True}

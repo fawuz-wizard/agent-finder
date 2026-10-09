@@ -295,6 +295,7 @@ export const PERMISSIONS = {
   viewHistory: 'VIEW_AGENT_HISTORY',
   contact: 'CONTACT_AGENT',
   escalate: 'ESCALATE_AGENT',
+  manageAgent: 'MANAGE_AGENT',
 } as const
 
 export const CAPACITY_RANGES: CapacityRange[] = [
@@ -365,6 +366,45 @@ export interface DealerAgentDetail {
   usual: UsualNote
   /** Where the current ceiling per side comes from: operator | dealer | visits | none. */
   evidence: { cash: { source: string; text: string }; float: { source: string; text: string } }
+}
+
+/** What the dealer sends to bring an agent onto the platform. The PIN is never echoed back. */
+export interface RegisterAgentBody {
+  /** "101" or "Agent 101"; null means the next free number. */
+  ref: string | null
+  person_name: string
+  shop_name: string
+  area: string
+  street: string
+  lat: number
+  lng: number
+  phone: string | null
+  phone_visible: boolean
+  open_time: string
+  close_time: string
+  pin: string
+  usual_max_sle: number | null
+  usual_float_max_sle: number | null
+  usual_daily_transactions: number | null
+  /** The dealer's own statement: checked against Orange's record. Shows customers the badge. */
+  verified: boolean
+}
+
+export interface RegisteredAgent {
+  ref: string
+  public_id: string
+  person_name: string
+  shop_name: string
+  area: string
+  street: string
+  lat: number
+  lng: number
+  phone: string | null
+  phone_visible: boolean
+  hours_text: string
+  verified: boolean
+  usual: UsualNote
+  next_step: string
 }
 
 export interface UsualNote {

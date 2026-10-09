@@ -36,6 +36,8 @@ import type {
   FloatForecast,
   FloatRisk,
   Reliability,
+  RegisterAgentBody,
+  RegisteredAgent,
   DayHours,
   Schedule,
   ScheduleState,
@@ -77,6 +79,12 @@ interface AgentState {
   extendedUntil: number | null
   /** The dealer's note at registration. PRIVATE. */
   usual: UsualNote
+  /** Demo only: a PIN the dealer set at registration; seeded agents use the demo PIN. */
+  pin?: string
+  /** Set at registration; seeded agents carry their points in the customer network instead. */
+  lat?: number
+  lng?: number
+  verified?: boolean
 }
 
 function minutesAgo(min: number): number {
@@ -603,7 +611,8 @@ function record(text: string, source: ActivityEvent['source'], tone: ActivityEve
 const DEMO_PIN = '1234'
 
 export function demoSignIn(ref: string, pin: string, role: Role): Session {
-  if (pin !== DEMO_PIN) throw new Error('That PIN is not correct.')
+  const wanted = agents.find((x) => x.ref.toLowerCase() === normaliseRef(ref).toLowerCase())
+  if (pin !== (role === 'agent' && wanted?.pin ? wanted.pin : DEMO_PIN)) throw new Error('That PIN is not correct.')
   if (role === 'dealer') {
     return {
       token: 'demo-dealer-token',
@@ -617,11 +626,156 @@ export function demoSignIn(ref: string, pin: string, role: Role): Session {
         PERMISSIONS.viewHistory,
         PERMISSIONS.contact,
         PERMISSIONS.escalate,
+        PERMISSIONS.manageAgent,
       ],
     }
   }
-  const a = agents.find((x) => x.ref.toLowerCase() === ref.trim().toLowerCase()) ?? agents[0]!
+  const a = wanted ?? agents[0]!
   return { token: 'demo-agent-token', role: 'agent', name: a.shop, ref: a.ref, permissions: [] }
+}
+
+/** "101" → "Agent 101"; anything else is left as typed. */
+function normaliseRef(raw: string): string {
+  const v = raw.trim()
+  return /^\d{1,6}$/.test(v) ? `Agent ${v.padStart(3, '0')}` : v
+}
+
+/* ---------- registration: the dealer brings an agent onto the platform (mirrors the API) ---------- */
+
+const SL = { lat: [6.8, 10.1], lng: [-13.5, -10.2] } as const
+
+function checkPoint(lat: number, lng: number): void {
+  if (!(lat >= SL.lat[0] && lat <= SL.lat[1] && lng >= SL.lng[0] && lng <= SL.lng[1])) {
+    throw new Error('That location is outside Sierra Leone. Check the latitude and longitude.')
+  }
+}
+
+function checkHours(open: string, close: string): void {
+  if (minutesOf(open) >= minutesOf(close)) throw new Error('Opening time must be before closing time.')
+}
+
+function registeredOut(a: AgentState): RegisteredAgent {
+  return {
+    ref: a.ref,
+    public_id: a.ref.replace('Agent ', 'af-'),
+    person_name: a.name,
+    shop_name: a.shop,
+    area: a.area,
+    street: a.area,
+    lat: a.lat ?? 0,
+    lng: a.lng ?? 0,
+    phone: a.phone,
+    phone_visible: a.phone_visible,
+    hours_text: scheduleState(a).hours_text,
+    verified: a.ref === 'Agent 024' || Boolean(a.verified),
+    usual: { ...a.usual },
+    next_step: 'Give the agent their number and PIN. Customers see the shop once the agent signs in and sets Open.',
+  }
+}
+
+export function demoRegisterAgent(body: RegisterAgentBody): RegisteredAgent {
+  checkPoint(body.lat, body.lng)
+  checkHours(body.open_time, body.close_time)
+  let ref: string
+  if (body.ref) {
+    const v = body.ref.trim().replace(/^agent\s+/i, '')
+    if (!/^\d{1,6}$/.test(v)) throw new Error('The agent number must be digits, e.g. 101.')
+    ref = `Agent ${v.padStart(3, '0')}`
+  } else {
+    const numbers = agents.map((a) => Number(a.ref.replace('Agent ', ''))).filter((n) => Number.isFinite(n))
+    ref = `Agent ${String(Math.max(...numbers, 100) + 1).padStart(3, '0')}`
+  }
+  if (agents.some((a) => a.ref === ref)) throw new Error(`${ref} is already registered.`)
+  const weekly = Object.fromEntries(WEEKDAYS.map((d) => [d, [body.open_time, body.close_time]])) as WeeklyHours
+  const a: AgentState = {
+    ref,
+    name: body.person_name.trim(),
+    shop: body.shop_name.trim(),
+    area: body.street.trim(),
+    presence: 'open',
+    cash_out: 'most',
+    deposit: 'most',
+    updated_at: 0,
+    night_mode: true,
+    phone_visible: body.phone_visible,
+    phone: body.phone ? body.phone.replace(/\s+/g, '') : null,
+    found_you: 0,
+    transactions: 0,
+    successful: 0,
+    problems: 0,
+    cash_out_sle: null,
+    deposit_sle: null,
+    history: { visits: 0, failed: 0 },
+    weekly,
+    overrides: {},
+    extendedUntil: null,
+    usual: {
+      usual_max_sle: body.usual_max_sle,
+      usual_float_max_sle: body.usual_float_max_sle,
+      usual_daily_transactions: body.usual_daily_transactions,
+    },
+    pin: body.pin,
+    lat: body.lat,
+    lng: body.lng,
+    verified: body.verified,
+  }
+  agents.push(a)
+  actions.unshift({
+    id: `act-${Date.now()}-${actions.length}`,
+    action: 'contact',
+    agent_ref: ref,
+    at: new Date().toISOString(),
+    note: `Kissy Distribution registered ${a.shop} as ${ref}${body.verified ? " · checked against Orange's record" : ''}`,
+  })
+  // The customer surface's demo network learns about the shop too, through the same door the
+  // visit reports use, so no customer code imports this module.
+  void import('./demoNetwork').then((m) =>
+    m.addDemoAgent({
+      id: ref.replace('Agent ', 'af-'),
+      name: a.shop,
+      area: body.area.trim(),
+      street: a.area,
+      lat: body.lat,
+      lng: body.lng,
+      hours_text: scheduleState(a).hours_text,
+      can_call: body.phone_visible && Boolean(a.phone),
+      verified: body.verified,
+      usual: { cash: body.usual_max_sle, float: body.usual_float_max_sle },
+    }),
+  )
+  return registeredOut(a)
+}
+
+export function demoEditAgent(ref: string, body: Partial<Omit<RegisterAgentBody, 'pin' | 'ref'>>): RegisteredAgent {
+  const a = agents.find((x) => x.ref === ref)
+  if (!a) throw new Error('Not available.')
+  if ((body.lat === undefined) !== (body.lng === undefined)) throw new Error('Give both latitude and longitude.')
+  if (body.lat !== undefined && body.lng !== undefined) {
+    checkPoint(body.lat, body.lng)
+    a.lat = body.lat
+    a.lng = body.lng
+  }
+  if ((body.open_time === undefined) !== (body.close_time === undefined)) throw new Error('Give both opening and closing time.')
+  if (body.open_time && body.close_time) {
+    checkHours(body.open_time, body.close_time)
+    a.weekly = Object.fromEntries(WEEKDAYS.map((d) => [d, [body.open_time, body.close_time]])) as WeeklyHours
+  }
+  if (body.person_name) a.name = body.person_name.trim()
+  if (body.shop_name) a.shop = body.shop_name.trim()
+  if (body.street) a.area = body.street.trim()
+  if (body.phone !== undefined) a.phone = body.phone ? body.phone.replace(/\s+/g, '') : null
+  if (body.phone_visible !== undefined) a.phone_visible = body.phone_visible
+  if (body.verified !== undefined) a.verified = body.verified
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'contact', agent_ref: ref, at: new Date().toISOString(), note: `Kissy Distribution updated ${a.shop}'s record` })
+  return registeredOut(a)
+}
+
+export function demoResetPin(ref: string, pin: string): { ref: string; pin_set: true } {
+  const a = agents.find((x) => x.ref === ref)
+  if (!a) throw new Error('Not available.')
+  a.pin = pin
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'contact', agent_ref: ref, at: new Date().toISOString(), note: `Kissy Distribution set a new PIN for ${a.shop}` })
+  return { ref, pin_set: true }
 }
 
 /* ---------- agent ---------- */

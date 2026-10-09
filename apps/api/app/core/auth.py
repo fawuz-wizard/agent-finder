@@ -25,6 +25,8 @@ PERMISSIONS = {
     "VIEW_AGENT_HISTORY",
     "CONTACT_AGENT",
     "ESCALATE_AGENT",
+    # Register and edit the agents under me (their record, location, hours, initial PIN).
+    "MANAGE_AGENT",
 }
 
 

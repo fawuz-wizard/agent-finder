@@ -13,6 +13,7 @@ import DealerFloatReviewPage from './FloatReviewPage'
 import DealerAttentionPage from './AttentionPage'
 import DealerAgentsPage from './AgentsPage'
 import DealerFloatQueuePage from './FloatQueuePage'
+import RegisterAgentPage from './RegisterAgentPage'
 
 const ALL = [PERMISSIONS.viewAgent, PERMISSIONS.viewFinancial, PERMISSIONS.manageFloat, PERMISSIONS.viewHistory, PERMISSIONS.contact, PERMISSIONS.escalate]
 
@@ -28,6 +29,7 @@ function App({ start }: { start: string }) {
           <Routes>
             <Route path="/dealer" element={<DealerDashboardPage />} />
             <Route path="/dealer/agents" element={<DealerAgentsPage />} />
+            <Route path="/dealer/agents/new" element={<RegisterAgentPage />} />
             <Route path="/dealer/agents/:ref" element={<DealerAgentDetailPage />} />
             <Route path="/dealer/float" element={<DealerFloatQueuePage />} />
             <Route path="/dealer/float/:id" element={<DealerFloatReviewPage />} />
@@ -248,5 +250,56 @@ describe('evidence by amount', () => {
     expect(home.customers_see.sides[0]!.range_text).toBe('up to SLE 5,000')
     expect(home.declaration.cash_out).toBe('most') // the word is untouched; the evidence decides
     await operatorApi.setUsual('Agent 024', { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null })
+  })
+})
+
+describe('registration', () => {
+  it('lets a dealer with MANAGE_AGENT register any agent, who then appears in the register', async () => {
+    const user = userEvent.setup()
+    signIn([...ALL, PERMISSIONS.manageAgent])
+    render(<App start="/dealer/agents" />)
+    await user.click(await screen.findByRole('link', { name: /register agent/i }))
+    await screen.findByRole('heading', { name: /register an agent/i })
+    await user.type(screen.getByLabelText(/shop name/i), "Mariama's Corner")
+    await user.type(screen.getByLabelText(/agent's name/i), 'Mariama Sesay')
+    await user.type(screen.getByLabelText(/street or landmark/i), 'Opposite the venue gate')
+    await user.type(screen.getByLabelText(/latitude/i), '8.4710')
+    await user.type(screen.getByLabelText(/longitude/i), '-13.2600')
+    await user.type(screen.getByLabelText(/initial pin/i), '2468')
+    await user.type(screen.getByLabelText(/cash out, up to about/i), '5000')
+    await user.click(screen.getByLabelText(/checked this agent against orange/i))
+    await user.click(screen.getByRole('button', { name: /^register agent$/i }))
+    // Lands on the new agent's detail, under the number the platform assigned.
+    expect(await screen.findByRole('heading', { name: /Agent 1\d\d/ })).toBeInTheDocument()
+    expect(screen.getAllByText(/Mariama's Corner/).length).toBeGreaterThan(0)
+    // The register lists them now, and the registration was logged with the dealer's name.
+    const rows = await operatorApi.dealerAgents()
+    const mine = rows.find((r) => r.name === "Mariama's Corner")
+    expect(mine).toBeDefined()
+    expect(mine!.capacity_text).toMatch(/Cash up to ~SLE 5,000/)
+    const acts = await operatorApi.actions(mine!.ref)
+    expect(acts.some((a) => /registered Mariama's Corner/.test(a.note) && /Orange's record/.test(a.note))).toBe(true)
+    // The agent can sign in with the PIN the dealer set.
+    await expect(operatorApi.signIn(mine!.ref, '2468', 'agent')).resolves.toMatchObject({ role: 'agent', ref: mine!.ref })
+    await expect(operatorApi.signIn(mine!.ref, '1234', 'agent')).rejects.toThrow(/PIN/)
+  })
+
+  it('offers no way to register without the permission: no link, and the page sends you back', async () => {
+    signIn(ALL)
+    render(<App start="/dealer/agents" />)
+    await screen.findByRole('heading', { name: 'Agents' })
+    expect(screen.queryByRole('link', { name: /register agent/i })).not.toBeInTheDocument()
+    render(<App start="/dealer/agents/new" />)
+    expect(await screen.findAllByRole('heading', { name: 'Agents' })).not.toHaveLength(0)
+    expect(screen.queryByRole('heading', { name: /register an agent/i })).not.toBeInTheDocument()
+  })
+
+  it('refuses a location outside Sierra Leone with a message, not a crash', async () => {
+    await expect(
+      operatorApi.registerAgent({
+        ref: null, person_name: 'A', shop_name: 'B', area: 'Lumley', street: 'C', lat: 48.85, lng: 2.35, phone: null, phone_visible: false,
+        open_time: '07:00', close_time: '20:00', pin: '1111', usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null, verified: false,
+      }),
+    ).rejects.toThrow(/outside Sierra Leone/)
   })
 })

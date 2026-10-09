@@ -28,6 +28,8 @@ import type {
   SignalMuted,
   DeclareBody,
   FloatForecast,
+  RegisterAgentBody,
+  RegisteredAgent,
   Schedule,
   TodayChange,
   UsualNote,
@@ -191,6 +193,35 @@ export const operatorApi = {
   setUsual(ref: string, note: UsualNote): Promise<UsualNote> {
     if (config.useLiveApi) return api.put<UsualNote>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/usual`, note)
     return delay(demo.demoSetUsual(ref, note))
+  },
+
+  /** Register any agent under me; the API assigns the number when none is given. */
+  registerAgent(body: RegisterAgentBody): Promise<RegisteredAgent> {
+    if (config.useLiveApi) return api.post<RegisteredAgent>('/api/v1/dealer/agents', body)
+    try {
+      return delay(demo.demoRegisterAgent(body))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Could not register the agent.'))
+    }
+  },
+
+  /** Correct an agent's record, location or hours. */
+  editAgent(ref: string, body: Partial<Omit<RegisterAgentBody, 'pin' | 'ref'>>): Promise<RegisteredAgent> {
+    if (config.useLiveApi) return api.put<RegisteredAgent>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}`, body)
+    try {
+      return delay(demo.demoEditAgent(ref, body))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Could not save.'))
+    }
+  },
+
+  resetPin(ref: string, pin: string): Promise<{ ref: string; pin_set: true }> {
+    if (config.useLiveApi) return api.post(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/pin`, { pin })
+    try {
+      return delay(demo.demoResetPin(ref, pin))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Could not set the PIN.'))
+    }
   },
 
   act(ref: string, action: DealerAction, by: string): Promise<ActionLogged> {

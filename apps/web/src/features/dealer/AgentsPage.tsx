@@ -1,7 +1,9 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card, Chip } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
+import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
+import { PERMISSIONS } from '@/types/operator'
 import type { DealerAgentRow, DealerBucket } from '@/types/operator'
 
 const TONE: Record<DealerAgentRow['presence'], string> = { open: 'text-success', hidden: 'text-warning', closed: 'text-muted' }
@@ -31,6 +33,7 @@ function isBucket(v: string | null): v is DealerBucket {
  */
 export default function DealerAgentsPage() {
   const { data, state } = useAsync<DealerAgentRow[]>((s) => operatorApi.dealerAgents(s))
+  const { can } = useSession()
   const [params, setParams] = useSearchParams()
   const raw = params.get('filter')
   const filter: DealerBucket | 'all' = isBucket(raw) ? raw : 'all'
@@ -44,9 +47,16 @@ export default function DealerAgentsPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">Agents</h1>
-        <p className="text-xs text-muted">Registered under you · tap one to see their day</p>
+      <header className="flex items-center justify-between gap-3 border-b border-line bg-paper px-4 py-3">
+        <div>
+          <h1 className="text-lg font-bold leading-tight">Agents</h1>
+          <p className="text-xs text-muted">Registered under you · tap one to see their day</p>
+        </div>
+        {can(PERMISSIONS.manageAgent) && (
+          <Link to="/dealer/agents/new" className="-mr-2 flex h-control shrink-0 items-center rounded-card px-2 text-sm font-bold text-brand-text">
+            Register agent
+          </Link>
+        )}
       </header>
       <div className="flex gap-2 overflow-x-auto px-4 pt-3" role="group" aria-label="Show">
         {FILTERS.map((f) => (

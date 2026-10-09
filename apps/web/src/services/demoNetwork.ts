@@ -187,6 +187,40 @@ function outcomeFor(a: DemoAgent, tx: TransactionType, amount: number | null): P
   return amount <= ceiling ? 'likely' : 'limited'
 }
 
+/** Demo only: an agent the dealer just registered joins the customer network (mirrors the API). */
+export function addDemoAgent(a: {
+  id: string
+  name: string
+  area: string
+  street: string
+  lat: number
+  lng: number
+  hours_text: string
+  can_call: boolean
+  verified: boolean
+  usual: { cash: number | null; float: number | null }
+}): void {
+  if (AGENTS.some((x) => x.id === a.id)) return
+  AGENTS.push({
+    id: a.id,
+    name: a.name,
+    area: a.area,
+    street: a.street,
+    distance_m: 0,
+    open: true,
+    hidden: false,
+    cash: 'most',
+    float: 'most',
+    updated_min_ago: 5,
+    hours_text: a.hours_text,
+    can_call: a.can_call,
+    verified: a.verified,
+    lat: a.lat,
+    lng: a.lng,
+    usual: a.usual,
+  })
+}
+
 export function demoAgentName(id: string): string | null {
   return AGENTS.find((x) => x.id === id)?.name ?? null
 }

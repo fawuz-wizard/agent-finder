@@ -21,6 +21,7 @@ const AgentHours = lazy(() => import('@/features/agent/HoursPage'))
 const DealerDashboard = lazy(() => import('@/features/dealer/DashboardPage'))
 const DealerAgents = lazy(() => import('@/features/dealer/AgentsPage'))
 const DealerAgentDetail = lazy(() => import('@/features/dealer/AgentDetailPage'))
+const DealerRegisterAgent = lazy(() => import('@/features/dealer/RegisterAgentPage'))
 const DealerFloatQueue = lazy(() => import('@/features/dealer/FloatQueuePage'))
 const DealerFloatReview = lazy(() => import('@/features/dealer/FloatReviewPage'))
 const DealerAttention = lazy(() => import('@/features/dealer/AttentionPage'))
@@ -83,6 +84,7 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: withSuspense(<DealerDashboard />) },
           { path: 'agents', element: withSuspense(<DealerAgents />) },
+          { path: 'agents/new', element: withSuspense(<DealerRegisterAgent />) },
           { path: 'agents/:ref', element: withSuspense(<DealerAgentDetail />) },
           { path: 'float', element: withSuspense(<DealerFloatQueue />) },
           { path: 'float/:id', element: withSuspense(<DealerFloatReview />) },
