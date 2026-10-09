@@ -207,7 +207,8 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
             "state": "unlocated",
             "headline": "Customers cannot find you yet",
             "explanation": (
-                "Your shop has no location on the map yet — ask your dealer to pin it."
+                "Your shop is not on the map yet. Pin it from Profile while standing at the shop, "
+                "or ask your aggregator."
                 if agent.lat is None or agent.lng is None
                 else "Your Orange Money account is marked inactive, so you are not shown."
             ),

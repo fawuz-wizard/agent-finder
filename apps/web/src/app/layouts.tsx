@@ -1,7 +1,7 @@
 import { Outlet, Link } from 'react-router-dom'
 import { AgentTabBar } from '@/features/agent/components/AgentTabBar'
 import { DealerTabBar } from '@/features/dealer/components/DealerTabBar'
-import { Wordmark } from '@/design'
+import { LogoMark, Wordmark } from '@/design'
 import { config } from '@/lib/config'
 import { useSession } from '@/features/auth/session'
 import { t } from '@/i18n'
@@ -31,23 +31,29 @@ export function CustomerLayout() {
   )
 }
 
-/** Says which app this is and who is signed in — the operator app is not Agent Finder. */
-function RoleStrip({ role }: { role: 'Agent' | 'Dealer' }) {
+/**
+ * Says which app this is and who is signed in: the brand mark, the app's name, the account.
+ * Boosted's global header on a phone: black on white, one rule underneath.
+ */
+function RoleStrip({ role }: { role: 'Agent' | 'Aggregator' }) {
   const { session } = useSession()
   return (
-    <div className="flex items-center justify-between border-b border-line bg-brand-faint px-4 py-1.5">
-      <span className="rounded-pill bg-brand-light px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-text">
-        {role} app
+    <div className="flex h-11 items-center justify-between gap-3 border-b-2 border-ink bg-paper px-4">
+      <span className="flex items-center gap-2 text-sm font-bold tracking-tight">
+        <LogoMark size={22} className="text-ink" />
+        {role} App
       </span>
-      <span className="truncate text-xs font-semibold text-muted">{session?.name}</span>
+      <span className="min-w-0 truncate text-sm font-semibold text-muted">{session?.name}</span>
     </div>
   )
 }
 
+const shell = 'mx-auto flex min-h-dvh w-full max-w-[480px] flex-col overflow-x-hidden bg-canvas md:min-h-0 md:my-8 md:border-2 md:border-line'
+
 /** Agent shell: the five modules sit in a tab bar that never leaves the screen. */
 export function AgentLayout() {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col md:min-h-0 md:my-8 md:border-2 md:border-line">
+    <div className={shell}>
       <DemoRibbon />
       <RoleStrip role="Agent" />
       <Outlet />
@@ -56,14 +62,25 @@ export function AgentLayout() {
   )
 }
 
-/** Dealer shell: same app as the agent, its own five tabs. */
+/** Aggregator shell: same app as the agent, its own five tabs. */
 export function DealerLayout() {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col md:min-h-0 md:my-8 md:border-2 md:border-line">
+    <div className={shell}>
       <DemoRibbon />
-      <RoleStrip role="Dealer" />
+      <RoleStrip role="Aggregator" />
       <Outlet />
       <DealerTabBar />
+    </div>
+  )
+}
+
+/** Sign-in shell: light, phone-width, no tabs. The Agent App never shows the customer's dark module. */
+export function SignInLayout() {
+  if (config.surface !== 'agent') return <CustomerLayout />
+  return (
+    <div className={shell}>
+      <DemoRibbon />
+      <Outlet />
     </div>
   )
 }

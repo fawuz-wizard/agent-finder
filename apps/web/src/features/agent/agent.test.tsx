@@ -34,7 +34,8 @@ function App({ start = '/agent' }: { start?: string }) {
 }
 
 async function signIn(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText(/pin/i), '1234')
+  await user.type(await screen.findByLabelText(/agent code/i), 'Agent 024')
+  await user.type(screen.getByLabelText(/^pin$/i), '1234')
   await user.click(screen.getByRole('button', { name: /^sign in$/i }))
 }
 
@@ -54,7 +55,8 @@ describe('agent app', () => {
   it('refuses the wrong PIN without signing anyone in', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.type(await screen.findByLabelText(/pin/i), '9999')
+    await user.type(await screen.findByLabelText(/agent code/i), 'Agent 024')
+    await user.type(screen.getByLabelText(/^pin$/i), '9999')
     await user.click(screen.getByRole('button', { name: /^sign in$/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/pin is not correct/i)
     expect(screen.queryByText("Fatmata's Shop")).not.toBeInTheDocument()

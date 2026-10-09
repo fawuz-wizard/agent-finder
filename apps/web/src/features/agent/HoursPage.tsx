@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card } from '@/design'
+import { Button, Card, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -57,10 +57,7 @@ export default function HoursPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">Working hours</h1>
-        <p className="text-xs text-muted">{t.hours_text}</p>
-      </header>
+      <AppBar title="Working hours" subtitle={<>{t.hours_text}</>} />
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <Card>
@@ -73,8 +70,8 @@ export default function HoursPage() {
             <Button size="control" variant="secondary" onClick={() => today({ day_off: true })}>
               Day off
             </Button>
-            <Button size="control" variant="secondary" onClick={() => today({ extend_minutes: 60 })}>
-              Stay open 1 more hour
+            <Button size="control" variant="secondary" className="whitespace-normal text-sm" onClick={() => today({ extend_minutes: 60 })}>
+              Open 1 more hour
             </Button>
             <Button size="control" variant="secondary" onClick={() => today({ clear: true })} disabled={!t.today_only && !t.extended_until}>
               Back to normal
@@ -88,40 +85,40 @@ export default function HoursPage() {
             {WEEKDAYS.map((day) => {
               const h = weekly[day]
               return (
-                <li key={day} className="flex items-center gap-2 py-2">
-                  <span className="w-24 text-sm font-semibold">{WEEKDAY_NAMES[day]}</span>
-                  {h ? (
-                    <>
-                      <input
-                        id={`${day}-open`}
-                        aria-label={`${WEEKDAY_NAMES[day]} opens`}
-                        type="time"
-                        value={h[0]}
-                        onChange={(e) => setDay(day, [e.target.value, h[1]])}
-                        className="h-control flex-1 rounded-card border border-line bg-paper px-2 text-sm"
-                      />
-                      <span className="text-xs text-muted">to</span>
-                      <input
-                        id={`${day}-close`}
-                        aria-label={`${WEEKDAY_NAMES[day]} closes`}
-                        type="time"
-                        value={h[1]}
-                        onChange={(e) => setDay(day, [h[0], e.target.value])}
-                        className="h-control flex-1 rounded-card border border-line bg-paper px-2 text-sm"
-                      />
-                    </>
-                  ) : (
-                    <span className="flex-1 text-sm text-muted">Closed</span>
-                  )}
-                  <label className="flex items-center gap-1 text-xs text-muted">
+                <li key={day} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-2">
+                  <span className="text-sm font-bold">{WEEKDAY_NAMES[day]}</span>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-muted">
                     <input
                       type="checkbox"
                       aria-label={`${WEEKDAY_NAMES[day]} closed`}
                       checked={h === null}
                       onChange={(e) => setDay(day, e.target.checked ? null : ['08:00', '20:00'])}
                     />
-                    closed
+                    Closed
                   </label>
+                  {h ? (
+                    <div className="col-span-2 flex items-center gap-2">
+                      <input
+                        id={`${day}-open`}
+                        aria-label={`${WEEKDAY_NAMES[day]} opens`}
+                        type="time"
+                        value={h[0]}
+                        onChange={(e) => setDay(day, [e.target.value, h[1]])}
+                        className="h-control min-w-0 flex-1 rounded-card border-2 border-line bg-paper px-2 text-sm font-semibold"
+                      />
+                      <span className="text-xs font-semibold text-muted">to</span>
+                      <input
+                        id={`${day}-close`}
+                        aria-label={`${WEEKDAY_NAMES[day]} closes`}
+                        type="time"
+                        value={h[1]}
+                        onChange={(e) => setDay(day, [h[0], e.target.value])}
+                        className="h-control min-w-0 flex-1 rounded-card border-2 border-line bg-paper px-2 text-sm font-semibold"
+                      />
+                    </div>
+                  ) : (
+                    <span className="col-span-2 text-sm text-muted">Closed all day</span>
+                  )}
                 </li>
               )
             })}

@@ -157,10 +157,15 @@
     letter-spacing: -0.00625rem;
     -webkit-font-smoothing: antialiased;
   }
-  /* Boosted links: ink, underlined; orange appears on interaction only. */
+  /* Links inherit their colour. Inline text links say so with the `underline` utility;
+     a card, a tile or a tab that happens to be a link is a control, not a sentence. */
   a {
-    color: var(--color-ink);
+    color: inherit;
+    text-decoration: none;
+  }
+  p a, li a, .prose a {
     text-decoration: underline;
+    text-underline-offset: 2px;
   }
   a:hover, a:active {
     color: var(--color-brand-deep);

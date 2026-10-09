@@ -38,6 +38,7 @@ from app.services.phrasing import (
     freshness_of,
     now_utc,
 )
+from app.services.points import check_point
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 CONFIRM_AFTER_MIN = 90
@@ -650,6 +651,16 @@ async def profile(
         "dealer_name": dealer.name if dealer else "",
         "phone_visible": a.phone_visible,
         "verified": a.verified,
+        "agent_code": a.agent_code,
+        "region": a.region,
+        "city": a.city,
+        "active": a.active,
+        # The shop on the map: the agent can pin it from the phone while standing there.
+        "located": a.lat is not None and a.lng is not None,
+        "location_source": a.location_source,
+        "lat": a.lat,
+        "lng": a.lng,
+        "street": a.street,
         "devices": [
             {"id": "this", "label": "This phone", "last_seen_text": "Active now", "current": True}
         ],
@@ -658,6 +669,40 @@ async def profile(
 
 class PhoneBody(BaseModel):
     visible: bool
+
+
+class LocationBody(BaseModel):
+    lat: float
+    lng: float
+    street: str | None = Field(default=None, max_length=80)
+
+
+@router.post("/profile/location", summary="Pin my shop on the map, standing at it")
+async def set_location(
+    body: LocationBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """The agent's own statement of where the shop is. It replaces a script placement or an
+    earlier pin, is recorded as an action in the agent's name, and changes nothing else:
+    not presence, not what customers are told the agent can handle."""
+    a = await load_agent(db, p.subject)
+    check_point(body.lat, body.lng)
+    a.lat, a.lng = round(body.lat, 5), round(body.lng, 5)
+    a.location_source = "agent"
+    if body.street and body.street.strip():
+        a.street = body.street.strip()
+    db.add(
+        Action(
+            at=now_utc(),
+            actor=a.person_name,
+            agent_ref=a.ref,
+            action="locate",
+            note=f"{a.person_name} pinned {a.shop_name} from the phone",
+        )
+    )
+    await db.commit()
+    return await profile(p, db)
 
 
 @router.post("/profile/phone", summary="Show or hide my number to customers")

@@ -6,7 +6,8 @@ export const config = {
   googleMapsApiKey: (env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ?? '',
   googleMapsMapId: (env.VITE_GOOGLE_MAPS_MAP_ID as string | undefined) ?? '',
   authMode: ((env.VITE_AUTH_MODE as string | undefined) ?? 'demo') as 'demo' | 'otp',
-  isDemo: ((env.VITE_AUTH_MODE as string | undefined) ?? 'demo') === 'demo',
+  /** The in-browser demo network (no API). A live build with PIN sign-in is not a demo. */
+  isDemo: ((env.VITE_API_MODE as string | undefined) ?? 'mock') === 'mock',
   /** 'mock' serves the seeded demo network; 'live' calls the FastAPI backend. */
   apiMode: ((env.VITE_API_MODE as string | undefined) ?? 'mock') as 'mock' | 'live',
   useLiveApi: ((env.VITE_API_MODE as string | undefined) ?? 'mock') === 'live',

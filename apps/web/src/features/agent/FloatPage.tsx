@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Card } from '@/design'
+import { Button, Card, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -14,7 +14,7 @@ function newToken(): string {
 }
 
 const STEPS: { state: FloatRequest['state']; label: string }[] = [
-  { state: 'pending', label: 'Waiting for dealer' },
+  { state: 'pending', label: 'Waiting for your aggregator' },
   { state: 'approved', label: 'Approved' },
   { state: 'completed', label: 'Completed' },
 ]
@@ -114,10 +114,7 @@ export default function FloatPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">Float</h1>
-        <p className="text-xs text-muted">Dealer: Kissy Distribution</p>
-      </header>
+      <AppBar title="Float" subtitle={<>Your requests to your aggregator</>} />
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <Card>

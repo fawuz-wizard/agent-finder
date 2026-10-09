@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Card } from '@/design'
+import { Card, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -53,10 +53,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">Dashboard</h1>
-        <p className="text-xs text-muted">{i ? `Your numbers for ${RANGE_TEXT[i.range]}` : 'Your numbers'}</p>
-      </header>
+      <AppBar title="Dashboard" subtitle={<>{i ? `Your numbers for ${RANGE_TEXT[i.range]}` : 'Your numbers'}</>} />
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <div className="flex gap-3">

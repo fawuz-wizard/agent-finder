@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, Card, useToast } from '@/design'
+import { Button, Card, useToast, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -64,21 +64,14 @@ export default function DealerAttentionPage() {
     const sev = SEV[open.severity]
     return (
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-line bg-paper px-4 py-3">
-          <button type="button" onClick={() => navigate('/dealer/attention')} aria-label="Back" className="-ml-2 flex h-control w-control items-center justify-center rounded-card text-2xl leading-none text-muted">
-            ‹
-          </button>
-          <div>
-            <h1 className="text-lg font-bold leading-tight">Needs attention</h1>
-            <p className="text-xs text-muted">{sev.label}</p>
-          </div>
+        <header className="contents">
+          <AppBar onBack={() => navigate('/dealer/attention')} title="Needs attention" subtitle={sev.label} className="-mx-0" />
         </header>
         <div className="flex flex-col gap-3 p-4 pb-6">
           <Card className={sev.card}>
             <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${sev.pill}`}>{open.title}</span>
-            <p className="mt-1 text-base font-bold">
-              {open.agent_ref} · {open.agent_name}
-            </p>
+            <p className="mt-1 text-base font-bold leading-tight">{open.agent_name}</p>
+            <p className="text-sm text-muted">{open.agent_ref.replace(/^Agent /, 'Code ')}</p>
             <p className="text-sm leading-snug">{open.sentence}</p>
           </Card>
 
@@ -136,8 +129,8 @@ export default function DealerAttentionPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">Needs attention</h1>
+      <header className="border-b-2 border-line bg-paper px-4 py-3">
+        <h1 className="text-xl font-bold leading-tight">Needs attention</h1>
         <p className="text-xs text-muted">{signals.length} open · investigate, don't punish</p>
       </header>
       <div className="flex flex-col gap-3 p-4 pb-6">
@@ -146,9 +139,8 @@ export default function DealerAttentionPage() {
           <Card key={s.id} className={SEV[s.severity].card}>
             <Link to={`/dealer/attention/${s.id}`} className="flex flex-col gap-1.5">
               <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${SEV[s.severity].pill}`}>{s.title}</span>
-              <p className="text-base font-bold">
-                {s.agent_ref} · {s.agent_name}
-              </p>
+              <p className="mt-1 text-base font-bold leading-tight">{s.agent_name}</p>
+              <p className="text-sm text-muted">{s.agent_ref.replace(/^Agent /, 'Code ')}</p>
               <p className="text-sm text-muted">{s.sentence}</p>
             </Link>
             <div className="mt-1 grid grid-cols-4 gap-2" role="group" aria-label={`Actions for ${s.agent_ref}`}>

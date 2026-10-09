@@ -157,6 +157,13 @@ export const operatorApi = {
     return delay(demo.demoSetPhoneVisible(ref, visible))
   },
 
+  /** Pin my shop on the map, standing at it. Recorded in the agent's name; changes nothing else. */
+  setLocation(ref: string, lat: number, lng: number, street?: string): Promise<AgentProfile> {
+    if (config.useLiveApi)
+      return api.post<AgentProfile>('/api/v1/agent/profile/location', { lat, lng, street: street ?? null })
+    return delay(demo.demoSetLocation(ref, lat, lng, street))
+  },
+
   /* float */
   floatRequests(ref: string | null, signal?: AbortSignal): Promise<FloatRequest[]> {
     if (config.useLiveApi) {

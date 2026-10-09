@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
-import { AgentLayout, CustomerLayout, DealerLayout } from './layouts'
+import { AgentLayout, CustomerLayout, DealerLayout, SignInLayout } from './layouts'
 import { RequireRole } from '@/features/auth/RequireRole'
 import { ResultCardSkeleton } from '@/design'
 import { config } from '@/lib/config'
@@ -52,7 +52,7 @@ const router = createBrowserRouter([
     ],
   },
   {
-    element: <CustomerLayout />,
+    element: <SignInLayout />,
     children: [{ path: '/sign-in', element: withSuspense(<SignIn />) }],
   },
   // The customer build starts in the simulated host app; its banner opens the customer module.

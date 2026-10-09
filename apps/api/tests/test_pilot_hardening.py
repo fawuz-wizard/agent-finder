@@ -21,10 +21,12 @@ def _settings(**kw) -> Settings:
     return Settings(_env_file=None, **kw)
 
 
-def test_seed_defaults_on_everywhere_except_production(monkeypatch):
+def test_seed_defaults_on_only_in_tests(monkeypatch):
+    """The fixture network is for the test suite. A laptop starts empty and is filled by the
+    Orange import or by registering agents; production never plants demo PINs."""
     monkeypatch.delenv("SEED_ON_START", raising=False)
     monkeypatch.delenv("CORS_ORIGINS", raising=False)
-    assert _settings(app_env="development").seed_on_start is True
+    assert _settings(app_env="development").seed_on_start is False
     assert _settings(app_env="test").seed_on_start is True
     prod = _settings(app_env="production", cors_origins="https://agentfinder.example")
     assert prod.seed_on_start is False

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Card } from '@/design'
+import { Card, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import type { FloatForecast, FloatRequest } from '@/types/operator'
@@ -23,19 +23,16 @@ const RISK: Record<FloatForecast['risk'], string> = {
 function ForecastRow({ f }: { f: FloatForecast }) {
   return (
     <Card>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-base font-bold">
-          {f.agent_ref} · {f.agent_name}
-        </span>
-        <span className={`shrink-0 rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${RISK[f.risk]}`}>{f.headline}</span>
-      </div>
+      <span className={`w-fit rounded-pill px-2.5 py-0.5 text-xs font-bold ${RISK[f.risk]}`}>{f.headline}</span>
+      <p className="text-base font-bold leading-tight">{f.agent_name}</p>
+      <p className="text-sm text-muted">{f.agent_ref.replace(/^Agent /, 'Code ')}</p>
       <ul className="mt-1 list-disc pl-5 text-sm text-muted">
         {f.reasons.map((r) => (
           <li key={r}>{r}</li>
         ))}
       </ul>
       {f.call_url && (
-        <a href={f.call_url} className="mt-2 inline-flex h-control items-center text-sm font-bold text-brand-text">
+        <a href={f.call_url} className="mt-1 inline-flex h-control w-fit items-center border-2 border-ink px-4 text-sm font-bold text-ink">
           Call {f.agent_name}
         </a>
       )}
@@ -59,11 +56,12 @@ export default function DealerFloatQueuePage() {
   const Row = ({ r }: { r: FloatRequest }) => (
     <Link to={`/dealer/float/${r.id}`}>
       <Card interactive>
-        <div className="flex items-baseline justify-between">
-          <span className="text-base font-bold">
-            {r.agent_ref} · {r.agent_name}
+        <div className="flex items-start justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block truncate text-base font-bold leading-tight">{r.agent_name}</span>
+            <span className="text-sm text-muted">{r.agent_ref.replace(/^Agent /, 'Code ')}</span>
           </span>
-          <span className="text-base font-bold">{formatSle(r.amount_sle)}</span>
+          <span className="shrink-0 text-base font-bold">{formatSle(r.amount_sle)}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted">
@@ -79,10 +77,7 @@ export default function DealerFloatQueuePage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">Float requests</h1>
-        <p className="text-xs text-muted">{waiting.length} waiting · nothing expires silently</p>
-      </header>
+      <AppBar title="Float requests" subtitle={<>{waiting.length} waiting · nothing expires silently</>} />
       <div className="flex flex-col gap-3 p-4 pb-6">
         <section aria-labelledby="forecast-heading" className="flex flex-col gap-3">
           <h2 id="forecast-heading" className="text-xs font-bold uppercase tracking-wider text-muted">

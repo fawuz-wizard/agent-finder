@@ -231,6 +231,16 @@ export interface AgentProfile {
   phone_visible: boolean
   verified: boolean
   devices: { id: string; label: string; last_seen_text: string; current: boolean }[]
+  agent_code: string | null
+  region: 'east' | 'north' | 'west' | 'south' | null
+  city: string | null
+  active: boolean
+  /** The shop on the map. The agent can pin it from the phone while standing at the shop. */
+  located: boolean
+  location_source: 'dealer' | 'agent' | 'placed' | null
+  lat: number | null
+  lng: number | null
+  street: string
 }
 
 /* ---------- dealer ---------- */
@@ -523,7 +533,7 @@ export const RECORD_KINDS: { kind: RecordKind; label: string }[] = [
   { kind: 'searches', label: 'Searches shown' },
   { kind: 'reports', label: 'Customer reports' },
   { kind: 'transactions', label: 'Logged transactions' },
-  { kind: 'actions', label: 'Dealer actions' },
+  { kind: 'actions', label: 'Aggregator actions' },
   { kind: 'usage', label: 'Usage events' },
   { kind: 'audit', label: 'Financial reveals' },
 ]

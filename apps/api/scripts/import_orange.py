@@ -205,13 +205,16 @@ def validate(rows: list[dict[str, str]], file_tag: str) -> list[RowResult]:
             res.issues.append("bad_status")
         res.aggregator = {
             "msisdn": parent,
+            # Orange's export repeats a business name in both name columns; say it once.
             "name": " ".join(
-                x
-                for x in (
-                    r.get("PARENT_FIRST_NAME", "").title(),
-                    r.get("PARENT_LAST_NAME", "").title(),
+                dict.fromkeys(
+                    x
+                    for x in (
+                        r.get("PARENT_FIRST_NAME", "").title(),
+                        r.get("PARENT_LAST_NAME", "").title(),
+                    )
+                    if x
                 )
-                if x
             ).strip()
             or "Aggregator",
             "region": region,

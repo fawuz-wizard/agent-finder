@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     # "activity": recommend by the success probability the ranker computes from what is known
     # (position or ledger, recency, failures, trust, distance). "rules": the fixed order.
     ranker: Literal["activity", "rules"] = "activity"
-    # Demo dealer, demo agents, PIN 1234 everywhere. Unset means: yes on a laptop or in tests,
-    # never in production, where the first boot must not plant demo PINs in a real database.
+    # The fixture network (one dealer, demo agents, PIN 1234) exists for the test suite. Unset
+    # means: only in tests. A laptop or a server starts empty and is filled by the Orange import
+    # (scripts/import_orange.py) or by registering agents in the app.
     seed_on_start: bool | None = None
 
     # Comma-separated in the environment; NoDecode stops pydantic-settings JSON-parsing it first.
@@ -56,7 +57,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _defaults_by_environment(self) -> Settings:
         if self.seed_on_start is None:
-            self.seed_on_start = self.app_env != "production"
+            self.seed_on_start = self.app_env == "test"
         if self.cors_origins is None:
             if self.app_env == "production":
                 raise ValueError(

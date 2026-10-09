@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { TabBar } from '@/design'
+import type { TabItem } from '@/design'
 
 const cls = 'h-[22px] w-[22px]'
 const Dashboard = () => (
@@ -29,30 +30,15 @@ const Profile = () => (
   </svg>
 )
 
-const TABS = [
-  { to: '/dealer', label: 'Dashboard', end: true, Icon: Dashboard },
+const TABS: TabItem[] = [
+  { to: '/dealer', label: 'Overview', end: true, Icon: Dashboard },
   { to: '/dealer/agents', label: 'Agents', end: false, Icon: Agents },
   { to: '/dealer/float', label: 'Float', end: false, Icon: Float },
   { to: '/dealer/attention', label: 'Attention', end: false, Icon: Attention },
   { to: '/dealer/profile', label: 'Profile', end: false, Icon: Profile },
 ]
 
+/** The aggregator's five sections. */
 export function DealerTabBar() {
-  return (
-    <nav aria-label="Dealer sections" className="sticky bottom-0 mt-auto flex border-t border-line bg-paper">
-      {TABS.map(({ to, label, end, Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          className={({ isActive }) =>
-            `flex h-[62px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${isActive ? 'text-brand-text' : 'text-muted'}`
-          }
-        >
-          <Icon />
-          {label}
-        </NavLink>
-      ))}
-    </nav>
-  )
+  return <TabBar items={TABS} label="Aggregator sections" />
 }

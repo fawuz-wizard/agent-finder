@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Button, Card } from '@/design'
+import { Button, Card, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -13,7 +13,8 @@ const PERMISSION_TEXT: Record<string, string> = {
   [PERMISSIONS.manageFloat]: 'Decide float requests',
   [PERMISSIONS.viewHistory]: 'See agent history',
   [PERMISSIONS.contact]: 'Contact agents',
-  [PERMISSIONS.escalate]: 'Escalate to the super distributor',
+  [PERMISSIONS.escalate]: 'Escalate to Orange',
+  [PERMISSIONS.manageAgent]: 'Register agents and pin their shops',
 }
 
 /** Dealer profile: who you are, what you may do, and every financial reveal you made. */
@@ -48,10 +49,7 @@ export default function DealerProfilePage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">{session?.name}</h1>
-        <p className="text-xs text-muted">Dealer</p>
-      </header>
+      <AppBar title={session?.name ?? 'Aggregator'} subtitle={<>Aggregator account</>} />
       <div className="flex flex-col gap-3 p-4 pb-6">
         <Card>
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">What you may do</p>

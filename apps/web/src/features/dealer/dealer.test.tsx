@@ -150,10 +150,10 @@ describe('dealer', () => {
     await user.click(closedTile)
 
     // Only agents in that bucket: Salamatu is closed, Amadu is stale. The chip carries the tile's count.
-    expect(await screen.findByText(/Agent 038 · Amadu Corner Shop/)).toBeInTheDocument()
-    expect(screen.getByText(/Agent 017 · Salamatu Shop/)).toBeInTheDocument()
-    expect(screen.queryByText(/Agent 024 · Fatmata's Shop/)).not.toBeInTheDocument()
-    expect(screen.getAllByText(/Agent \d{3} · /).length).toBe(tileCount)
+    expect(await screen.findByText('Amadu Corner Shop')).toBeInTheDocument()
+    expect(screen.getByText('Salamatu Shop')).toBeInTheDocument()
+    expect(screen.queryByText("Fatmata's Shop")).not.toBeInTheDocument()
+    expect(screen.getAllByText(/^Code \d{3} · /).length).toBe(tileCount)
     const chips = screen.getByRole('group', { name: /^show$/i })
     const closedChip = within(chips).getByRole('button', { name: /^closed/i })
     expect(closedChip).toHaveAttribute('aria-pressed', 'true')
@@ -161,12 +161,12 @@ describe('dealer', () => {
 
     // Chips are the same filter; an empty bucket says so; "All" brings every agent back.
     await user.click(within(chips).getByRole('button', { name: /^hidden/i }))
-    expect(await screen.findByText(/Agent 009 · Ibrahim Cash Point/)).toBeInTheDocument()
+    expect(await screen.findByText('Ibrahim Cash Point')).toBeInTheDocument()
     expect(screen.queryByText(/Agent 038/)).not.toBeInTheDocument()
     await user.click(within(chips).getByRole('button', { name: /^limited/i }))
     expect(await screen.findByText(/no agent is on small or none right now/i)).toBeInTheDocument()
     await user.click(within(chips).getByRole('button', { name: /^all/i }))
-    expect(screen.getAllByText(/Agent \d{3} · /).length).toBe(5)
+    expect(screen.getAllByText(/^Code \d{3} · /).length).toBe(5)
   })
 
   it('will not decline without a reason', async () => {
@@ -189,7 +189,7 @@ describe('float forecast', () => {
     // Both lists load; the queue may also show Agent 038 (a request from an earlier test).
     await screen.findByText(/^Waiting$/)
     const section = await screen.findByRole('region', { name: /likely to run short · \d+/i })
-    expect(await within(section).findByText(/Agent 038 · Amadu Corner Shop/)).toBeInTheDocument()
+    expect(await within(section).findByText('Amadu Corner Shop')).toBeInTheDocument()
     expect(within(section).getAllByText('Likely short by tomorrow').length).toBeGreaterThan(0)
     expect(within(section).getByText('Says no cash right now.')).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/balance|SLE 12,400/i)
@@ -212,11 +212,11 @@ describe('trust score', () => {
   it('shows each agent how often their word held up, and never as a customer-facing thing', async () => {
     signIn(ALL)
     render(<App start="/dealer/agents" />)
-    const fatmata = (await screen.findByText(/Agent 024 · Fatmata's Shop/)).closest('a')!
+    const fatmata = (await screen.findByText("Fatmata's Shop")).closest('a')!
     expect(within(fatmata).getByText('Mixed')).toHaveAttribute('title', '10 of 12 visits matched the status in the last 14 days.')
-    const sento = screen.getByText(/Agent 031 · Sento Enterprise/).closest('a')!
+    const sento = screen.getByText('Sento Enterprise').closest('a')!
     expect(within(sento).getByText('Reliable')).toBeInTheDocument()
-    const amadu = screen.getByText(/Agent 038 · Amadu Corner Shop/).closest('a')!
+    const amadu = screen.getByText('Amadu Corner Shop').closest('a')!
     expect(within(amadu).getByText('No track record yet')).toBeInTheDocument()
   })
 
@@ -260,7 +260,7 @@ describe('registration', () => {
     const user = userEvent.setup()
     signIn([...ALL, PERMISSIONS.manageAgent])
     render(<App start="/dealer/agents" />)
-    await user.click(await screen.findByRole('link', { name: /register agent/i }))
+    await user.click(await screen.findByRole('link', { name: /^register$/i }))
     await screen.findByRole('heading', { name: /register an agent/i })
     await user.type(screen.getByLabelText(/shop name/i), "Mariama's Corner")
     await user.type(screen.getByLabelText(/agent's name/i), 'Mariama Sesay')
@@ -272,7 +272,7 @@ describe('registration', () => {
     await user.click(screen.getByLabelText(/checked this agent against orange/i))
     await user.click(screen.getByRole('button', { name: /^register agent$/i }))
     // Lands on the new agent's detail, under the number the platform assigned.
-    expect(await screen.findByRole('heading', { name: /Agent 1\d\d/ })).toBeInTheDocument()
+    expect(await screen.findByText(/Code 1\d\d/)).toBeInTheDocument()
     expect(screen.getAllByText(/Mariama's Corner/).length).toBeGreaterThan(0)
     // The register lists them now, and the registration was logged with the dealer's name.
     const rows = await operatorApi.dealerAgents()
@@ -290,7 +290,7 @@ describe('registration', () => {
     signIn(ALL)
     render(<App start="/dealer/agents" />)
     await screen.findByRole('heading', { name: 'Agents' })
-    expect(screen.queryByRole('link', { name: /register agent/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^register$/i })).not.toBeInTheDocument()
     render(<App start="/dealer/agents/new" />)
     expect(await screen.findAllByRole('heading', { name: 'Agents' })).not.toHaveLength(0)
     expect(screen.queryByRole('heading', { name: /register an agent/i })).not.toBeInTheDocument()

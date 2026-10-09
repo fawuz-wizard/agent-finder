@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Card } from '@/design'
+import { Card, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import type { DealerBucket, DealerOverview } from '@/types/operator'
@@ -39,13 +39,7 @@ export default function DealerDashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">Your agents</h1>
-        <p className="text-xs text-muted">
-          {data.dealer_name} · {data.agent_count} agents ·{' '}
-          {new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
-      </header>
+      <AppBar title="Overview" subtitle={<>{data.agent_count} agents ·{' '} {new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</>} />
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <div className="flex gap-2">
@@ -67,9 +61,8 @@ export default function DealerDashboardPage() {
           {data.float_requests.slice(0, 3).map((r) => (
             <Link key={r.id} to={`/dealer/float/${r.id}`} className="flex items-center justify-between border-b border-line py-2.5 last:border-b-0">
               <span>
-                <span className="block text-sm font-bold">
-                  {r.agent_ref} · {r.agent_name}
-                </span>
+                <span className="block text-sm font-bold leading-tight">{r.agent_name}</span>
+                <span className="block text-xs font-semibold text-muted">{r.agent_ref.replace(/^Agent /, 'Code ')}</span>
                 <span className="text-xs text-muted">
                   waiting {r.waiting_text}
                   {r.ageing && <span className="ml-2 rounded-pill bg-warning-tint px-2 py-0.5 text-[10px] font-bold text-warning">ageing</span>}
@@ -99,7 +92,7 @@ export default function DealerDashboardPage() {
               See all
             </Link>
           </div>
-          {data.signals.map((s) => (
+          {data.signals.slice(0, 5).map((s) => (
             <Link key={s.id} to={`/dealer/attention/${s.id}`} className="flex gap-3 border-b border-line py-2.5 last:border-b-0">
               <span
                 aria-hidden="true"
@@ -110,14 +103,18 @@ export default function DealerDashboardPage() {
                 !
               </span>
               <span>
-                <span className="block text-sm font-bold">
-                  {s.agent_ref} — {s.title}
-                </span>
+                <span className="block text-sm font-bold leading-tight">{s.title}</span>
+                <span className="block text-xs font-semibold text-muted">{s.agent_ref.replace(/^Agent /, 'Code ')}</span>
                 <span className="text-xs text-muted">{s.sentence}</span>
               </span>
             </Link>
           ))}
           {data.signals.length === 0 && <p className="py-2 text-sm text-muted">Nothing needs attention right now.</p>}
+          {data.signals.length > 5 && (
+            <Link to="/dealer/attention" className="pt-2 text-sm font-bold text-brand-text">
+              {data.signals.length - 5} more on the Attention tab
+            </Link>
+          )}
         </Card>
 
         <p className="text-center text-xs text-muted">Signals are for investigating, not punishing. No automatic action is ever taken.</p>

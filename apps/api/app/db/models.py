@@ -46,6 +46,8 @@ class Agent(Base, TimestampMixin):
     # customer.
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
+    # Who put the shop on the map: dealer | agent | placed (script, until someone pins it).
+    location_source: Mapped[str | None] = mapped_column(String(10))
     # Orange's identifiers and record, from the file or typed at registration. Dealer-side only.
     agent_code: Mapped[str | None] = mapped_column(String(20), unique=True)
     msisdn: Mapped[str | None] = mapped_column(String(32), unique=True)

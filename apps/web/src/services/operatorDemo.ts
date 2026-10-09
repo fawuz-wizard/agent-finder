@@ -943,11 +943,28 @@ export function demoAgentProfile(ref: string): AgentProfile {
     dealer_name: 'Kissy Distribution',
     phone_visible: a.phone_visible,
     verified: a.ref === 'Agent 024',
+    agent_code: null,
+    region: 'west',
+    city: 'Freetown',
+    active: true,
+    located: a.lat !== undefined && a.lng !== undefined,
+    location_source: a.lat !== undefined ? ('dealer' as const) : null,
+    lat: a.lat ?? null,
+    lng: a.lng ?? null,
+    street: a.area,
     devices: [
       { id: 'd1', label: 'This phone', last_seen_text: 'Active now', current: true },
       { id: 'd2', label: 'Old phone · Tecno', last_seen_text: 'Last used 2 Sep', current: false },
     ],
   }
+}
+
+export function demoSetLocation(ref: string, lat: number, lng: number, street?: string): AgentProfile {
+  const a = find(ref)
+  a.lat = lat
+  a.lng = lng
+  if (street) a.area = street
+  return demoAgentProfile(ref)
 }
 
 export function demoSetPhoneVisible(ref: string, visible: boolean): AgentProfile {

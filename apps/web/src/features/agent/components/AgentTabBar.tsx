@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { TabBar } from '@/design'
+import type { TabItem } from '@/design'
 
 type IconProps = { active: boolean }
 
@@ -45,7 +46,7 @@ function ProfileIcon({ active }: IconProps) {
   )
 }
 
-const TABS = [
+const TABS: TabItem[] = [
   { to: '/agent', label: 'Home', end: true, Icon: HomeIcon },
   { to: '/agent/availability', label: 'Availability', end: false, Icon: AvailabilityIcon },
   { to: '/agent/float', label: 'Float', end: false, Icon: FloatIcon },
@@ -55,27 +56,5 @@ const TABS = [
 
 /** The agent's five modules. Everything common is two taps from Home. */
 export function AgentTabBar() {
-  return (
-    <nav aria-label="Agent sections" className="sticky bottom-0 mt-auto flex border-t border-line bg-paper">
-      {TABS.map(({ to, label, end, Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          className={({ isActive }) =>
-            `flex h-[62px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${
-              isActive ? 'text-brand-text' : 'text-muted'
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <Icon active={isActive} />
-              {label}
-            </>
-          )}
-        </NavLink>
-      ))}
-    </nav>
-  )
+  return <TabBar items={TABS} label="Agent sections" />
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, Card } from '@/design'
+import { Button, Card, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -48,10 +48,7 @@ export default function AvailabilityPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">Availability</h1>
-        <p className="text-xs text-muted">Whether customers can find you right now</p>
-      </header>
+      <AppBar title="Availability" subtitle={<>Whether customers can find you right now</>} />
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <Card>
@@ -74,7 +71,7 @@ export default function AvailabilityPage() {
             ))}
           </div>
           <p className="mt-2 text-sm text-muted">
-            Away is never held against you. It is recorded so your dealer can see a cash problem, not punish you.
+            Away is never held against you. It is recorded so your aggregator can see a cash problem, not punish you.
           </p>
         </Card>
 
@@ -85,7 +82,7 @@ export default function AvailabilityPage() {
 
         <Card className="bg-canvas">
           <p className="text-sm text-muted">
-            What you can cover is worked out from your history, never asked. Your dealer can note what you usually handle until Orange Money's records take over.
+            What you can cover is worked out from your history, never asked. Your aggregator can note what you usually handle until Orange Money's records take over.
           </p>
         </Card>
 

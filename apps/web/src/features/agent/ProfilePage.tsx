@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card } from '@/design'
+import { Button, Card, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -28,18 +29,40 @@ export default function ProfilePage() {
     const updated = await operatorApi.setPhoneVisible(ref, next)
     setData(updated)
   }
+  const [locating, setLocating] = useState(false)
+  const [locError, setLocError] = useState<string | null>(null)
+
+  /** Standing at the shop: the phone's position becomes the shop's point. */
+  function pinHere() {
+    if (!navigator.geolocation) {
+      setLocError('This phone cannot share its location. Ask your aggregator to pin the shop.')
+      return
+    }
+    setLocating(true)
+    setLocError(null)
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          setData(await operatorApi.setLocation(ref, pos.coords.latitude, pos.coords.longitude))
+        } catch (e) {
+          setLocError(e instanceof Error ? e.message : 'Could not save the location.')
+        } finally {
+          setLocating(false)
+        }
+      },
+      () => {
+        setLocError('Could not read the location. Allow location access and try again, at the shop.')
+        setLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
+    )
+  }
 
   if (state === 'loading' || !data) return <p className="p-4 text-base text-muted">Loading…</p>
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">{data.name}</h1>
-        <p className="text-xs text-muted">
-          {data.ref}
-          {data.verified ? ' · verified' : ''}
-        </p>
-      </header>
+      <AppBar title={data.name} subtitle={<>{data.agent_code ? `Agent code ${data.agent_code}` : data.ref}{data.verified ? ' · Verified agent' : ''}</>} />
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <Card>
@@ -73,9 +96,36 @@ export default function ProfilePage() {
           </p>
         </Card>
 
+        <Card className={data.located ? '' : 'border-warning bg-warning-tint/40'} aria-labelledby="shop-map">
+          <p id="shop-map" className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Your shop on the map</p>
+          {data.located ? (
+            <p className="text-sm">
+              <b>{data.street}</b>
+              <span className="text-muted">
+                {' '}
+                · {data.location_source === 'agent' ? 'pinned by you' : data.location_source === 'dealer' ? 'pinned by your aggregator' : "placed from Orange's record, not yet checked"}
+              </span>
+            </p>
+          ) : (
+            <p className="text-sm font-semibold text-warning">Not on the map yet. Customers cannot find you until it is.</p>
+          )}
+          <p className="text-sm text-muted">Stand inside the shop and pin it. Customers are sent to this exact point.</p>
+          <Button size="control" variant={data.located && data.location_source !== 'placed' ? 'secondary' : 'primary'} className="mt-1" onClick={pinHere} disabled={locating}>
+            {locating ? 'Reading your position…' : data.located ? 'Pin the shop here again' : 'Pin the shop here'}
+          </Button>
+          {locError && (
+            <p role="alert" className="text-sm font-semibold text-danger">
+              {locError}
+            </p>
+          )}
+        </Card>
+
         <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Your dealer</p>
-          <Row k={data.dealer_name} v="" action={<span className="text-brand-text">Contact</span>} />
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Orange record</p>
+          <Row k="Agent code" v={data.agent_code ?? '—'} />
+          <Row k="Aggregator" v={data.dealer_name || '—'} />
+          <Row k="Region" v={data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : '—'} />
+          <Row k="Status at Orange" v={data.active ? 'Active' : 'Inactive'} />
         </Card>
 
         <Card>
@@ -93,8 +143,8 @@ export default function ProfilePage() {
         <Card className="border-brand-deep bg-brand-faint">
           <p className="text-base font-bold">What customers see about you</p>
           <p className="mt-1 text-sm text-muted">
-            Your shop name, area, distance, whether you can likely handle their request, and when you last updated.
-            Never your balance, your float, your capacity words, or anything your dealer sees.
+            Your shop name, street, distance, whether you can likely handle their request, and when you last updated.
+            Never your balance, your float, or anything your aggregator sees.
           </p>
         </Card>
 

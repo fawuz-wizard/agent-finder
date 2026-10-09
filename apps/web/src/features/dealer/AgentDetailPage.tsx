@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Button, Card, useToast } from '@/design'
+import { Button, Card, useToast, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -48,23 +48,13 @@ export default function DealerAgentDetailPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex items-center gap-3 border-b border-line bg-paper px-4 py-3">
-        <Link to="/dealer/agents" aria-label="Back" className="-ml-2 flex h-control w-control items-center justify-center rounded-card text-2xl leading-none text-muted">
-          ‹
-        </Link>
-        <div>
-          <h1 className="text-lg font-bold leading-tight">{data.ref}</h1>
-          <p className="text-xs text-muted">
-            {data.shop_name} · {data.area}
-          </p>
-        </div>
-      </header>
+      <AppBar back="/dealer/agents" title={data.shop_name} subtitle={<>{data.ref.replace(/^Agent /, 'Code ')} · {data.area}</>} />
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <Card>
-          <div className="flex items-center justify-between">
-            <span className={`text-base font-bold ${tone}`}>{PRESENCE_LABELS[d.presence]}</span>
-            <span className="text-xs font-semibold text-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '')}</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className={`text-lg font-bold leading-tight ${tone}`}>{PRESENCE_LABELS[d.presence]}</span>
+            <span className="text-sm text-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '')}</span>
           </div>
           <p className="mt-1 text-sm text-muted">{data.capacity_text}</p>
           {d.freshness === 'expired' && <p className="mt-1 text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
@@ -94,6 +84,24 @@ export default function DealerAgentDetailPage() {
 
         {(!data.located || !data.active) && <PlacementCard detail={data} onSaved={refresh} />}
 
+        <Card>
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Orange record</p>
+          <div className="grid grid-cols-2 gap-x-4">
+            <p className="text-sm text-muted">Agent code</p>
+            <p className="text-right text-sm font-bold">{data.agent_code ?? '—'}</p>
+            <p className="text-sm text-muted">Status</p>
+            <p className={`text-right text-sm font-bold ${data.active ? 'text-success' : 'text-danger'}`}>{data.active ? 'Active' : 'Inactive'}</p>
+            <p className="text-sm text-muted">Region · city</p>
+            <p className="text-right text-sm font-bold">
+              {data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : '—'} · {data.city ?? '—'}
+            </p>
+            <p className="text-sm text-muted">On the map</p>
+            <p className="text-right text-sm font-bold">{data.located ? 'Yes' : 'No'}</p>
+            <p className="text-sm text-muted">Source</p>
+            <p className="text-right text-sm font-bold">{data.source === 'orange_file' ? "Orange's file" : 'Registered in the app'}</p>
+          </div>
+        </Card>
+
         <UsualCard detail={data} onSaved={refresh} />
 
         <Card>
@@ -120,6 +128,7 @@ export default function DealerAgentDetailPage() {
 
         <Card>
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Availability today</p>
+          {data.availability_today.length === 0 && <p className="py-1 text-sm text-muted">No changes today.</p>}
           {data.availability_today.map((e, i) => (
             <div key={i} className="flex items-baseline justify-between border-b border-line py-2 last:border-b-0">
               <span className="text-sm text-muted">{e.time_text}</span>

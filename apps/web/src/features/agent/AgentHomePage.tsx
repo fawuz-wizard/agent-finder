@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Banner, Button, Card, useToast } from '@/design'
+import { Banner, Button, Card, useToast, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
@@ -78,12 +78,7 @@ export default function AgentHomePage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-line bg-paper px-4 py-3">
-        <h1 className="text-lg font-bold leading-tight">{data.name}</h1>
-        <p className="text-xs text-muted">
-          {data.ref} · {data.area}
-        </p>
-      </header>
+      <AppBar title={data.name} subtitle={<>{data.ref} · {data.area}</>} />
 
       <div className="flex flex-col gap-3 p-4">
         {data.schedule.notice && (
@@ -119,6 +114,11 @@ export default function AgentHomePage() {
             <>
               <p className="text-xl font-bold leading-tight">{see.headline}</p>
               <p className="text-sm text-muted">{see.explanation}</p>
+              {see.state === 'unlocated' && (
+                <Link to="/agent/profile" className="mt-1 inline-flex h-control w-fit items-center bg-brand px-4 text-base font-bold text-ink">
+                  Pin my shop
+                </Link>
+              )}
             </>
           ) : (
             <>
@@ -230,7 +230,7 @@ export default function AgentHomePage() {
         ))}
 
         <p className="text-center text-xs text-muted">
-          Transactions happen in Max it. This app keeps your availability, float and what customers report.
+          Transactions happen in Max it. This app keeps your availability, your float and what customers report.
         </p>
       </div>
     </div>

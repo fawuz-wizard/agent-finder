@@ -44,6 +44,7 @@ from app.services.phrasing import (
     is_open_now,
     now_utc,
 )
+from app.services.points import check_point
 from app.services.trust import trust_for
 
 router = APIRouter(tags=["dealer"])
@@ -721,14 +722,6 @@ def normalise_ref(raw: str) -> str:
     return f"Agent {v.zfill(3)}"
 
 
-def check_point(lat: float, lng: float) -> None:
-    if not (SL_LAT[0] <= lat <= SL_LAT[1] and SL_LNG[0] <= lng <= SL_LNG[1]):
-        raise AppError(
-            "That location is outside Sierra Leone. Check the latitude and longitude.",
-            code="invalid_location",
-        )
-
-
 def _hours(open_time: str, close_time: str) -> tuple[int, int]:
     from app.services.schedule import parse_hhmm
 
@@ -801,6 +794,7 @@ async def register_agent(
         area=body.area.strip(),
         street=body.street.strip(),
         lat=round(body.lat, 5),
+        location_source="dealer",
         lng=round(body.lng, 5),
         phone=body.phone.replace(" ", "") if body.phone else None,
         phone_visible=body.phone_visible,
@@ -851,6 +845,7 @@ async def edit_agent(
     if body.lat is not None and body.lng is not None:
         check_point(body.lat, body.lng)
         a.lat, a.lng = round(body.lat, 5), round(body.lng, 5)
+        a.location_source = "dealer"
     if (body.open_time is None) != (body.close_time is None):
         raise AppError("Give both opening and closing time.", code="invalid_hours")
     if body.open_time and body.close_time:

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { Button, Card, useToast } from '@/design'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { Button, Card, useToast, AppBar } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS } from '@/types/operator'
@@ -107,15 +107,7 @@ export default function RegisterAgentPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex items-center gap-3 border-b border-line bg-paper px-4 py-3">
-        <Link to="/dealer/agents" aria-label="Back" className="-ml-2 flex h-control w-control items-center justify-center rounded-card text-2xl leading-none text-muted">
-          ‹
-        </Link>
-        <div>
-          <h1 className="text-lg font-bold leading-tight">Register an agent</h1>
-          <p className="text-xs text-muted">Any agent you work with, whether or not Orange's list has them yet</p>
-        </div>
-      </header>
+      <AppBar back="/dealer/agents" title="Register an agent" subtitle={<>Any agent you work with, on Orange's list or not</>} />
 
       <div className="flex flex-col gap-3 p-4 pb-6">
         <Card>

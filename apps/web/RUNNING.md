@@ -83,6 +83,28 @@ it existed needs it added once:
 cd apps/api && .venv/bin/python -c "import sqlite3;c=sqlite3.connect('agentfinder.db');c.execute(\"update dealers set permissions=permissions||',MANAGE_AGENT' where permissions not like '%MANAGE_AGENT%'\");c.commit()"
 ```
 
+## Signing in, and a development database without demo data
+
+The Agent App signs an agent in with the **agent code** on Orange's record (or the number the
+app gave them, or their Orange Money line) and an aggregator with their **Orange Money
+number** (or account id). The API no longer seeds the demo network outside the test suite: a
+laptop starts empty and is filled from Orange's file. The whole local setup, from nothing:
+
+```bash
+cd apps/api
+.venv/bin/python -m scripts.import_orange ~/Downloads/Book2.xlsx --apply   # aggregators + agents, no points
+.venv/bin/python -m scripts.place_agents --apply --pin 1234               # real Lumley/Aberdeen street points; one dev PIN
+APP_ENV=development SEED_ON_START=false OPERATOR_ADAPTER=none \
+  .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+cd ../web && npm run dev                                                  # .env.local: VITE_API_MODE=live
+```
+
+`place_agents` puts every agent that nobody has pinned on a sampled point of a real street in
+Lumley or Aberdeen (`data/lumley_aberdeen_streets.json`, from OpenStreetMap), half in each,
+and marks the point *placed*. The agent's own **Pin the shop here** (Profile) or the
+aggregator's pin replaces it and is never overwritten. `--pin` is for a development machine
+only; real accounts get PINs with `scripts/set_pin.py`.
+
 ## Importing Orange's aggregator/agent file
 
 Steps 3–5 of the Orange meeting. The file stays outside the repository; nothing personal from
