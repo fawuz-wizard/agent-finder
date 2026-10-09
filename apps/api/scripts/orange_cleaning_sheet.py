@@ -32,7 +32,8 @@ WHAT: dict[str, tuple[str, str]] = {
     "no_city": ("CITY", "Fill in the town or city."),
     "region_unknown": (
         "CITY",
-        "Add the district or town the app can place in East / North / West / South, e.g. 'Lungi, Port Loko'.",
+        "Add the district or town the app can place in East / North / West / South, "
+        "e.g. 'Lungi, Port Loko'.",
     ),  # noqa: E501
     "no_name": ("USER_FIRST_NAME / USER_LAST_NAME", "Fill in the agent's name."),
     "name_has_digits": ("USER_FIRST_NAME / USER_LAST_NAME", "A name should not contain digits."),
