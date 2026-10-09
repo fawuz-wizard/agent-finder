@@ -19,6 +19,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ.get('PORT','8000')).read()" || exit 1
 
-# Migrations first (the baseline enables PostGIS and pgcrypto; tables come from the app),
-# then the server. APP_ENV=production refuses to start without CORS_ORIGINS, on purpose.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+# Migrations on Postgres, then the server (see docker-entrypoint.sh).
+# APP_ENV=production refuses to start without CORS_ORIGINS, on purpose.
+CMD ["./docker-entrypoint.sh"]

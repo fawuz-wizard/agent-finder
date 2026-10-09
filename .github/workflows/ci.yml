@@ -87,6 +87,6 @@ jobs:
             -e APP_ENV=test -e SEED_ON_START=false -e OPERATOR_ADAPTER=none \
             -e DATABASE_URL=sqlite+aiosqlite:////tmp/smoke.db agent-finder-api
           for i in $(seq 1 30); do curl -sf http://localhost:8000/health && break; sleep 1; done
+          echo; docker logs api | tail -20
           curl -sf http://localhost:8000/health
-          docker logs api | tail -5
           docker rm -f api
