@@ -1,16 +1,14 @@
-"""Put imported agents on real streets in Lumley and Aberdeen until someone pins the shop.
-
-Orange's file has no coordinates, and the pilot is demonstrated around Lumley and Aberdeen:
-a customer standing there must see the nearest agents, and a customer farther than 500 m must
-be offered the closest ones farther away. This script gives every agent still without a point
-a place on a real street (data/lumley_aberdeen_streets.json, sampled from OpenStreetMap),
-spread evenly over both areas, and records that the point was "placed", so the agent's own
-pin or the dealer's replaces it. It never moves a point a person set.
+"""Demonstration only: give agents without a point a place on a real street in Lumley or
+Aberdeen, so a locator walk-through has something to find. Nothing from Orange's record is
+touched: the address, city and names stay exactly as the file says; only the coordinates are
+set, and they are marked "placed" so the agent's own pin or the aggregator's replaces them.
+A point a person set is never moved. --clear removes every placed point again.
 
 Usage:
-  python -m scripts.place_agents                 # agents without a point, report what would change
-  python -m scripts.place_agents --apply         # write the points
-  python -m scripts.place_agents --apply --pin 1234   # development only: one PIN for every account
+  python -m scripts.place_agents                       # report what would change
+  python -m scripts.place_agents --apply               # write the points
+  python -m scripts.place_agents --clear               # remove placed points (agents unlocated again)
+  python -m scripts.place_agents --apply --pin 1234    # development only: one PIN for every account
 """
 
 from __future__ import annotations
@@ -76,6 +74,20 @@ def pick(points: dict[str, list[tuple[str, float, float]]], key: str, index: int
     return area, street, lat, lng
 
 
+async def clear_placed() -> int:
+    """Remove every script-placed point. Agents become unlocated until a person pins them."""
+    async with get_session_factory()() as db:
+        agents = (
+            (await db.execute(select(Agent).where(Agent.location_source == "placed")))
+            .scalars()
+            .all()
+        )
+        for a in agents:
+            a.lat, a.lng, a.location_source = None, None, None
+        await db.commit()
+        return len(agents)
+
+
 async def place(apply: bool, pin: str | None, everyone: bool = False) -> dict[str, int]:
     points = load_points()
     counts = {"placed": 0, "kept": 0, "pins": 0}
@@ -91,10 +103,9 @@ async def place(apply: bool, pin: str | None, everyone: bool = False) -> dict[st
                 continue
             area, street, lat, lng = pick(points, a.ref, i)
             check_point(lat, lng)
-            print(f"  {a.ref:14s} -> {area:9s} {street}")
+            print(f"  {a.ref:14s} -> a point on {street} ({area}); address unchanged")
             if apply:
                 a.lat, a.lng = lat, lng
-                a.area, a.street = area, street
                 a.location_source = "placed"
             counts["placed"] += 1
         if pin:
@@ -116,7 +127,11 @@ def main() -> None:
     ap.add_argument("--apply", action="store_true", help="write the points (default: report only)")
     ap.add_argument("--pin", help="development only: set this PIN on every agent and aggregator")
     ap.add_argument("--everyone", action="store_true", help="also move points a person set")
+    ap.add_argument("--clear", action="store_true", help="remove every placed point")
     args = ap.parse_args()
+    if args.clear:
+        print(json.dumps({"cleared": asyncio.run(clear_placed())}))
+        return
     if args.pin and (not args.pin.isdigit() or not 4 <= len(args.pin) <= 6):
         raise SystemExit("PIN must be 4–6 digits")
     counts = asyncio.run(place(args.apply, args.pin, args.everyone))

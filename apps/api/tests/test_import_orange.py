@@ -148,9 +148,16 @@ async def test_apply_creates_aggregators_and_unlocated_agents_that_customers_nev
     results = validate(read_xlsx(sample(tmp_path)), "abc123")
     created = await apply(results)
     assert created == {"aggregators": 1, "subaggregators": 1, "agents": 3, "updated_agents": 0}
-    # Running it again updates, never duplicates.
+    # Running it again updates, never duplicates — and restores the file's own address.
+    async with dbsession.get_session_factory()() as db:
+        a = await db.get(Agent, "Agent 100001")
+        a.street, a.area = "Somewhere a script wrote", "Lumley"
+        await db.commit()
     again = await apply(results)
     assert again["agents"] == 0 and again["updated_agents"] == 3 and again["aggregators"] == 0
+    async with dbsession.get_session_factory()() as db:
+        a = await db.get(Agent, "Agent 100001")
+        assert a.street == "12 Lumley Road" and a.area == "Freetown"
     async with dbsession.get_session_factory()() as db:
         agg = await db.get(Dealer, "agg-000001")
         assert agg is not None and agg.msisdn == "+23276000001" and agg.region == "west"

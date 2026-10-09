@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 from app.db import session as dbsession
 from app.db.models import Agent
-from scripts.place_agents import load_points, place
+from scripts.place_agents import clear_placed, load_points, place
 from sqlalchemy import select, update
 
 
@@ -45,12 +45,20 @@ async def test_place_fills_only_missing_points_and_keeps_human_pins(client):
         )
         for a in rows:
             assert a.lat is not None and a.location_source == "placed"
-            assert a.area in ("Lumley", "Aberdeen") and a.street
+            # The record is untouched: address and area stay what the file (here the seed) says.
+            assert a.area in ("Aberdeen", "Wilberforce", "Juba") or a.street
+            assert a.street in ("Sir Samuel Lewis Road", "Juba Road")
         fatmata = await db.get(Agent, "Agent 024")
         assert fatmata.location_source == "dealer" and fatmata.street == "Lumley Junction"
     # A second run changes nothing.
     again = await place(apply=True, pin=None)
     assert again["placed"] == 0
+    # --clear takes the placed points away and leaves the human pin.
+    assert await clear_placed() >= 2
+    async with dbsession.get_session_factory()() as db:
+        assert (await db.get(Agent, "Agent 031")).lat is None
+        assert (await db.get(Agent, "Agent 024")).lat is not None
+    assert (await place(apply=True, pin=None))["placed"] >= 2
     # The placed agents are now on the customer map.
     r = await client.post(
         "/api/v1/search",

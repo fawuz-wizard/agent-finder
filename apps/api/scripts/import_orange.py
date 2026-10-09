@@ -203,6 +203,16 @@ def validate(rows: list[dict[str, str]], file_tag: str) -> list[RowResult]:
         status = r.get("ACCOUNT_STATUS", "").strip().upper()
         if status not in ("Y", "N"):
             res.issues.append("bad_status")
+        # The address is what a customer reads under the shop name: it must be a real one.
+        address = " ".join(r.get("ADDRESS1", "").split())
+        if not address:
+            res.issues.append("no_address")
+        elif city and address.lower() == city.lower():
+            res.issues.append("address_is_city_only")
+        elif len(address) < 6 or not re.search(r"[a-z]", address, re.I):
+            res.issues.append("short_address")
+        if re.search(r"\d", first + last):
+            res.issues.append("name_has_digits")
         res.aggregator = {
             "msisdn": parent,
             # Orange's export repeats a business name in both name columns; say it once.
@@ -372,6 +382,13 @@ async def apply(results: list[RowResult]) -> dict:
                 created["agents"] += 1
             else:
                 created["updated_agents"] += 1
+            if existing.source == "orange_file":
+                # Orange's record is the truth for what it holds; a re-run restores it.
+                existing.person_name = a["person_name"] or existing.person_name
+                if existing.shop_name == existing.ref or existing.shop_name == existing.person_name:
+                    existing.shop_name = a["person_name"] or existing.shop_name
+                existing.street = a["street"]
+                existing.area = a["city"] or existing.area
             existing.agent_code = a["agent_code"]
             existing.msisdn = a["msisdn"] or existing.msisdn
             existing.region = a["region"] or existing.region
