@@ -48,6 +48,7 @@ def test_production_without_cors_origins_refuses_to_start(monkeypatch):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://localhost",
+        "http://localhost",
         "capacitor://localhost",
     ]
     assert _settings(

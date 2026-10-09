@@ -122,8 +122,9 @@ phone and open it (allow installs from this source when the phone asks).
   origin on Android; the development default already does.
 - Debug builds may talk to a plain-http API, so for a demo the API can run on a laptop on the
   phone's hotspot: `uvicorn app.main:app --host 0.0.0.0 --port 8000` and
-  `API_BASE_URL=http://<laptop-ip>:8000`. Such builds also allow mixed content in the shell
-  (the page is https://localhost, the API is http); builds against an https API do not. The
+  `API_BASE_URL=http://<laptop-ip>:8000`. Such builds serve the page from `http://localhost`
+  instead of `https://localhost` (a page on https may not call a plain-http API), so that
+  origin is in the API's CORS default too; builds against an https API stay on https. The
   laptop's firewall must accept the port, e.g. `sudo ufw allow 8000/tcp`.
 - iPhone: there is no APK. Open the hosted web app in Safari and use Share → Add to Home Screen.
 

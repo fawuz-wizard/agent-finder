@@ -66,8 +66,10 @@ class Settings(BaseSettings):
             self.cors_origins = [
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
-                # The Android APK serves the same web build from these origins (Capacitor).
+                # The Android APK serves the same web build from these origins (Capacitor):
+                # https://localhost normally, http://localhost for a hotspot demo build.
                 "https://localhost",
+                "http://localhost",
                 "capacitor://localhost",
             ]
         return self
