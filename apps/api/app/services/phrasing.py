@@ -202,6 +202,17 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
     the agent chose. Consequence, not input: the ranges appear here, never on the buttons.
     With a ledger, each side also says what the agent's own figure and the confirmed visits
     since add up to, and names the failed visit that lowered a ceiling."""
+    if agent.lat is None or agent.lng is None or not getattr(agent, "active", True):
+        return {
+            "state": "unlocated",
+            "headline": "Customers cannot find you yet",
+            "explanation": (
+                "Your shop has no location on the map yet — ask your dealer to pin it."
+                if agent.lat is None or agent.lng is None
+                else "Your Orange Money account is marked inactive, so you are not shown."
+            ),
+            "sides": [],
+        }
     state = public_outcome(agent, "cash_out", None, now, ledger)
     if state in ("hidden", "closed", "expired"):
         why = {

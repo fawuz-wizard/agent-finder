@@ -681,8 +681,13 @@ function registeredOut(a: AgentState): RegisteredAgent {
     shop_name: a.shop,
     area: a.area,
     street: a.area,
-    lat: a.lat ?? 0,
-    lng: a.lng ?? 0,
+    lat: a.lat ?? null,
+    lng: a.lng ?? null,
+    located: a.lat !== undefined && a.lng !== undefined,
+    active: true,
+    region: 'west',
+    city: 'Freetown',
+    agent_code: null,
     phone: a.phone,
     phone_visible: a.phone_visible,
     hours_text: scheduleState(a).hours_text,
@@ -1163,6 +1168,11 @@ export function demoAgentRows() {
       reliability: trustOf(a),
       capacity_source: d.capacity_source,
       capacity_text: capacityText(ledgerFor(a)),
+      located: true,
+      active: true,
+      region: 'west' as const,
+      city: 'Freetown',
+      source: 'manual' as const,
     }
   })
 }
@@ -1373,6 +1383,12 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
       cash: { source: ledgerFor(a).cash.evidenceSource, text: ledgerFor(a).cash.evidenceText },
       float: { source: ledgerFor(a).float.evidenceSource, text: ledgerFor(a).float.evidenceText },
     },
+    located: true,
+    active: true,
+    region: 'west',
+    city: 'Freetown',
+    agent_code: null,
+    source: 'manual',
   }
 }
 

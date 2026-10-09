@@ -231,7 +231,10 @@ def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     if a.presence == "hidden":
         return "hidden"
     if (
-        a.presence == "closed"
+        a.lat is None
+        or a.lng is None
+        or not a.active
+        or a.presence == "closed"
         or not is_open_now(a, now)
         or (not live and freshness_of(capacity_updated_at(a, ledger, now), now) == "expired")
     ):
@@ -328,6 +331,11 @@ async def agents_list(
                 or a.presence == "hidden"
                 or trust[a.ref].label == "unreliable",
                 "reliability": trust[a.ref].as_dict(),
+                "located": a.lat is not None and a.lng is not None,
+                "active": a.active,
+                "region": a.region,
+                "city": a.city,
+                "source": a.source,
             }
         )
     return rows
@@ -421,6 +429,12 @@ async def agent_detail(
             for e in ev
         ],
         "open_signals": len(sigs),
+        "located": a.lat is not None and a.lng is not None,
+        "active": a.active,
+        "region": a.region,
+        "city": a.city,
+        "agent_code": a.agent_code,
+        "source": a.source,
     }
 
 
@@ -738,6 +752,11 @@ def registered_out(a: Agent, now: datetime) -> dict:
         "street": a.street,
         "lat": a.lat,
         "lng": a.lng,
+        "located": a.lat is not None and a.lng is not None,
+        "active": a.active,
+        "region": a.region,
+        "city": a.city,
+        "agent_code": a.agent_code,
         "phone": a.phone,
         "phone_visible": a.phone_visible,
         "hours_text": schedule.hours_text(a, now),

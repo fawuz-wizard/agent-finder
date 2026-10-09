@@ -155,7 +155,8 @@ export interface CustomersSeeSide {
 }
 
 export interface CustomersSee {
-  state: 'open' | 'hidden' | 'closed' | 'expired'
+  /** unlocated: no point on the map yet (or inactive at Orange) — customers cannot find the shop. */
+  state: 'open' | 'hidden' | 'closed' | 'expired' | 'unlocated'
   headline: string
   explanation: string
   /** Empty when one headline (hidden, closed, expired) applies to every request. */
@@ -267,6 +268,14 @@ export interface DealerAgentRow {
   capacity_source?: 'agent' | 'operator'
   /** What the evidence says this agent usually covers, per side. Replaces the words. */
   capacity_text: string
+  /** False until a dealer pins the shop; an unlocated agent is never shown to customers. */
+  located: boolean
+  /** Orange's account status; an inactive agent is never shown to customers. */
+  active: boolean
+  region: 'east' | 'north' | 'west' | 'south' | null
+  city: string | null
+  /** manual (registered in the app) or orange_file (imported). */
+  source: 'manual' | 'orange_file'
 }
 
 export interface Signal {
@@ -389,6 +398,12 @@ export interface DealerAgentDetail {
   usual: UsualNote
   /** Where the current ceiling per side comes from: operator | dealer | visits | none. */
   evidence: { cash: { source: string; text: string }; float: { source: string; text: string } }
+  located: boolean
+  active: boolean
+  region: 'east' | 'north' | 'west' | 'south' | null
+  city: string | null
+  agent_code: string | null
+  source: 'manual' | 'orange_file'
 }
 
 /** What the dealer sends to bring an agent onto the platform. The PIN is never echoed back. */
@@ -420,8 +435,13 @@ export interface RegisteredAgent {
   shop_name: string
   area: string
   street: string
-  lat: number
-  lng: number
+  lat: number | null
+  lng: number | null
+  located: boolean
+  active: boolean
+  region: 'east' | 'north' | 'west' | 'south' | null
+  city: string | null
+  agent_code: string | null
   phone: string | null
   phone_visible: boolean
   hours_text: string

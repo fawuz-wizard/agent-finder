@@ -84,6 +84,11 @@ export default function DealerAgentsPage() {
                 <span className={`font-bold ${TONE[a.presence]}`}>{a.presence_text}</span>
                 <span className="text-muted">{a.capacity_text}</span>
               </div>
+              {(!a.located || !a.active) && (
+                <p className="rounded-card bg-warning-tint px-2 py-1 text-xs font-semibold text-warning">
+                  {!a.active ? 'Inactive at Orange — not shown to customers' : 'No location yet — not shown to customers until you pin the shop'}
+                </p>
+              )}
               <p className="flex items-center justify-between gap-2 text-xs text-muted">
                 <span>{a.area}</span>
                 <span className={`rounded-pill px-2 py-0.5 text-[11px] font-bold ${RELIABILITY[a.reliability.label]}`} title={a.reliability.text}>

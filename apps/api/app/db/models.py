@@ -14,12 +14,23 @@ from app.db.base import Base, TimestampMixin
 
 
 class Dealer(Base, TimestampMixin):
+    """An aggregator (Orange's word) or dealer (ours): the person a set of agents work under."""
+
     __tablename__ = "dealers"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)  # e.g. "kissy"
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     # Named grants, comma-separated. The API is the authority on these.
     permissions: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Orange's regions: east | north | west | south. Derived from the city on import.
+    region: Mapped[str | None] = mapped_column(String(10))
+    # The aggregator's own Orange Money line, how the file names them. Dealer-side only.
+    msisdn: Mapped[str | None] = mapped_column(String(32), unique=True)
+    # A sub-aggregator sits under an aggregator.
+    parent_id: Mapped[str | None] = mapped_column(ForeignKey("dealers.id"))
+    # manual | orange_file — and, for the file, "<file hash>:<row>" so the row can be traced.
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
+    source_row: Mapped[str | None] = mapped_column(String(80))
 
 
 class Agent(Base, TimestampMixin):
@@ -30,9 +41,25 @@ class Agent(Base, TimestampMixin):
     shop_name: Mapped[str] = mapped_column(String(120), nullable=False)
     area: Mapped[str] = mapped_column(String(80), nullable=False)
     street: Mapped[str] = mapped_column(String(120), nullable=False)
-    # Coarse business point (~100 m). Never a customer's point.
-    lat: Mapped[float] = mapped_column(Float, nullable=False)
-    lng: Mapped[float] = mapped_column(Float, nullable=False)
+    # Coarse business point (~100 m). Never a customer's point. None until a dealer pins the
+    # shop: Orange's file carries no coordinates, and an unlocated agent is never shown to a
+    # customer.
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    # Orange's identifiers and record, from the file or typed at registration. Dealer-side only.
+    agent_code: Mapped[str | None] = mapped_column(String(20), unique=True)
+    msisdn: Mapped[str | None] = mapped_column(String(32), unique=True)
+    region: Mapped[str | None] = mapped_column(String(10))  # east | north | west | south
+    city: Mapped[str | None] = mapped_column(String(80))
+    # Orange's account status; an inactive agent is never shown to a customer.
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
+    source_row: Mapped[str | None] = mapped_column(String(80))
+    # One month of Orange's activity figures from the file (cash in, cash out, transaction
+    # count), kept for the Global Report and as evidence. Never shown to customers.
+    orange_cash_in: Mapped[float | None] = mapped_column(Float)
+    orange_cash_out: Mapped[float | None] = mapped_column(Float)
+    orange_tx_count: Mapped[float | None] = mapped_column(Float)
     hours_text: Mapped[str] = mapped_column(
         String(80), nullable=False, default="Open today 07:00–20:00"
     )

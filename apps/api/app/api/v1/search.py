@@ -182,6 +182,8 @@ async def search(
     prob: dict[str, float] = {}
     feats: dict[str, dict[str, float]] = {}
     for a in agents:
+        if a.lat is None or a.lng is None or not a.active:
+            continue  # not located yet, or inactive at Orange: never shown to a customer
         dist = haversine_m(olat, olng, a.lat, a.lng)
         if dist > FALLBACK_RADIUS_M:
             continue

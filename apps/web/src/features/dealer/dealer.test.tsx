@@ -303,3 +303,30 @@ describe('registration', () => {
     ).rejects.toThrow(/outside Sierra Leone/)
   })
 })
+
+describe('agents from Orange\'s file', () => {
+  it('an unlocated agent shows why customers cannot find them, and the dealer pins the shop', async () => {
+    const user = userEvent.setup()
+    signIn([...ALL, PERMISSIONS.manageAgent])
+    const real = await operatorApi.dealerAgent('Agent 024')
+    vi.spyOn(operatorApi, 'dealerAgent').mockResolvedValue({ ...real, located: false, source: 'orange_file', agent_code: '100001' })
+    const edit = vi.spyOn(operatorApi, 'editAgent').mockResolvedValue({ ...(await operatorApi.editAgent('Agent 024', {})), located: true })
+    render(<App start="/dealer/agents/Agent%20024" />)
+    expect(await screen.findByText(/Not on the map yet/)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Latitude'), '8.4710')
+    await user.type(screen.getByLabelText('Longitude'), '-13.2600')
+    await user.click(screen.getByRole('button', { name: /pin this shop/i }))
+    expect(edit).toHaveBeenCalledWith('Agent 024', { lat: 8.471, lng: -13.26 })
+    vi.restoreAllMocks()
+  })
+
+  it('an agent inactive at Orange is explained, not pinned', async () => {
+    signIn([...ALL, PERMISSIONS.manageAgent])
+    const real = await operatorApi.dealerAgent('Agent 024')
+    vi.spyOn(operatorApi, 'dealerAgent').mockResolvedValue({ ...real, active: false })
+    render(<App start="/dealer/agents/Agent%20024" />)
+    expect(await screen.findByText(/marked inactive at Orange/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pin this shop/i })).not.toBeInTheDocument()
+    vi.restoreAllMocks()
+  })
+})

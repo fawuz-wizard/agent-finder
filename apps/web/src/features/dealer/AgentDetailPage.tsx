@@ -92,6 +92,8 @@ export default function DealerAgentDetailPage() {
           )}
         </Card>
 
+        {(!data.located || !data.active) && <PlacementCard detail={data} onSaved={refresh} />}
+
         <UsualCard detail={data} onSaved={refresh} />
 
         <Card>
@@ -147,6 +149,87 @@ export default function DealerAgentDetailPage() {
         <p className="text-center text-xs text-muted">Every action is recorded with your name. None of them changes the agent's status.</p>
       </div>
     </div>
+  )
+}
+
+/**
+ * An agent with no point on the map (every agent from Orange's file arrives this way) is never
+ * shown to customers. The dealer pins the shop here: standing at it with the phone, or by
+ * typing the coordinates. An agent inactive at Orange is shown the reason and nothing else.
+ */
+function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: () => void }) {
+  const [lat, setLat] = useState('')
+  const [lng, setLng] = useState('')
+  const [locating, setLocating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (!detail.active) {
+    return (
+      <Card className="border-warning/40 bg-warning-tint/40">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted">Not shown to customers</p>
+        <p className="text-sm">This agent is marked inactive at Orange. Customers cannot find them until Orange's record changes.</p>
+      </Card>
+    )
+  }
+  function useMyLocation() {
+    if (!navigator.geolocation) {
+      setError('This phone cannot share its location. Type the coordinates instead.')
+      return
+    }
+    setLocating(true)
+    setError(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude.toFixed(5))
+        setLng(pos.coords.longitude.toFixed(5))
+        setLocating(false)
+      },
+      () => {
+        setError('Could not read the location. Allow location access, or type the coordinates.')
+        setLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
+    )
+  }
+  async function save() {
+    setSaving(true)
+    setError(null)
+    try {
+      await operatorApi.editAgent(detail.ref, { lat: Number(lat), lng: Number(lng) })
+      onSaved()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the location.')
+    } finally {
+      setSaving(false)
+    }
+  }
+  const field = 'mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal'
+  return (
+    <Card className="border-warning/40 bg-warning-tint/40" aria-labelledby="place-agent">
+      <p id="place-agent" className="text-xs font-bold uppercase tracking-wider text-muted">Not on the map yet</p>
+      <p className="text-sm">Customers cannot find this shop until it has a location. Stand at the shop and use the phone's position, or type the coordinates.</p>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <label className="text-sm font-semibold" htmlFor="place-lat">
+          Latitude
+          <input id="place-lat" value={lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => setLat(e.target.value)} className={field} />
+        </label>
+        <label className="text-sm font-semibold" htmlFor="place-lng">
+          Longitude
+          <input id="place-lng" value={lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => setLng(e.target.value)} className={field} />
+        </label>
+      </div>
+      <Button size="control" variant="secondary" className="mt-2" onClick={useMyLocation} disabled={locating}>
+        {locating ? 'Reading location…' : 'Use my location (stand at the shop)'}
+      </Button>
+      {error && (
+        <p role="alert" className="mt-2 text-sm font-semibold text-danger">
+          {error}
+        </p>
+      )}
+      <Button size="control" className="mt-2" onClick={save} disabled={saving || !lat || !lng}>
+        {saving ? 'Saving…' : 'Pin this shop'}
+      </Button>
+    </Card>
   )
 }
 

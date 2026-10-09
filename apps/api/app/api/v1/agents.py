@@ -53,7 +53,7 @@ async def agent_detail(
     a = (
         await db.execute(select(Agent).where(Agent.ref == ref_from_public_id(public_id)))
     ).scalar_one_or_none()
-    if a is None:
+    if a is None or a.lat is None or a.lng is None or not a.active:
         raise NotFoundError("We could not find that agent.")
     now = now_utc()
     tx = normalise_tx(transaction or "cash_out")

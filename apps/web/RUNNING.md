@@ -83,6 +83,31 @@ it existed needs it added once:
 cd apps/api && .venv/bin/python -c "import sqlite3;c=sqlite3.connect('agentfinder.db');c.execute(\"update dealers set permissions=permissions||',MANAGE_AGENT' where permissions not like '%MANAGE_AGENT%'\");c.commit()"
 ```
 
+## Importing Orange's aggregator/agent file
+
+Steps 3–5 of the Orange meeting. The file stays outside the repository; nothing personal from
+it is ever stored (no dates of birth, ID numbers, emails or contact people).
+
+```bash
+cd apps/api
+.venv/bin/python -m scripts.import_orange ~/Downloads/Book2.xlsx            # validate, report only
+.venv/bin/python -m scripts.import_orange ~/Downloads/Book2.xlsx --apply    # also write to the database
+```
+
+The report names row numbers and issue codes, never values: repeated header, bad or duplicate
+agent code or MSISDN, no city, region unknown, inactive. With `--apply` it creates one dealer
+per aggregator (matched by the aggregator's Orange Money line, region from the city,
+sub-aggregators under their parent) and one agent per row (matched by agent code, then MSISDN;
+re-running updates rather than duplicates). Imported agents carry the file's hash and row,
+Orange's status and April activity figures, and **no location**: they are never shown to
+customers until a dealer pins the shop (Agents → the agent → *Not on the map yet*), and they
+cannot sign in until a PIN is set (`POST /api/v1/dealer/agents/{ref}/pin`, or
+`scripts/set_pin.py`). A new aggregator's dealer PIN is set the same way.
+
+A development SQLite database created before these columns existed needs them added once:
+`.venv/bin/python -m scripts.add_missing_columns agentfinder.db`. Findings from the real file
+are in `docs/data/orange-file-profile.md`.
+
 ## Showing both at once
 
 Open two browser windows (or two phones on the same network):
@@ -178,7 +203,7 @@ first to sign with the pilot key):
 ## Other commands
 
 ```bash
-npm test          # 77 tests
+npm test          # 79 tests
 npm run typecheck
 npm run lint
 npm run build     # production build
