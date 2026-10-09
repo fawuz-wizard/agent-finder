@@ -28,8 +28,10 @@ import type {
   SignalMuted,
   DeclareBody,
   FloatForecast,
+  LoggedTransaction,
   RegisterAgentBody,
   RegisteredAgent,
+  TransactionBand,
   Schedule,
   TodayChange,
   UsualNote,
@@ -103,6 +105,23 @@ export const operatorApi = {
       return delay(demo.demoSetToday(ref, change))
     } catch (e) {
       return Promise.reject(e instanceof Error ? e : new Error('Could not save.'))
+    }
+  },
+
+  /** Two taps after serving a customer: the side and an amount band. Idempotent on the token. */
+  logTransaction(
+    ref: string,
+    transaction: 'cash_out' | 'deposit',
+    amount_band: TransactionBand,
+    client_token: string,
+  ): Promise<LoggedTransaction> {
+    if (config.useLiveApi) {
+      return api.post<LoggedTransaction>('/api/v1/agent/transactions', { transaction, amount_band, client_token })
+    }
+    try {
+      return delay(demo.demoLogTransaction(ref, transaction, amount_band, client_token))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Could not log that.'))
     }
   },
 

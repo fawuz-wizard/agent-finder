@@ -34,6 +34,7 @@ from app.services.phrasing import (
     PRESENCE_LABEL,
     age_minutes,
     age_text,
+    capacity_updated_at,
     freshness_of,
     is_open_now,
     now_utc,
@@ -182,8 +183,9 @@ async def signals_for(
                     "explanation": "Often a cash shortage. Check whether a float request is waiting.",  # noqa: E501
                 }
             )
-        if not live and freshness_of(a.declared_at, now) == "expired":
-            mins = age_minutes(a.declared_at, now)
+        updated = capacity_updated_at(a, ledgers[a.ref], now)
+        if not live and freshness_of(updated, now) == "expired":
+            mins = age_minutes(updated, now)
             out.append(
                 {
                     "id": f"sig-stale-{a.ref}",
@@ -231,7 +233,7 @@ def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     if (
         a.presence == "closed"
         or not is_open_now(a, now)
-        or (not live and freshness_of(a.declared_at, now) == "expired")
+        or (not live and freshness_of(capacity_updated_at(a, ledger, now), now) == "expired")
     ):
         return "closed"
     if word in ("none", "small"):

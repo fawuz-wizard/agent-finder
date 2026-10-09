@@ -51,6 +51,12 @@ The outcome prompt appears on the home screen about 20 seconds after taking dire
 
 `Agent 024` is the one to demo: a stale declaration so "Still correct?" appears, a pending float request, and two customer-reported problems.
 
+**Log a transaction** (agent home): two taps after serving a customer — Cash out or Deposit, then an
+amount band. The amount is never sent. Each logged transaction counts as activity for the ranking,
+keeps the agent current for customers (a served customer is better evidence than a refresh tap),
+shows on the day's timeline, and is what "Transactions today" counts until Orange Money's records
+feed the same slot. `POST /api/v1/agent/transactions`, idempotent on `client_token`.
+
 ## Registering a real agent (dealer)
 
 Sign in as the dealer, open **Agents → Register agent**. Any agent you work with can be
@@ -167,7 +173,7 @@ first to sign with the pilot key):
 ## Other commands
 
 ```bash
-npm test          # 70 tests
+npm test          # 72 tests
 npm run typecheck
 npm run lint
 npm run build     # production build

@@ -8,6 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Principal, require_role
@@ -15,6 +16,7 @@ from app.core.errors import AppError
 from app.db.models import (
     Action,
     Agent,
+    AgentTransaction,
     AvailabilityEvent,
     Dealer,
     FloatRequest,
@@ -24,12 +26,14 @@ from app.db.models import (
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import schedule, usage
-from app.services.ledger import Ledger, ledgers_for, word_for_figure
+from app.services.ledger import BAND_TEXT, Ledger, ledgers_for, word_for_figure
 from app.services.phrasing import (
     CAPACITY_LABEL,
     NETWORK_RANGES,
+    TRANSACTION_LABELS,
     age_minutes,
     age_text,
+    capacity_updated_at,
     customers_see,
     freshness_of,
     now_utc,
@@ -108,17 +112,26 @@ def float_out(r: FloatRequest, agent_name: str, now: datetime) -> FloatOut:
 def declaration_of(a: Agent, now: datetime, ledger: Ledger | None = None) -> Declaration:
     if ledger is not None and ledger.live:
         return _live_declaration(a, now, ledger)
-    mins = age_minutes(a.declared_at, now)
-    f = freshness_of(a.declared_at, now)
+    updated = capacity_updated_at(a, ledger, now)
+    mins = age_minutes(updated, now)
+    f = freshness_of(updated, now)
     reason = ledger.nudge_reason(NETWORK_RANGES) if ledger is not None else None
+    # A transaction the agent logged after their last declaration is what keeps them current.
+    by_tx = (
+        ledger is not None
+        and ledger.last_tx_at is not None
+        and updated is not None
+        and updated == ledger.last_tx_at
+    )
+    what = "logged a transaction" if by_tx else "updated this"
     text = (
         "No status yet — customers cannot find you until you set one"
         if mins is None
-        else f"You updated this {age_text(mins)} — customers no longer see you"
+        else f"You {what} {age_text(mins)} — customers no longer see you"
         if f == "expired"
-        else f"You updated this {age_text(mins)} — customers are told it may have changed"
+        else f"You {what} {age_text(mins)} — customers are told it may have changed"
         if f == "may_have_changed"
-        else f"You updated this {age_text(mins)}"
+        else f"You {what} {age_text(mins)}"
     )
     return Declaration(
         presence=a.presence,
@@ -126,7 +139,7 @@ def declaration_of(a: Agent, now: datetime, ledger: Ledger | None = None) -> Dec
         deposit=a.deposit or "none",
         cash_out_sle=a.cash_out_sle,
         deposit_sle=a.deposit_sle,
-        updated_at=a.declared_at.isoformat() if a.declared_at else "",
+        updated_at=updated.isoformat() if updated else "",
         age_min=mins if mins is not None else 10**6,
         freshness=f,
         freshness_text=text,
@@ -185,7 +198,14 @@ async def today_counts(db: AsyncSession, ref: str, now: datetime) -> dict:
             )
         )
     ).scalar_one()
-    return {"found_you": int(found), "reported_problems": int(problems)}
+    logged = (
+        await db.execute(
+            select(func.count())
+            .select_from(AgentTransaction)
+            .where(AgentTransaction.agent_ref == ref, AgentTransaction.at >= start)
+        )
+    ).scalar_one()
+    return {"found_you": int(found), "reported_problems": int(problems), "logged": int(logged)}
 
 
 @router.get("/home", summary="The agent's day")
@@ -235,12 +255,73 @@ async def home(
         "pending_float": float_out(pending, a.shop_name, now).model_dump() if pending else None,
         "today": {
             "found_you": counts["found_you"],
-            "transactions": tx.get("transactions"),
+            # The operator's count when connected; otherwise what the agent logged themselves.
+            "transactions": tx.get("transactions")
+            if tx.get("transactions") is not None
+            else counts["logged"],
             "successful": tx.get("successful"),
             "reported_problems": counts["reported_problems"],
+            "logged": counts["logged"],
         },
         "attention": attention,
     }
+
+
+BANDS = tuple(BAND_TEXT)
+
+
+class TransactionBody(BaseModel):
+    transaction: Literal["cash_out", "deposit"]
+    amount_band: Literal["≤500", "≤2k", "≤5k", "≤10k", "≤50k", ">50k"]
+    client_token: str = Field(min_length=8, max_length=64)
+
+
+def _transaction_out(t: AgentTransaction, logged_today: int) -> dict:
+    return {
+        "id": t.id,
+        "at": _aware(t.at).isoformat(),
+        "transaction": t.transaction,
+        "amount_band": t.amount_band,
+        "band_text": BAND_TEXT[t.amount_band],
+        "text": f"{TRANSACTION_LABELS[t.transaction]} · {BAND_TEXT[t.amount_band]}",
+        "logged_today": logged_today,
+    }
+
+
+@router.post(
+    "/transactions",
+    status_code=201,
+    summary="Log a transaction I just served — two taps: the side and an amount band, never the amount",  # noqa: E501
+)
+async def log_transaction(
+    body: TransactionBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    now = now_utc()
+    existing = await db.get(AgentTransaction, body.client_token)
+    if existing is not None:
+        if existing.agent_ref != p.subject:
+            raise AppError("Not available.", code="not_found", status_code=404)
+        counts = await today_counts(db, p.subject, now)
+        return _transaction_out(existing, counts["logged"])
+    row = AgentTransaction(
+        id=body.client_token,
+        agent_ref=p.subject,
+        at=now,
+        transaction=body.transaction,
+        amount_band=body.amount_band,
+        source="agent",
+    )
+    db.add(row)
+    await usage.record(db, "transaction", "agent", p.subject, p.subject)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        row = await db.get(AgentTransaction, body.client_token)
+    counts = await today_counts(db, p.subject, now)
+    return _transaction_out(row, counts["logged"])
 
 
 class DeclareBody(BaseModel):
@@ -524,6 +605,28 @@ async def activity(
                 "text": "Your dealer asked you to check your status is still correct",
                 "source": "agent_finder",
                 "tone": "warning",
+            }
+        )
+    logged = (
+        (
+            await db.execute(
+                select(AgentTransaction).where(
+                    AgentTransaction.agent_ref == a.ref, AgentTransaction.at >= start
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for t in logged:
+        out.append(
+            {
+                "id": f"tx-{t.id[:12]}",
+                "at": _aware(t.at).isoformat(),
+                "time_text": _aware(t.at).strftime("%H:%M"),
+                "text": f"You logged: {TRANSACTION_LABELS[t.transaction]} · {BAND_TEXT[t.amount_band]}",  # noqa: E501
+                "source": "agent_finder",
+                "tone": "neutral",
             }
         )
     for row in await get_operator().transactions_list(a.ref):

@@ -202,6 +202,7 @@ async def search(
                 distance_m=dist,
                 trust_visits=t.visits,
                 trust_matched=t.matched,
+                last_tx_min=age_minutes(ledger.last_tx_at, now),
             )
             feats[r.id] = f
             prob[r.id] = probability(f, model.weights)

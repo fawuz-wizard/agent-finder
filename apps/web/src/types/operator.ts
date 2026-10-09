@@ -107,10 +107,33 @@ export interface ActivityEvent {
 export interface AgentToday {
   /** Customers who were shown this agent as a result and took directions. */
   found_you: number
-  /** Operator-owned count; absent when the operator link is not connected. */
+  /** Operator-owned count when connected; otherwise what the agent logged themselves. */
   transactions: number | null
   successful: number | null
   reported_problems: number
+  /** Transactions the agent logged themselves today (two taps, a band, never the amount). */
+  logged: number
+}
+
+/** The amount bands an agent can log. The amount itself is never sent. */
+export type TransactionBand = '≤500' | '≤2k' | '≤5k' | '≤10k' | '≤50k' | '>50k'
+export const TRANSACTION_BANDS: { band: TransactionBand; label: string }[] = [
+  { band: '≤500', label: 'under 500' },
+  { band: '≤2k', label: '500 – 2,000' },
+  { band: '≤5k', label: '2,000 – 5,000' },
+  { band: '≤10k', label: '5,000 – 10,000' },
+  { band: '≤50k', label: '10,000 – 50,000' },
+  { band: '>50k', label: 'over 50,000' },
+]
+
+export interface LoggedTransaction {
+  id: string
+  at: string
+  transaction: 'cash_out' | 'deposit'
+  amount_band: TransactionBand
+  band_text: string
+  text: string
+  logged_today: number
 }
 
 /**

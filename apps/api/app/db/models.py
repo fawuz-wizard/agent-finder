@@ -105,6 +105,20 @@ class OutcomeReport(Base):
     client_key: Mapped[str | None] = mapped_column(String(64))
 
 
+class AgentTransaction(Base):
+    """A transaction the agent logged themselves — two taps, a side and an amount band, never
+    the amount. Activity evidence for the ranker and the freshness line until Orange Money's
+    own records (or the agent's SMS) feed the same slot. Idempotent on the client token."""
+
+    __tablename__ = "agent_transactions"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # client_token
+    agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    transaction: Mapped[str] = mapped_column(String(12), nullable=False)  # cash_out|deposit
+    amount_band: Mapped[str] = mapped_column(String(12), nullable=False)
+    source: Mapped[str] = mapped_column(String(10), nullable=False, default="agent")
+
+
 class FloatRequest(Base):
     __tablename__ = "float_requests"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)

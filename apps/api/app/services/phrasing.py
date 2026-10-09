@@ -79,10 +79,16 @@ def age_text(min_: int | None) -> str:
 
 def capacity_updated_at(agent, ledger, now: datetime) -> datetime | None:
     """What the customer's freshness line is about: the feed reading when the operator feed
-    is live, otherwise the agent's own declaration."""
+    is live; otherwise the later of the agent's own declaration and the last transaction they
+    logged — serving a customer is the best evidence the shop is open and current."""
     if ledger is not None and ledger.live:
         return ledger.updated_at(now)
-    return agent.declared_at
+    declared = agent.declared_at
+    if declared is not None and declared.tzinfo is None:
+        declared = declared.replace(tzinfo=UTC)
+    last_tx = getattr(ledger, "last_tx_at", None) if ledger is not None else None
+    candidates = [d for d in (declared, last_tx) if d is not None]
+    return max(candidates) if candidates else None
 
 
 def freshness_text(declared_at: datetime | None, now: datetime, source: str | None = None) -> str:
@@ -115,7 +121,7 @@ def public_outcome(agent, tx: str, amount: int | None, now: datetime, ledger=Non
     if agent.presence == "closed" or not is_open_now(agent, now):
         return "closed"
     live = ledger is not None and ledger.live
-    if not live and freshness_of(agent.declared_at, now) == "expired":
+    if not live and freshness_of(capacity_updated_at(agent, ledger, now), now) == "expired":
         return "expired"
     word = word_for(agent, tx)
     if ledger is not None:

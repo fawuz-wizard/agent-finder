@@ -38,6 +38,8 @@ import type {
   Reliability,
   RegisterAgentBody,
   RegisteredAgent,
+  LoggedTransaction,
+  TransactionBand,
   DayHours,
   Schedule,
   ScheduleState,
@@ -85,6 +87,8 @@ interface AgentState {
   lat?: number
   lng?: number
   verified?: boolean
+  /** Transactions the agent logged themselves (POST /agent/transactions). */
+  txLog?: { id: string; at: number; tx: 'cash_out' | 'deposit'; band: TransactionBand }[]
 }
 
 function minutesAgo(min: number): number {
@@ -124,8 +128,22 @@ function find(ref: string): AgentState {
   return a
 }
 
+function lastTxAt(a: AgentState): number | null {
+  const log = a.txLog ?? []
+  return log.length ? Math.max(...log.map((t) => t.at)) : null
+}
+
+/** Minutes since the capacity behind the phrase was last known true: the later of the agent's
+ * declaration and the last transaction they logged (the API's capacity_updated_at). */
 function ageMin(a: AgentState): number {
-  return Math.max(0, Math.round((Date.now() - a.updated_at) / 60_000))
+  const last = lastTxAt(a)
+  const updated = last !== null && last > a.updated_at ? last : a.updated_at
+  return Math.max(0, Math.round((Date.now() - updated) / 60_000))
+}
+
+function freshenedByTx(a: AgentState): boolean {
+  const last = lastTxAt(a)
+  return last !== null && last > a.updated_at
 }
 
 function ageText(min: number): string {
@@ -166,12 +184,13 @@ function declarationOf(a: AgentState): Declaration {
   }
   const min = ageMin(a)
   const freshness = freshnessOf(min)
+  const what = freshenedByTx(a) ? 'logged a transaction' : 'updated this'
   const text =
     freshness === 'expired'
-      ? `You updated this ${ageText(min)} — customers no longer see you`
+      ? `You ${what} ${ageText(min)} — customers no longer see you`
       : freshness === 'may_have_changed'
-        ? `You updated this ${ageText(min)} — customers are told it may have changed`
-        : `You updated this ${ageText(min)}`
+        ? `You ${what} ${ageText(min)} — customers are told it may have changed`
+        : `You ${what} ${ageText(min)}`
   const reason = nudgeReason(a)
   return {
     presence: a.presence,
@@ -807,8 +826,50 @@ export function demoAgentHome(ref: string): AgentHome {
       transactions: a.transactions,
       successful: a.successful,
       reported_problems: a.problems,
+      logged: loggedToday(a),
     },
     attention,
+  }
+}
+
+function loggedToday(a: AgentState): number {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  return (a.txLog ?? []).filter((t) => t.at >= start.getTime()).length
+}
+
+const BAND_TEXT: Record<TransactionBand, string> = {
+  '≤500': 'under SLE 500',
+  '≤2k': 'SLE 500 to 2,000',
+  '≤5k': 'SLE 2,000 to 5,000',
+  '≤10k': 'SLE 5,000 to 10,000',
+  '≤50k': 'SLE 10,000 to 50,000',
+  '>50k': 'over SLE 50,000',
+}
+
+/** Two taps: the side and a band. Idempotent on the token, like the API. */
+export function demoLogTransaction(
+  ref: string,
+  tx: 'cash_out' | 'deposit',
+  band: TransactionBand,
+  token: string,
+): LoggedTransaction {
+  const a = find(ref)
+  a.txLog ??= []
+  let entry = a.txLog.find((t) => t.id === token)
+  if (!entry) {
+    entry = { id: token, at: Date.now(), tx, band }
+    a.txLog.push(entry)
+    record(`You logged: ${tx === 'cash_out' ? 'Cash out' : 'Deposit'} · ${BAND_TEXT[band]}`, 'agent_finder')
+  }
+  return {
+    id: entry.id,
+    at: new Date(entry.at).toISOString(),
+    transaction: entry.tx,
+    amount_band: entry.band,
+    band_text: BAND_TEXT[entry.band],
+    text: `${entry.tx === 'cash_out' ? 'Cash out' : 'Deposit'} · ${BAND_TEXT[entry.band]}`,
+    logged_today: loggedToday(a),
   }
 }
 

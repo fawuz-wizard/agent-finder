@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { ToastProvider } from '@/design'
 import { SessionProvider } from '@/features/auth/SessionProvider'
 import { RequireRole } from '@/features/auth/RequireRole'
 import SignInPage from '@/features/auth/SignInPage'
@@ -14,6 +15,7 @@ import { demoRecordVisit, demoSetOperatorFeed } from '@/services/operatorDemo'
 
 function App({ start = '/agent' }: { start?: string }) {
   return (
+    <ToastProvider>
     <SessionProvider>
       <MemoryRouter initialEntries={[start]}>
         <Routes>
@@ -27,6 +29,7 @@ function App({ start = '/agent' }: { start?: string }) {
         </Routes>
       </MemoryRouter>
     </SessionProvider>
+    </ToastProvider>
   )
 }
 
@@ -225,5 +228,25 @@ describe('working hours', () => {
     await screen.findByText(/staying open until 13:10/)
     expect(screen.queryByText(/closing at 12:10 by your schedule/i)).not.toBeInTheDocument()
     await operatorApi.setToday('Agent 024', { clear: true })
+  })
+})
+
+describe('transaction log', () => {
+  it('two taps log a transaction: it counts on the home screen and lands on the timeline, never with an amount', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await signIn(user)
+    await screen.findByText("Fatmata's Shop")
+    const counter = await screen.findByText(/Logged today: \d+/)
+    const before = Number(counter.textContent!.match(/\d+/)![0])
+    await user.click(screen.getByRole('radio', { name: 'Cash out' }))
+    await user.click(screen.getByRole('button', { name: '500 – 2,000' }))
+    expect(await screen.findByText(`Logged today: ${before + 1}`)).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Logged · Cash out · SLE 500 to 2,000')
+    // The band buttons fold away until the next side is chosen.
+    expect(screen.queryByRole('button', { name: '500 – 2,000' })).not.toBeInTheDocument()
+    const acts = await operatorApi.activity('Agent 024')
+    expect(acts.some((a) => a.text === 'You logged: Cash out · SLE 500 to 2,000')).toBe(true)
+    expect(acts.every((a) => !/SLE 1,250|SLE 1250/.test(a.text))).toBe(true)
   })
 })

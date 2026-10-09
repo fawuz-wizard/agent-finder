@@ -12,13 +12,13 @@ Once Orange Money sends real transactions the same ledger stops estimating and b
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings
-from app.db.models import Agent, OutcomeReport
+from app.db.models import Agent, AgentTransaction, OutcomeReport
 from app.domain.capacity import SideThresholds
 from app.integrations.operator.base import get_operator
 
@@ -167,6 +167,9 @@ class Ledger:
     feed_source: str | None = None
     failed_for_float_today: int = 0
     tx_last_hour: int = 0
+    # The agent's own log (POST /agent/transactions): when they last served, for freshness and
+    # the ranker, until the operator's feed takes over.
+    last_tx_at: datetime | None = None
 
     @property
     def live(self) -> bool:
@@ -219,22 +222,24 @@ async def ledgers_for(db: AsyncSession, agents: list[Agent], now: datetime) -> d
     out = {a.ref: empty_ledger(a) for a in agents}
     declared = {a.ref: _aware(a.declared_at) for a in agents}
     since = [d for d in declared.values() if d is not None]
-    if not since:
-        return out
     rows = (
         (
-            await db.execute(
-                select(OutcomeReport)
-                .where(
-                    OutcomeReport.agent_ref.in_(list(out)),
-                    OutcomeReport.at >= min(since),
-                    OutcomeReport.answer.in_(("yes", "no")),
+            (
+                await db.execute(
+                    select(OutcomeReport)
+                    .where(
+                        OutcomeReport.agent_ref.in_(list(out)),
+                        OutcomeReport.at >= min(since),
+                        OutcomeReport.answer.in_(("yes", "no")),
+                    )
+                    .order_by(OutcomeReport.at)
                 )
-                .order_by(OutcomeReport.at)
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
+        if since
+        else []
     )
     for r in rows:
         start = declared.get(r.agent_ref)
@@ -258,6 +263,31 @@ async def ledgers_for(db: AsyncSession, agents: list[Agent], now: datetime) -> d
             floor = BAND_FLOOR[band]
             if side.cap_sle is None or floor < side.cap_sle:
                 side.cap_sle, side.cap_at, side.cap_band = floor, at, band
+    # What the agents logged themselves in the last day: the last one keeps them current,
+    # the last hour's count is activity for the ranker. A live feed below replaces the count.
+    logged = (
+        (
+            await db.execute(
+                select(AgentTransaction)
+                .where(
+                    AgentTransaction.agent_ref.in_(list(out)),
+                    AgentTransaction.at >= now - timedelta(hours=24),
+                )
+                .order_by(AgentTransaction.at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for t in logged:
+        at = _aware(t.at)
+        if at is None or at > now:
+            continue
+        ledger = out[t.agent_ref]
+        if ledger.last_tx_at is None or at > ledger.last_tx_at:
+            ledger.last_tx_at = at
+        if now - at <= timedelta(hours=1):
+            ledger.tx_last_hour += 1
     if get_settings().operator_feed:
         op = get_operator()
         for a in agents:

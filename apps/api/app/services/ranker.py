@@ -61,6 +61,7 @@ def features(
     distance_m: int,
     trust_visits: int,
     trust_matched: int,
+    last_tx_min: int | None = None,
 ) -> dict[str, float]:
     if amount is None:
         margin = 1.0 if ceiling is None or ceiling > 0 else -1.0
@@ -69,7 +70,13 @@ def features(
     else:
         margin = max(-1.0, min(1.0, (ceiling - amount) / max(amount, 1)))
     fresh = float(freshness_min if freshness_min is not None else 240)
-    since = float(feed_age_min if (live and feed_age_min is not None) else fresh)
+    since = float(
+        feed_age_min
+        if (live and feed_age_min is not None)
+        else last_tx_min
+        if last_tx_min is not None
+        else fresh
+    )
     trust = trust_matched / trust_visits if trust_visits >= 3 else 0.7
     return {
         "margin": margin,

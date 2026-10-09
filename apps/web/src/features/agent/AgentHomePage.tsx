@@ -1,13 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Banner, Button, Card } from '@/design'
+import { Banner, Button, Card, useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
-import { PRESENCE_LABELS } from '@/types/operator'
-import type { AgentHome } from '@/types/operator'
+import { PRESENCE_LABELS, TRANSACTION_BANDS } from '@/types/operator'
+import type { AgentHome, TransactionBand } from '@/types/operator'
 import { OperatorValueRow } from './components/OperatorValue'
 import { formatSle } from './money'
+
+function newToken(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
 
 /**
  * A1 — Agent Home. The agent opens this to run their day: presence, hours, what customers
@@ -18,8 +24,32 @@ export default function AgentHomePage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
   const { state, data, error, refresh } = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
+  const toast = useToast()
 
   const [extending, setExtending] = useState(false)
+  // Two taps after serving a customer: the side, then an amount band. One token per attempt,
+  // so a retry after a timeout cannot log the same transaction twice.
+  const [side, setSide] = useState<'cash_out' | 'deposit' | null>(null)
+  const [logging, setLogging] = useState(false)
+  const [logError, setLogError] = useState<string | null>(null)
+  const [token, setToken] = useState(newToken)
+
+  async function logBand(band: TransactionBand) {
+    if (!side || logging) return
+    setLogging(true)
+    setLogError(null)
+    try {
+      const out = await operatorApi.logTransaction(ref, side, band, token)
+      setToken(newToken())
+      setSide(null)
+      toast.show(`Logged · ${out.text}`)
+      refresh()
+    } catch (e) {
+      setLogError(e instanceof Error ? e.message : 'Could not log that.')
+    } finally {
+      setLogging(false)
+    }
+  }
   async function stayOpen() {
     setExtending(true)
     try {
@@ -105,6 +135,55 @@ export default function AgentHomePage() {
               ))}
               <p className="pt-1 text-xs text-muted">{see.explanation}</p>
             </>
+          )}
+        </Card>
+
+        <Card aria-labelledby="log-tx">
+          <div className="flex items-baseline justify-between">
+            <p id="log-tx" className="text-xs font-bold uppercase tracking-wider text-muted">
+              Log a transaction
+            </p>
+            <span className="text-xs font-semibold text-muted">Logged today: {data.today.logged}</span>
+          </div>
+          <p className="text-sm text-muted">Two taps after you serve someone. The amount is never sent, only a band.</p>
+          <div role="radiogroup" aria-label="What did you just do?" className="mt-2 grid grid-cols-2 gap-2">
+            {(
+              [
+                ['cash_out', 'Cash out'],
+                ['deposit', 'Deposit'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={side === value}
+                onClick={() => setSide(value)}
+                className={`h-control rounded-card border-2 text-base font-bold ${side === value ? 'border-brand-deep bg-brand-light' : 'border-line bg-paper'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {side && (
+            <div role="group" aria-label="How much, roughly? (SLE)" className="mt-2 grid grid-cols-3 gap-2">
+              {TRANSACTION_BANDS.map((b) => (
+                <button
+                  key={b.band}
+                  type="button"
+                  onClick={() => void logBand(b.band)}
+                  disabled={logging}
+                  className="h-control rounded-card border border-line bg-paper px-1 text-sm font-semibold disabled:opacity-45"
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {logError && (
+            <p role="alert" className="mt-2 text-sm font-semibold text-danger">
+              {logError}
+            </p>
           )}
         </Card>
 
