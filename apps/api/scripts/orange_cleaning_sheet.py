@@ -13,7 +13,7 @@ import csv
 import sys
 from pathlib import Path
 
-from scripts.import_orange import read_xlsx, validate
+from scripts.import_orange import read_table, validate
 
 WHAT: dict[str, tuple[str, str]] = {
     "repeated_header": ("whole row", "Delete this row: it repeats the column headings."),
@@ -51,7 +51,7 @@ WHAT: dict[str, tuple[str, str]] = {
 
 
 def main(src: str, dst: str) -> int:
-    rows = read_xlsx(Path(src).expanduser())
+    rows = read_table(Path(src).expanduser())
     results = validate(rows, "sheet")
     n = 0
     with open(Path(dst).expanduser(), "w", newline="", encoding="utf-8") as f:

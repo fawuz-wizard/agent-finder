@@ -129,6 +129,8 @@ def clean_city(city: str) -> str | None:
 
 def normalise_msisdn(raw: str) -> str | None:
     digits = re.sub(r"\D", "", raw)
+    if len(digits) == 9 and digits.startswith("0"):
+        digits = digits[1:]
     if len(digits) == 8:
         return "+232" + digits
     if len(digits) == 11 and digits.startswith("232"):
@@ -150,6 +152,67 @@ class RowResult:
     issues: list[str] = field(default_factory=list)
     agent: dict | None = None
     aggregator: dict | None = None
+
+
+# The team's cleaned sheet: one row per agent with plain column names. Mapped onto the
+# export's names so validation and import are the same code path for both.
+CLEAN_COLUMNS = {
+    "aggregator": "PARENT_FIRST_NAME",
+    "aggregator_phone": "PARENT_USER_MSISDN",
+    "agent_code": "AGENT_CODE",
+    "agent_name": "USER_FIRST_NAME",
+    "phone": "MSISDN",
+    "city": "CITY",
+    "address": "ADDRESS1",
+    "registered": "REGISTERED_ON",
+    "status": "ACCOUNT_STATUS",
+    "grade": "USER_CATEGORY_CODE",
+    "trnx_count": "TRNX COUNT",
+    "apr_ci": "APR CI",
+    "apr_co": "APR CO",
+}
+STATUS_WORDS = {"active": "Y", "inactive": "N", "y": "Y", "n": "N"}
+GRADE_WORDS = {
+    "agent": "AGNT",
+    "sub-agent": "SUBAGG",
+    "subagent": "SUBAGG",
+    "sub-aggregator": "SUBAGG",
+}
+
+
+def read_csv(path: Path) -> list[dict[str, str]]:
+    import csv
+
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        missing = set(CLEAN_COLUMNS) - set(reader.fieldnames or [])
+        if missing:
+            raise SystemExit(f"cleaned sheet is missing columns: {', '.join(sorted(missing))}")
+        rows = []
+        for r in reader:
+            m = {CLEAN_COLUMNS[k]: (v or "").strip() for k, v in r.items() if k in CLEAN_COLUMNS}
+            m["ACCOUNT_STATUS"] = STATUS_WORDS.get(m["ACCOUNT_STATUS"].lower(), m["ACCOUNT_STATUS"])
+            m["USER_CATEGORY_CODE"] = GRADE_WORDS.get(
+                m["USER_CATEGORY_CODE"].lower(), m["USER_CATEGORY_CODE"]
+            )
+            m["USER_TYPE"] = "CHANNEL"
+            rows.append(m)
+        return rows
+
+
+def read_table(path: Path) -> list[dict[str, str]]:
+    """Orange's .xlsx export or the team's cleaned .csv, as the same rows."""
+    return read_csv(path) if path.suffix.lower() == ".csv" else read_xlsx(path)
+
+
+def once(name: str) -> str:
+    """'Abjatal Enterprise Abjatal Enterprise' → 'Abjatal Enterprise': the export repeats a
+    business name in both name columns."""
+    words = name.split()
+    half = len(words) // 2
+    if half and words[:half] == words[half:]:
+        return " ".join(words[:half])
+    return name
 
 
 def validate(rows: list[dict[str, str]], file_tag: str) -> list[RowResult]:
@@ -196,8 +259,8 @@ def validate(rows: list[dict[str, str]], file_tag: str) -> list[RowResult]:
         region = region_for(city or "")
         if region is None:
             res.issues.append("region_unknown")
-        first = " ".join(r.get("USER_FIRST_NAME", "").split()).title()
-        last = " ".join(r.get("USER_LAST_NAME", "").split()).title()
+        first = once(" ".join(r.get("USER_FIRST_NAME", "").split()).title())
+        last = once(" ".join(r.get("USER_LAST_NAME", "").split()).title())
         if not (first or last):
             res.issues.append("no_name")
         status = r.get("ACCOUNT_STATUS", "").strip().upper()
@@ -232,7 +295,7 @@ def validate(rows: list[dict[str, str]], file_tag: str) -> list[RowResult]:
         res.agent = {
             "agent_code": code if re.fullmatch(r"\d{6}", code) else None,
             "msisdn": msisdn,
-            "person_name": f"{first} {last}".strip(),
+            "person_name": once(f"{first} {last}".strip()),
             "street": " ".join(r.get("ADDRESS1", "").split())[:120] or (city or "Unknown"),
             "city": city,
             "region": region,
@@ -369,7 +432,7 @@ async def apply(results: list[RowResult]) -> dict:
                     dealer_id=parent_id,
                     person_name=a["person_name"] or "Agent",
                     shop_name=a["person_name"] or ref,
-                    area=a["city"] or "Unknown",
+                    area=a["city"] or "City not given",
                     street=a["street"],
                     lat=None,
                     lng=None,
@@ -388,7 +451,7 @@ async def apply(results: list[RowResult]) -> dict:
                 if existing.shop_name == existing.ref or existing.shop_name == existing.person_name:
                     existing.shop_name = a["person_name"] or existing.shop_name
                 existing.street = a["street"]
-                existing.area = a["city"] or existing.area
+                existing.area = a["city"] or "City not given"
             existing.agent_code = a["agent_code"]
             existing.msisdn = a["msisdn"] or existing.msisdn
             existing.region = a["region"] or existing.region
@@ -412,7 +475,7 @@ def main(argv: list[str]) -> int:
     path = Path(argv[0]).expanduser()
     do_apply = "--apply" in argv
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    rows = read_xlsx(path)
+    rows = read_table(path)
     results = validate(rows, digest[:12])
     rep = report(results)
     rep["file_sha256"] = digest

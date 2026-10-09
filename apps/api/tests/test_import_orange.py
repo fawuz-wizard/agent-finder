@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from app.db import session as dbsession
 from app.db.models import Agent, Dealer
-from scripts.import_orange import apply, read_xlsx, region_for, report, validate
+from scripts.import_orange import apply, once, read_table, read_xlsx, region_for, report, validate
 from sqlalchemy import select
 
 COLS = [
@@ -190,3 +190,26 @@ async def test_apply_creates_aggregators_and_unlocated_agents_that_customers_nev
         "/api/v1/auth/sign-in", json={"ref": "agg-000001", "pin": "1234", "role": "dealer"}
     )
     assert s.status_code == 401
+
+
+def test_the_teams_cleaned_csv_reads_as_the_same_rows(tmp_path):
+    p = tmp_path / "clean.csv"
+    p.write_text(
+        "aggregator,aggregator_phone,agent_code,agent_name,phone,city,address,registered,status,grade,trnx_count,apr_ci,apr_co\n"  # noqa: E501
+        "Abjatal Star Enterprise,076 444 433,207979,Adam Fofanah,073 694 634,Bo,20 Koromalah Road,2023-01-30,Active,Agent,7.39,0,12\n"  # noqa: E501
+        "Abjatal Star Enterprise,076 444 433,207313,Abjatal Enterprise Abjatal Enterprise,074 914 648,Freetown,2 Hospital Road,2023-01-25,Active,Sub-agent,0,0,0\n"  # noqa: E501
+        "Abjatal Star Enterprise,076 444 433,S1G190,Mohamed Sesay,078 580 800,Kambia,Kambia,2019-02-13,Inactive,Agent,0,0,0\n",  # noqa: E501
+        encoding="utf-8",
+    )
+    results = validate(read_table(p), "csv")
+    rep = report(results)
+    assert rep["by_kind"]["agent"] == 2 and rep["by_kind"]["subaggregator"] == 1
+    assert rep["aggregators"] == 1 and rep["importable"] == 2 and rep["held_back"] == 1
+    assert rep["issues"] == {"bad_agent_code": 1, "address_is_city_only": 1}
+    first = results[0]
+    assert first.agent["msisdn"] == "+23273694634" and first.aggregator["msisdn"] == "+23276444433"
+    assert first.agent["active"] is True and first.agent["cash_out"] == 12.0
+    assert results[1].agent["person_name"] == "Abjatal Enterprise"
+    assert results[2].agent["active"] is False
+    assert once("Kumba Jimissa Enterprise Kumba Jimissa Enterprise") == "Kumba Jimissa Enterprise"
+    assert once("Mohamed Alpha Conteh") == "Mohamed Alpha Conteh"
