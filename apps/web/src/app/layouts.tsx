@@ -22,7 +22,9 @@ export function CustomerLayout() {
     // descendants inherit the light ink already computed on <html>.
     <div data-theme="dark" className="flex min-h-dvh w-full flex-col bg-app-bg text-ink">
       <DemoRibbon />
-      <main className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col md:max-w-3xl xl:max-w-6xl">
+      {/* The customer module ships embedded in a phone super-app; on desktop it presents as a
+          framed phone-width module rather than stretching into a thin full-width stack. */}
+      <main className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col md:my-8 md:flex-none md:border-2 md:border-line">
         <Outlet />
       </main>
     </div>
@@ -45,7 +47,7 @@ function RoleStrip({ role }: { role: 'Agent' | 'Dealer' }) {
 /** Agent shell: the five modules sit in a tab bar that never leaves the screen. */
 export function AgentLayout() {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col md:min-h-0 md:my-8 md:border-2 md:border-line">
       <DemoRibbon />
       <RoleStrip role="Agent" />
       <Outlet />
@@ -57,7 +59,7 @@ export function AgentLayout() {
 /** Dealer shell: same app as the agent, its own five tabs. */
 export function DealerLayout() {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col md:min-h-0 md:my-8 md:border-2 md:border-line">
       <DemoRibbon />
       <RoleStrip role="Dealer" />
       <Outlet />

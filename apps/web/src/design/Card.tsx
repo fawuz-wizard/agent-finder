@@ -10,8 +10,8 @@ export function Card({ selected, interactive, className, ...rest }: CardProps) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-1.5 rounded-card border bg-paper px-4 py-3.5',
-        selected ? 'border-2 border-brand-deep' : 'border-line',
+        'flex flex-col gap-1.5 rounded-card border-2 bg-paper px-4 py-3.5',
+        selected ? 'border-brand-deep' : 'border-line',
         interactive && 'cursor-pointer active:bg-brand-faint',
         className,
       )}

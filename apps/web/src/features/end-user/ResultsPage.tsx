@@ -148,7 +148,7 @@ export default function ResultsPage() {
 
             {(view === 'recommended' ? lists.recommended : lists.nearest).length > 0 && (
               <section className="flex flex-col gap-3" aria-labelledby="sec-best">
-                <h2 id="sec-best" className="text-sm font-bold uppercase tracking-wider text-white/60 md:col-span-2">
+                <h2 id="sec-best" className="text-sm font-bold uppercase tracking-wider text-white/60">
                   {view === 'recommended'
                     ? 'Recommended agents'
                     : lists.recommended.length === 0 && lists.nearest.length === 1
@@ -168,7 +168,7 @@ export default function ResultsPage() {
 
             {(data.further_away?.length ?? 0) > 0 && (
               <section className="flex flex-col gap-3" aria-labelledby="sec-further-away">
-                <h2 id="sec-further-away" className="text-sm font-bold uppercase tracking-wider text-white/60 md:col-span-2">Further away</h2>
+                <h2 id="sec-further-away" className="text-sm font-bold uppercase tracking-wider text-white/60">Further away</h2>
                 {data.further_away!.map((a) => (
                   <AgentResultCard key={a.id} agent={a} to={detailTo(a.id)} />
                 ))}
