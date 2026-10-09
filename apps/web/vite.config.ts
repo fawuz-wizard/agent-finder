@@ -10,6 +10,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      // Inside the Android shell the files are local and a service worker only harms: it caches
+      // one build's chunk names and serves them after the next APK installs ("Failed to fetch
+      // dynamically imported module"). The workflow sets CAPACITOR_BUILD=1 for APK builds.
+      disable: process.env.CAPACITOR_BUILD === '1',
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg'],
       manifest: {

@@ -173,7 +173,7 @@ must uninstall it once.
 
 Building locally needs Java 21 and the Android SDK (source `~/.android/agent-finder-signing.env`
 first to sign with the pilot key):
-`cd apps/web && VITE_APP_SURFACE=agent npm run build && npx cap sync android && cd android && ./gradlew assembleAgentDebug` (or `customer` / `assembleFinderDebug`).
+`cd apps/web && CAPACITOR_BUILD=1 VITE_APP_SURFACE=agent npm run build && npx cap sync android && cd android && ./gradlew assembleAgentDebug` (or `customer` / `assembleFinderDebug`). `CAPACITOR_BUILD=1` leaves the PWA service worker out of the APK; inside the shell it only serves stale chunks.
 
 ## Other commands
 

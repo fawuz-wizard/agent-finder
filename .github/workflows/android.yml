@@ -90,7 +90,7 @@ jobs:
           echo "Building in ${VITE_API_MODE} mode${VITE_API_BASE_URL:+ against $VITE_API_BASE_URL}; CAP_ALLOW_HTTP=${CAP_ALLOW_HTTP:-<unset>}"
           mode=$([ -n "$API_BASE_URL" ] && echo live || echo mock)
           build_one () {  # $1 surface (customer|agent)  $2 flavour (finder|agent)  $3 file prefix
-            VITE_APP_SURFACE="$1" npm run build
+            CAPACITOR_BUILD=1 VITE_APP_SURFACE="$1" npm run build
             npx cap sync android
             (cd android && ./gradlew "assemble$(echo "$2" | sed 's/./\U&/')Debug" --no-daemon)
             cp "android/app/build/outputs/apk/$2/debug/app-$2-debug.apk" "$3-${mode}-${GITHUB_SHA::7}.apk"
