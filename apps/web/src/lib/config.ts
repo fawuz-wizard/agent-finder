@@ -23,4 +23,9 @@ export const config = {
    */
   outcomePromptAfterMs: ((env.VITE_AUTH_MODE as string | undefined) ?? 'demo') === 'demo' ? 20_000 : 15 * 60_000,
   maxResults: 10,
+  /**
+   * Which app this build is. One codebase ships as two installs: the customer's Agent Finder
+   * (opens on the host home) and the Agent App for agents and dealers (opens on sign-in).
+   */
+  surface: ((env.VITE_APP_SURFACE as string | undefined) === 'agent' ? 'agent' : 'customer') as 'customer' | 'agent',
 } as const

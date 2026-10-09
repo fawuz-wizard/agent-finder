@@ -31,6 +31,24 @@ android {
             }
         }
     }
+    // Two installs from one codebase. The web assets copied by `cap sync` decide what `/`
+    // opens (VITE_APP_SURFACE at web build time); the flavour decides the package and label,
+    // so both can sit on one phone. Assemble each flavour right after its own web build.
+    flavorDimensions "surface"
+    productFlavors {
+        finder {
+            dimension "surface"
+            applicationId "com.agentfinder.app"
+            resValue "string", "app_name", "Agent Finder"
+            resValue "string", "title_activity_main", "Agent Finder"
+        }
+        agent {
+            dimension "surface"
+            applicationId "com.agentfinder.agent"
+            resValue "string", "app_name", "Agent App"
+            resValue "string", "title_activity_main", "Agent App"
+        }
+    }
     buildTypes {
         debug {
             if (pilotKeystore != null && file(pilotKeystore).exists()) {

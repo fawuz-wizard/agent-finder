@@ -126,14 +126,18 @@ python -m pytest -q     # 58 tests
 ruff check . && ruff format --check .
 ```
 
-## Android APK (phones)
+## Android APKs (phones)
 
-The customer, agent and dealer screens also ship as an Android app. The Android project is
-`apps/web/android` (Capacitor); the screens inside it are the normal web build, untouched.
+One codebase, two installs: the **Agent Finder** for customers (opens on the simulated host
+home) and the **Agent App** for agents and dealers (opens on sign-in, never shows the customer
+home). The Android project is `apps/web/android` (Capacitor), with one product flavour per app;
+the screens inside are the normal web build, untouched, built with `VITE_APP_SURFACE=customer`
+or `agent`.
 Nothing is built on your machine: the **Android APK** workflow on GitHub (Actions → Android APK)
 builds a debug APK on every push to `main` that touches `apps/web`, or on demand with
-"Run workflow". Download the `agent-finder-apk` artifact from the run, copy the `.apk` to the
-phone and open it (allow installs from this source when the phone asks).
+"Run workflow". Download the `agent-finder-apk` (customers) or `agent-app-apk` (agents and dealers) artifact
+from the run, copy the `.apk` to the phone and open it (allow installs from this source when
+the phone asks). Both can be installed on one phone.
 
 - With no repository variable set, the APK runs in **mock mode** on the in-app demo network —
   every screen works with no server at all.
@@ -158,7 +162,7 @@ must uninstall it once.
 
 Building locally needs Java 21 and the Android SDK (source `~/.android/agent-finder-signing.env`
 first to sign with the pilot key):
-`cd apps/web && npm run build && npx cap sync android && cd android && ./gradlew assembleDebug`.
+`cd apps/web && VITE_APP_SURFACE=agent npm run build && npx cap sync android && cd android && ./gradlew assembleAgentDebug` (or `customer` / `assembleFinderDebug`).
 
 ## Other commands
 

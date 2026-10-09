@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { AgentLayout, CustomerLayout, DealerLayout } from './layouts'
 import { RequireRole } from '@/features/auth/RequireRole'
 import { ResultCardSkeleton } from '@/design'
+import { config } from '@/lib/config'
 
 // Each shell is its own chunk. Customers never download agent or admin code.
 const CustomerHome = lazy(() => import('@/features/end-user/HomePage'))
@@ -54,9 +55,13 @@ const router = createBrowserRouter([
     element: <CustomerLayout />,
     children: [{ path: '/sign-in', element: withSuspense(<SignIn />) }],
   },
-  // The demo starts in the simulated host app; the customer module is what its banner opens.
-  { path: '/', element: withSuspense(<HostHome />) },
-  { path: '/host', element: <Navigate to="/" replace /> },
+  // The customer build starts in the simulated host app; its banner opens the customer module.
+  // The Agent App build starts on sign-in: agents and dealers never see the customer home.
+  {
+    path: '/',
+    element: config.surface === 'agent' ? <Navigate to="/sign-in" replace /> : withSuspense(<HostHome />),
+  },
+  { path: '/host', element: <Navigate to={config.surface === 'agent' ? '/sign-in' : '/'} replace /> },
   {
     path: '/agent',
     element: <RequireRole role="agent" />,

@@ -60,23 +60,6 @@ jobs:
           npm run lint
           npm test
 
-      - name: Build web assets
-        env:
-          VITE_API_MODE: ${{ env.API_BASE_URL != '' && 'live' || 'mock' }}
-          VITE_API_BASE_URL: ${{ env.API_BASE_URL }}
-        run: |
-          echo "Building in ${VITE_API_MODE} mode${VITE_API_BASE_URL:+ against $VITE_API_BASE_URL}"
-          npm run build
-
-      - name: Copy assets into the Android project
-        # A plain-http API (a laptop on the phone's hotspot) is only reachable from the app's
-        # https://localhost page if the shell allows mixed content; see capacitor.config.ts.
-        env:
-          CAP_ALLOW_HTTP: ${{ startsWith(env.API_BASE_URL, 'http://') && '1' || '' }}
-        run: |
-          echo "CAP_ALLOW_HTTP=${CAP_ALLOW_HTTP:-<unset>}"
-          npx cap sync android
-
       - name: Signing key
         # One stable key (repository secrets ANDROID_KEYSTORE_B64 / _PASSWORD / ANDROID_KEY_ALIAS),
         # so each build can update the previous one on a phone. Without the secrets the build is
@@ -92,26 +75,47 @@ jobs:
             echo "::warning::No ANDROID_KEYSTORE_B64 secret: signing with a throwaway debug key"
           fi
 
-      - name: Assemble debug APK
-        working-directory: apps/web/android
+      # Two installs from one codebase. Each flavour is assembled right after its own web
+      # build, because `cap sync` copies the same assets folder for both.
+      - name: Build the Agent Finder (customers) and the Agent App (agents and dealers)
         env:
+          VITE_API_MODE: ${{ env.API_BASE_URL != '' && 'live' || 'mock' }}
+          VITE_API_BASE_URL: ${{ env.API_BASE_URL }}
+          # A plain-http API (a laptop on the phone's hotspot) is only reachable if the shell
+          # serves the page from http://localhost; see capacitor.config.ts.
+          CAP_ALLOW_HTTP: ${{ startsWith(env.API_BASE_URL, 'http://') && '1' || '' }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          echo "Building in ${VITE_API_MODE} mode${VITE_API_BASE_URL:+ against $VITE_API_BASE_URL}; CAP_ALLOW_HTTP=${CAP_ALLOW_HTTP:-<unset>}"
+          mode=$([ -n "$API_BASE_URL" ] && echo live || echo mock)
+          build_one () {  # $1 surface (customer|agent)  $2 flavour (finder|agent)  $3 file prefix
+            VITE_APP_SURFACE="$1" npm run build
+            npx cap sync android
+            (cd android && ./gradlew "assemble$(echo "$2" | sed 's/./\U&/')Debug" --no-daemon)
+            cp "android/app/build/outputs/apk/$2/debug/app-$2-debug.apk" "$3-${mode}-${GITHUB_SHA::7}.apk"
+          }
+          build_one customer finder agent-finder
+          build_one agent agent agent-app
+          ls -la *.apk
 
       - name: Show the signer
         run: |
           apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          "$apksigner" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep -E "Signer .* DN|SHA-256"
-
-      - name: Name the APK
-        run: |
-          mode=$([ -n "$API_BASE_URL" ] && echo live || echo mock)
-          cp android/app/build/outputs/apk/debug/app-debug.apk "agent-finder-${mode}-${GITHUB_SHA::7}.apk"
+          for f in agent-finder-*.apk agent-app-*.apk; do
+            echo "== $f"; "$apksigner" verify --print-certs "$f" | grep -E "Signer .* DN|SHA-256"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
           name: agent-finder-apk
           path: apps/web/agent-finder-*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-app-apk
+          path: apps/web/agent-app-*.apk
           if-no-files-found: error
           retention-days: 30

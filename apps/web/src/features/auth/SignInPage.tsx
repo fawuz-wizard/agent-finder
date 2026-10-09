@@ -39,12 +39,16 @@ export default function SignInPage() {
   return (
     <div className="flex flex-1 flex-col gap-5 p-4">
       <header className="flex h-12 items-center justify-between">
-        <Link to="/" className="-ml-2 flex h-control items-center gap-1 rounded-card px-2 text-base font-semibold text-muted">
-          <span aria-hidden="true" className="text-xl leading-none">
-            ‹
-          </span>
-          Back
-        </Link>
+        {config.surface === 'customer' ? (
+          <Link to="/" className="-ml-2 flex h-control items-center gap-1 rounded-card px-2 text-base font-semibold text-muted">
+            <span aria-hidden="true" className="text-xl leading-none">
+              ‹
+            </span>
+            Back
+          </Link>
+        ) : (
+          <span className="text-base font-bold">Agent App</span>
+        )}
         <span className="rounded-pill bg-brand-light px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-text">
           Agent &amp; Dealer app
         </span>
@@ -53,10 +57,15 @@ export default function SignInPage() {
       <div>
         <h1 className="text-2xl font-bold leading-tight">Sign in</h1>
         <p className="mt-1 text-base text-muted">
-          For Orange Money agents and their dealers. Customer looking for an agent?{' '}
-          <Link to="/find" className="font-semibold text-brand-text underline">
-            Go to Agent Finder
-          </Link>
+          For Orange Money agents and their dealers.
+          {config.surface === 'customer' && (
+            <>
+              {' '}Customer looking for an agent?{' '}
+              <Link to="/find" className="font-semibold text-brand-text underline">
+                Go to Agent Finder
+              </Link>
+            </>
+          )}
         </p>
       </div>
 
