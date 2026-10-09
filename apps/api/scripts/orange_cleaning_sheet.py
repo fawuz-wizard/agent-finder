@@ -3,7 +3,8 @@ the row, the field, the value as it is, and what to do. Written next to the file
 the repository; it carries the file's own values, so treat it as the file itself.
 
 Usage:
-  python -m scripts.orange_cleaning_sheet ~/Downloads/Book2.xlsx ~/Downloads/orange-cleaning-sheet.csv
+  python -m scripts.orange_cleaning_sheet ~/Downloads/Book2.xlsx \\
+      ~/Downloads/orange-cleaning-sheet.csv
 """
 
 from __future__ import annotations
@@ -20,7 +21,10 @@ WHAT: dict[str, tuple[str, str]] = {
         "USER_CATEGORY_CODE",
         "Should be AGNT (agent) or SUBAGG (sub-aggregator).",
     ),
-    "no_aggregator": ("PARENT_USER_MSISDN", "Fill in the aggregator's Orange Money number."),
+    "no_aggregator": (
+        "PARENT_USER_MSISDN",
+        "Fill in the aggregator's Orange Money number.",
+    ),
     "bad_msisdn": ("MSISDN", "An Orange Money number has 8 digits (076…, 077…, 078…, 079…)."),
     "duplicate_msisdn": ("MSISDN", "Another row has this number; one of the two is wrong."),
     "bad_agent_code": ("AGENT_CODE", "An agent code has 6 digits."),

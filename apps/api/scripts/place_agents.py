@@ -7,7 +7,7 @@ A point a person set is never moved. --clear removes every placed point again.
 Usage:
   python -m scripts.place_agents                       # report what would change
   python -m scripts.place_agents --apply               # write the points
-  python -m scripts.place_agents --clear               # remove placed points (agents unlocated again)
+  python -m scripts.place_agents --clear               # remove placed points again
   python -m scripts.place_agents --apply --pin 1234    # development only: one PIN for every account
 """
 
