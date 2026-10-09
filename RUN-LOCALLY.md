@@ -71,3 +71,10 @@ To see a real Google map under an agent instead of the sketch, add a Maps browse
 cd apps/web && npm run typecheck && npm run lint && npm test
 cd apps/api && ruff check . && ruff format --check . && python -m pytest -q
 ```
+
+## 6. On a phone
+
+Android: the GitHub Actions workflow **Android APK** builds an installable `.apk` from every
+push to `main`; download it from the run's artifacts and open it on the phone. iPhone: open the
+hosted web app in Safari and choose Share → Add to Home Screen. Details and the API settings
+are in `apps/web/RUNNING.md` under "Android APK".

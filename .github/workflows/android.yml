@@ -1,0 +1,88 @@
+name: Android APK
+
+# Builds the customer/agent/dealer app as a debug APK for sideloading onto test phones.
+# The screens are the normal web build; Capacitor packages them into an Android shell.
+#
+# API address: set the repository variable API_BASE_URL (Settings → Secrets and variables →
+# Actions → Variables) to the hosted API, e.g. https://api.example.com, and the APK runs in live
+# mode against it. With no variable set, the APK runs in mock mode on the in-app demo network,
+# which is enough to show every screen on a phone with no server at all.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "API base URL for this build (blank = mock mode)"
+        required: false
+        default: ""
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install
+        run: npm ci
+
+      - name: Gates
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Build web assets
+        env:
+          VITE_API_MODE: ${{ env.API_BASE_URL != '' && 'live' || 'mock' }}
+          VITE_API_BASE_URL: ${{ env.API_BASE_URL }}
+        run: |
+          echo "Building in ${VITE_API_MODE} mode${VITE_API_BASE_URL:+ against $VITE_API_BASE_URL}"
+          npm run build
+
+      - name: Copy assets into the Android project
+        run: npx cap sync android
+
+      - name: Assemble debug APK
+        working-directory: apps/web/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Name the APK
+        run: |
+          mode=$([ -n "$API_BASE_URL" ] && echo live || echo mock)
+          cp android/app/build/outputs/apk/debug/app-debug.apk "agent-finder-${mode}-${GITHUB_SHA::7}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-finder-apk
+          path: apps/web/agent-finder-*.apk
+          if-no-files-found: error
+          retention-days: 30

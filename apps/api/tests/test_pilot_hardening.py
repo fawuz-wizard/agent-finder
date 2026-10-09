@@ -43,9 +43,12 @@ def test_production_without_cors_origins_refuses_to_start(monkeypatch):
     with pytest.raises(ValidationError, match="CORS_ORIGINS must be set in production"):
         _settings(app_env="production")
     # Development keeps the local dev servers; a comma-separated value is split and trimmed.
+    # ...plus the origins the Android APK serves the same build from (Capacitor).
     assert _settings(app_env="development").cors_origins == [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "https://localhost",
+        "capacitor://localhost",
     ]
     assert _settings(
         app_env="production", cors_origins=" https://a.example, https://b.example "

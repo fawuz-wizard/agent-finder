@@ -7,7 +7,7 @@ Two ways to run it:
 - **Mock mode** (default) — everything runs in the browser from demo data. No server. Good for a quick look; each browser has its own private copy, so an agent's change is NOT seen by a customer on another phone.
 - **Live mode** — the browser talks to the API in `apps/api`. One shared server, one shared database: what an agent declares on their phone changes what every customer sees. This is the mode for the pilot (10+ real users) and the mode gstack should review.
 
-Requires Node 18+ (`node -v`). Live mode also needs Python 3.11+ (`python --version`).
+Requires Node 20+ (`node -v`). Live mode also needs Python 3.11+ (`python --version`).
 
 ## Start it
 
@@ -105,10 +105,33 @@ python -m pytest -q     # 58 tests
 ruff check . && ruff format --check .
 ```
 
+## Android APK (phones)
+
+The customer, agent and dealer screens also ship as an Android app. The Android project is
+`apps/web/android` (Capacitor); the screens inside it are the normal web build, untouched.
+Nothing is built on your machine: the **Android APK** workflow on GitHub (Actions → Android APK)
+builds a debug APK on every push to `main` that touches `apps/web`, or on demand with
+"Run workflow". Download the `agent-finder-apk` artifact from the run, copy the `.apk` to the
+phone and open it (allow installs from this source when the phone asks).
+
+- With no repository variable set, the APK runs in **mock mode** on the in-app demo network —
+  every screen works with no server at all.
+- Set the repository variable `API_BASE_URL` (Settings → Secrets and variables → Actions →
+  Variables) to the hosted API, or type it into "Run workflow", and the APK runs in **live
+  mode** against it. The API's `CORS_ORIGINS` must then include `https://localhost`, the app's
+  origin on Android; the development default already does.
+- Debug builds may talk to a plain-http API, so for a demo the API can run on a laptop on the
+  phone's hotspot: `uvicorn app.main:app --host 0.0.0.0 --port 8000` and
+  `API_BASE_URL=http://<laptop-ip>:8000`.
+- iPhone: there is no APK. Open the hosted web app in Safari and use Share → Add to Home Screen.
+
+Building locally needs Java 21 and the Android SDK:
+`cd apps/web && npm run build && npx cap sync android && cd android && ./gradlew assembleDebug`.
+
 ## Other commands
 
 ```bash
-npm test          # 39 tests
+npm test          # 66 tests
 npm run typecheck
 npm run lint
 npm run build     # production build

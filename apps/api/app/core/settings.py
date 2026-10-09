@@ -63,7 +63,13 @@ class Settings(BaseSettings):
                     "CORS_ORIGINS must be set in production: a comma-separated list of the "
                     "browser origins allowed to call the API, e.g. https://agentfinder.example"
                 )
-            self.cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+            self.cors_origins = [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                # The Android APK serves the same web build from these origins (Capacitor).
+                "https://localhost",
+                "capacitor://localhost",
+            ]
         return self
 
     @property

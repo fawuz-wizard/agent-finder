@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only: lets the APK reach an API served over plain http, which is how the pitch
+  demo runs (the laptop on the phone's hotspot). The main manifest, used by release builds,
+  does not allow cleartext, so a release APK can only talk to an https API.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:usesCleartextTraffic="true" />
+</manifest>
