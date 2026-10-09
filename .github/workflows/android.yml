@@ -77,9 +77,32 @@ jobs:
           echo "CAP_ALLOW_HTTP=${CAP_ALLOW_HTTP:-<unset>}"
           npx cap sync android
 
+      - name: Signing key
+        # One stable key (repository secrets ANDROID_KEYSTORE_B64 / _PASSWORD / ANDROID_KEY_ALIAS),
+        # so each build can update the previous one on a phone. Without the secrets the build is
+        # signed with a throwaway debug key and must be uninstalled before the next install.
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/agent-finder-signing.p12"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/agent-finder-signing.p12" >> "$GITHUB_ENV"
+            echo "Using the pilot signing key"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_B64 secret: signing with a throwaway debug key"
+          fi
+
       - name: Assemble debug APK
         working-directory: apps/web/android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: ./gradlew assembleDebug --no-daemon
+
+      - name: Show the signer
+        run: |
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep -E "Signer .* DN|SHA-256"
 
       - name: Name the APK
         run: |

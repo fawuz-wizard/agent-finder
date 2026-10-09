@@ -16,10 +16,33 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // One stable signing key for every pilot build, so a newer APK can update the installed one.
+    // Provided through the environment (the workflow decodes a secret; locally, source
+    // ~/.android/agent-finder-signing.env). Without it, Gradle's default debug key is used.
+    def pilotKeystore = System.getenv('ANDROID_KEYSTORE_PATH')
+    if (pilotKeystore != null && file(pilotKeystore).exists()) {
+        signingConfigs {
+            pilot {
+                storeFile file(pilotKeystore)
+                storeType 'PKCS12'
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: 'agentfinder'
+                keyPassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (pilotKeystore != null && file(pilotKeystore).exists()) {
+                signingConfig signingConfigs.pilot
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (pilotKeystore != null && file(pilotKeystore).exists()) {
+                signingConfig signingConfigs.pilot
+            }
         }
     }
 }

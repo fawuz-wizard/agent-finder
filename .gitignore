@@ -36,3 +36,8 @@ apps/api/*.db-wal
 
 # gstack tool output
 .gstack/
+
+# signing keys never enter the repo (the pilot key lives in ~/.android and in repository secrets)
+*.p12
+*.jks
+*.keystore

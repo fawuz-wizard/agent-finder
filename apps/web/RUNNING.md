@@ -128,7 +128,15 @@ phone and open it (allow installs from this source when the phone asks).
   laptop's firewall must accept the port, e.g. `sudo ufw allow 8000/tcp`.
 - iPhone: there is no APK. Open the hosted web app in Safari and use Share → Add to Home Screen.
 
-Building locally needs Java 21 and the Android SDK:
+Every build is signed with one pilot key kept in the repository secrets `ANDROID_KEYSTORE_B64`,
+`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` (the file itself lives outside git, in
+`~/.android/agent-finder-signing.p12` on the maintainer's laptop, with its password in
+`agent-finder-signing.env` beside it — back both up). The same key on every build is what lets a
+new APK update the one already on a phone; a phone that got an APK signed with a different key
+must uninstall it once.
+
+Building locally needs Java 21 and the Android SDK (source `~/.android/agent-finder-signing.env`
+first to sign with the pilot key):
 `cd apps/web && npm run build && npx cap sync android && cd android && ./gradlew assembleDebug`.
 
 ## Other commands
