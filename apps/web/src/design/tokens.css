@@ -7,35 +7,36 @@
 */
 
 @theme {
-  /* Brand */
-  --color-brand: #ff7900;            /* Primary Orange — fills, with ink text */
-  --color-brand-deep: #e86e00;       /* Orange palette orange-600 */
-  --color-brand-text: #c24e00;       /* Accessible Orange — small text and links (AA on white) */
-  --color-brand-light: #fff1e6;      /* Light Orange — selected tints */
-  /* Dashboard line series — validated together for colour-vision deficiency */
-  --color-series-tx: #2563eb;        /* transactions (operator data) */
-  --color-series-fresh: #0e9f6e;     /* status fresh % */
-  --color-brand-faint: #fff8f2;      /* Very Light Orange — subtle surfaces */
+  /* Brand — Orange Design System palette (Boosted v5.3 _color-palette.scss). Every colour
+     below is an ODS token; nothing here comes from Tailwind or Material defaults. */
+  --color-brand: #ff7900;            /* ods-orange-100 — fills, with ink text */
+  --color-brand-deep: #f16e00;       /* ods-orange-200 — hover/pressed, the "accessible orange" */
+  --color-brand-text: #f16e00;       /* ods-orange-200 — accents and large text ONLY (≥18px bold on white); body links are ink + underline, as on orange.com */
+  --color-brand-light: #fff1e6;      /* selected tints (no ODS tint exists; derived from brand) */
+  /* Dashboard line series — ODS functional blue/green, CVD-safe pair */
+  --color-series-tx: #4170d8;        /* ods-water-200 — transactions (operator data) */
+  --color-series-fresh: #0a6e31;     /* ods-green-600 — status fresh % */
+  --color-brand-faint: #fff8f2;      /* subtle surfaces (derived from brand) */
 
-  /* Neutrals */
-  --color-ink: #171717;              /* Dark — body text, text on brand */
-  --color-paper: #ffffff;            /* White — cards, sheets */
-  --color-canvas: #fafafa;           /* Background */
-  --color-line: #e5e5e5;             /* Border */
-  --color-muted: #6b7280;            /* Muted text and neutral status */
+  /* Neutrals — the ODS grey ramp: #fff #fafafa #eee #ddd #ccc #999 #666 #595959 #333 #141414 #000 */
+  --color-ink: #000000;              /* ods-black-900 — body text, as Boosted $body-color */
+  --color-paper: #ffffff;            /* ods-white-100 — cards, sheets */
+  --color-canvas: #fafafa;           /* Boosted gray-100 — background */
+  --color-line: #cccccc;             /* ods-gray-400 — borders (Orange separates with 2px borders, not shadows) */
+  --color-muted: #666666;            /* ods-gray-600 — muted text and neutral status */
 
-  /* Semantic status (status only — never decoration) */
-  --color-success: #16803c;          /* fresh "can likely handle" ONLY */
-  --color-success-strong: #0f5f2c;   /* agent's own status line: 7:1 for sunlight */
-  --color-warning: #b7791f;          /* limited / ageing — deliberately not the brand orange */
-  --color-danger: #c62828;
+  /* Semantic status (status only — never decoration) — ODS functional colours */
+  --color-success: #228722;          /* ods-forest-200 — fresh "can likely handle" ONLY */
+  --color-success-strong: #0a6e31;   /* ods-green-600 — agent's own status line, sunlight */
+  --color-warning: #8f7200;          /* ods-sun-200 — limited / ageing text (sun-100 #fc0 is bg-only) */
+  --color-danger: #cd3c14;           /* ods-fire-200 */
 
   /* Tints for banners */
   --color-success-tint: #e8f5ec;
   --color-warning-tint: #fbf3e2;
   --color-danger-tint: #fbe9e9;
-  --color-night: #1e2430;            /* night-mode surfaces, same in both themes */
-  --color-night-text: #dce3f0;
+  --color-night: #141414;            /* ods-gray-900 — night-mode surfaces, same in both themes */
+  --color-night-text: #cccccc;       /* ods-gray-400 */
 
   /* Orange OUDS dark mode surfaces: bg primary, secondary, tertiary, inverse-low. */
   --color-app-bg: #141414;
@@ -44,9 +45,9 @@
   --color-app-surface: #333333;
   --color-app-selected: #33200d;
   --color-app-tab-active: #4a4a4a;
-  --color-app-star: #ffc56e;
-  --color-app-highlight: #ffa554;
-  --color-app-success: #94f0a4;
+  --color-app-star: #ffb400;         /* ods-yellow-400 */
+  --color-app-highlight: #ff7900;    /* ods-orange-100 — passes on dark surfaces */
+  --color-app-success: #66cc66;      /* ods-forest-100 — the light pair of forest-200 */
 
   /* Demo host shell only — the simulated super-app the customer module is embedded in.
      Never used by Agent Finder's own screens. */
@@ -61,27 +62,41 @@
   --color-host-promo-mid: #f7c948;
   --color-host-promo-deep: #8f7b3a;
 
-  /* Type: system stack, no web fonts */
-  --font-sans: 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Type: Boosted stack (HelvNeueOrange is licence-restricted; Helvetica Neue is the
+     documented fallback). Sizes follow the Boosted mobile scale: h1 24, h2/h3 18, body 16. */
+  --font-sans: 'Helvetica Neue', Helvetica, 'Noto Sans', 'Liberation Sans', Arial, system-ui, sans-serif;
   --text-xs: 0.75rem;   /* 12 — SMS hints only */
-  --text-sm: 0.875rem;  /* 14 — labels, freshness, helper */
-  --text-base: 1rem;    /* 16 — body, controls */
-  --text-lg: 1.125rem;  /* 18 — card titles, primary buttons */
-  --text-xl: 1.375rem;  /* 22 — screen headline */
-  --text-2xl: 1.75rem;  /* 28 — sheet headings */
+  --text-sm: 0.875rem;  /* 14 — labels, freshness, helper ($font-size-sm) */
+  --text-base: 1rem;    /* 16 — body, controls ($font-size-base) */
+  --text-lg: 1.125rem;  /* 18 — card titles, primary buttons ($font-size-lg, mobile h2) */
+  --text-xl: 1.5rem;    /* 24 — screen headline (mobile h1) */
+  --text-2xl: 1.875rem; /* 30 — sheet headings (desktop h2) */
 
-  /* Radii */
-  --radius-card: 8px;
-  --radius-cta: 12px;
-  --radius-sheet: 16px;
+  /* Spacing: the ODS 5px grid — $spacer is 1.25rem (20px); the scale is 5/10/20/30/60.
+     Rebasing Tailwind's unit to 5px makes p-1/2/4/6/12 land exactly on it. */
+  --spacing: 0.3125rem;
+
+  /* Radii: Orange web is square ($enable-rounded: false). Pill stays for tags and circles,
+     the one shape Boosted keeps rounded ($tag-border-radius: pill). */
+  --radius-card: 0px;
+  --radius-cta: 0px;
+  --radius-sheet: 0px;
   --radius-pill: 999px;
 
-  /* Control heights */
+  /* Control heights (min target size 44px = Boosted $target-size) */
   --spacing-cta: 3.5rem;     /* 56 */
   --spacing-control: 3rem;   /* 48 */
   --spacing-chip: 2.75rem;   /* 44 */
 
-  --shadow-sheet: 0 -4px 24px rgb(0 0 0 / 0.18);
+  /* Orange disables elevation ($enable-shadows: false); panels separate with 2px borders. */
+  --shadow-sheet: 0 -2px 0 0 #cccccc;
+
+  /* Boosted grid breakpoints */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1440px;
 }
 
 /* Light small text stays darker for contrast; dark brand text uses Orange's #FF7900. */
@@ -90,18 +105,18 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-ink: #f2f3f0;
-    --color-paper: #1a1a1a;
-    --color-canvas: #0d0d0d;
-    --color-line: #2c2c2c;
-    --color-muted: #a8ada8;
+    --color-ink: #ffffff;
+    --color-paper: #1f1f1f;
+    --color-canvas: #141414;
+    --color-line: #333333;
+    --color-muted: #999999;
     --color-brand-text: #ff7900;
     --color-brand-light: #33200d;
     --color-brand-faint: #1f160e;
-    --color-success: #94f0a4;
-    --color-success-strong: #94f0a4;
-    --color-warning: #ffd166;
-    --color-danger: #f2837a;
+    --color-success: #66cc66;
+    --color-success-strong: #66cc66;
+    --color-warning: #ffcc00;
+    --color-danger: #ff4d4d;
     --color-success-tint: #12301b;
     --color-warning-tint: #3a2b0a;
     --color-danger-tint: #3d1512;
@@ -109,18 +124,18 @@
 }
 :root[data-theme='dark'],
 [data-theme='dark'] {
-  --color-ink: #f2f3f0;
-  --color-paper: #1a1a1a;
-  --color-canvas: #0d0d0d;
-  --color-line: #2c2c2c;
-  --color-muted: #a8ada8;
+  --color-ink: #ffffff;
+  --color-paper: #1f1f1f;
+  --color-canvas: #141414;
+  --color-line: #333333;
+  --color-muted: #999999;
   --color-brand-text: #ff7900;
   --color-brand-light: #33200d;
   --color-brand-faint: #1f160e;
-  --color-success: #94f0a4;
-  --color-success-strong: #94f0a4;
-  --color-warning: #ffd166;
-  --color-danger: #f2837a;
+  --color-success: #66cc66;
+  --color-success-strong: #66cc66;
+  --color-warning: #ffcc00;
+  --color-danger: #ff4d4d;
   --color-success-tint: #12301b;
   --color-warning-tint: #3a2b0a;
   --color-danger-tint: #3d1512;
@@ -137,17 +152,25 @@
     margin: 0;
     min-height: 100dvh;
     font-size: var(--text-base);
-    line-height: 1.4;
+    /* Boosted: $line-height-base = 18/16, $letter-spacing-base = -0.1px */
+    line-height: calc(18 / 16);
+    letter-spacing: -0.00625rem;
     -webkit-font-smoothing: antialiased;
   }
+  /* Boosted links: ink, underlined; orange appears on interaction only. */
   a {
-    color: var(--color-brand-text);
+    color: var(--color-ink);
+    text-decoration: underline;
+  }
+  a:hover, a:active {
+    color: var(--color-brand-deep);
   }
   * {
     -webkit-tap-highlight-color: transparent;
   }
+  /* Boosted focus ring: 2px solid, ink on light surfaces. */
   :focus-visible {
-    outline: 3px solid var(--color-brand-deep);
+    outline: 2px solid var(--color-ink);
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
