@@ -56,8 +56,8 @@ export function AmountInput({
             type="button"
             aria-pressed={value === String(q)}
             onClick={() => onChange(String(q))}
-            className={`h-chip shrink-0 rounded-pill px-4 text-base font-bold text-white transition-colors ${
-              value === String(q) ? 'bg-finder-link' : 'border-2 border-white/60'
+            className={`h-chip shrink-0 rounded-pill px-4 text-base font-bold transition-colors ${
+              value === String(q) ? 'bg-finder-link text-finder-on-orange' : 'border-2 border-white/60 text-white'
             }`}
           >
             {q.toLocaleString('en-US')}

@@ -158,7 +158,7 @@ export default function AgentDetailPage() {
 
   const services = ['Orange Money', ...(Object.keys(TRANSACTION_LABELS) as TransactionType[]).map((k) => TRANSACTION_LABELS[k])]
   const actionClass =
-    'flex h-[44px] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-white transition-[filter] hover:brightness-95 active:brightness-90'
+    'flex h-[44px] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
 
   return (
     <div className="flex flex-1 flex-col bg-finder-bg text-white">
@@ -248,7 +248,7 @@ export default function AgentDetailPage() {
                     aria-checked={rating === n}
                     aria-label={`${n} out of 5`}
                     onClick={() => setRating((current) => (current === n ? (n === 1 ? null : n - 1) : n))}
-                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-white' : 'bg-finder-line text-finder-muted'}`}
+                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-finder-on-orange' : 'bg-finder-line text-finder-muted'}`}
                   >
                     ★
                   </button>
@@ -259,7 +259,7 @@ export default function AgentDetailPage() {
                 type="button"
                 onClick={() => void submitRating()}
                 disabled={!rating || ratingState === 'sending'}
-                className="mt-3 h-[44px] w-full rounded-field bg-finder-link text-base font-semibold text-white transition-opacity disabled:opacity-40"
+                className="mt-3 h-[44px] w-full rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-opacity disabled:opacity-40"
               >
                 {ratingState === 'sending' ? 'Submitting…' : 'Submit rating'}
               </button>

@@ -132,7 +132,7 @@ export default function HomePage() {
                 setArea(a)
                 setPickArea(false)
               }}
-              className={`h-chip rounded-pill px-4 text-base font-bold ${a === area ? 'bg-finder-link text-white' : 'border-2 border-white text-white'}`}
+              className={`h-chip rounded-pill px-4 text-base font-bold ${a === area ? 'bg-finder-link text-finder-on-orange' : 'border-2 border-white text-white'}`}
             >
               {a}
             </button>

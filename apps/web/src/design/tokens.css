@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+/* Poppins, bundled (OFL, public/fonts) so the customer module looks the same with no data. */
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/poppins-500-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/poppins-600-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/poppins-700-latin.woff2') format('woff2'); }
+
 /*
   Agent Finder design tokens — the single source of every colour, radius and size.
   Components use the semantic utilities Tailwind derives from these (bg-brand, text-ink, …).
@@ -100,6 +105,7 @@
   --color-finder-tab-off: #747474;
   --color-finder-link: #fa7211;        /* text links, pills, Call / Get directions */
   --color-finder-cta: #ff7900;         /* the one big button */
+  --color-finder-on-orange: #000000;   /* Orange's rule: black text on orange, never white */
   --color-finder-likely: #3fa36b;
   --color-finder-likely-tint: #dff5e7;
   --color-finder-limited: #8a6a1b;     /* file has #d9b26f; darkened to read on the tint */

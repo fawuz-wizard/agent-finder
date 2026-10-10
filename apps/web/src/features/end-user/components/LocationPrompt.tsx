@@ -27,7 +27,7 @@ export function LocationPromptCard({
         <button
           type="button"
           onClick={onRetry}
-          className="h-chip self-start rounded-pill bg-finder-link px-5 text-base font-bold text-white"
+          className="h-chip self-start rounded-pill bg-finder-link px-5 text-base font-bold text-finder-on-orange"
         >
           Turn on location
         </button>
