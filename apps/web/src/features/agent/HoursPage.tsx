@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, AppBar } from '@/design'
+import { FinderBox, FinderCta, FinderHeader } from '@/features/end-user/components/finder'
+import { PILL_OFF, SectionLabel } from './components/agentChrome'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -52,91 +53,80 @@ export default function HoursPage() {
     }
   }
 
-  if (state === 'loading' || !data || !weekly) return <p className="p-4 text-base text-muted">Loading…</p>
+  if (state === 'loading' || !data || !weekly)
+    return (
+      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+        <FinderHeader title="Working hours" back={() => history.back()} />
+        <p className="text-base font-medium text-finder-muted">Loading…</p>
+      </div>
+    )
   const t = data.today
+  const timeClass = 'h-10 w-[118px] rounded-field bg-finder-line px-2 text-center text-sm font-bold text-white outline-none focus:outline focus:outline-2 focus:outline-finder-link'
 
   return (
-    <div className="flex flex-1 flex-col">
-      <AppBar title="Working hours" subtitle={<>{t.hours_text}</>} />
+    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+      <FinderHeader title="Working hours" back={() => history.back()} />
+      <p className="mt-6 text-md font-bold leading-tight">{t.hours_text}</p>
+      <p className="mt-1 text-sm font-medium text-finder-muted">Outside these hours customers are told you are closed. Fifteen minutes before closing, the Dashboard asks whether to stay open.</p>
 
-      <div className="flex flex-col gap-3 p-4 pb-6">
-        <Card>
-          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">Today only</p>
-          <p className="text-sm text-muted">Changes today and nothing else. Tomorrow follows your weekly hours.</p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Button size="control" variant="secondary" onClick={() => today({ hours: [t.today?.[0] ?? '08:00', '13:00'] })}>
-              Half day
-            </Button>
-            <Button size="control" variant="secondary" onClick={() => today({ day_off: true })}>
-              Day off
-            </Button>
-            <Button size="control" variant="secondary" className="whitespace-normal text-sm" onClick={() => today({ extend_minutes: 60 })}>
-              Open 1 more hour
-            </Button>
-            <Button size="control" variant="secondary" onClick={() => today({ clear: true })} disabled={!t.today_only && !t.extended_until}>
-              Back to normal
-            </Button>
-          </div>
-        </Card>
-
-        <Card>
-          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">Every week</p>
-          <ul className="flex flex-col divide-y divide-line">
-            {WEEKDAYS.map((day) => {
-              const h = weekly[day]
-              return (
-                <li key={day} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-2">
-                  <span className="text-sm font-bold">{WEEKDAY_NAMES[day]}</span>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-muted">
-                    <input
-                      type="checkbox"
-                      aria-label={`${WEEKDAY_NAMES[day]} closed`}
-                      checked={h === null}
-                      onChange={(e) => setDay(day, e.target.checked ? null : ['08:00', '20:00'])}
-                    />
-                    Closed
-                  </label>
-                  {h ? (
-                    <div className="col-span-2 flex items-center gap-2">
-                      <input
-                        id={`${day}-open`}
-                        aria-label={`${WEEKDAY_NAMES[day]} opens`}
-                        type="time"
-                        value={h[0]}
-                        onChange={(e) => setDay(day, [e.target.value, h[1]])}
-                        className="h-control min-w-0 flex-1 rounded-card border-2 border-line bg-paper px-2 text-sm font-semibold"
-                      />
-                      <span className="text-xs font-semibold text-muted">to</span>
-                      <input
-                        id={`${day}-close`}
-                        aria-label={`${WEEKDAY_NAMES[day]} closes`}
-                        type="time"
-                        value={h[1]}
-                        onChange={(e) => setDay(day, [h[0], e.target.value])}
-                        className="h-control min-w-0 flex-1 rounded-card border-2 border-line bg-paper px-2 text-sm font-semibold"
-                      />
-                    </div>
-                  ) : (
-                    <span className="col-span-2 text-sm text-muted">Closed all day</span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        </Card>
-
-        {error && (
-          <p role="alert" className="text-base font-semibold text-danger">
-            {error}
-          </p>
-        )}
-        <Button size="cta" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save weekly hours'}
-        </Button>
-        <p className="text-center text-xs text-muted">
-          Outside these hours customers are told you are closed. Fifteen minutes before closing, your home screen asks whether to stay open.
-        </p>
+      <SectionLabel className="mt-6">Today only</SectionLabel>
+      <p className="mt-1 text-sm font-medium text-finder-muted">Changes today and nothing else. Tomorrow follows your weekly hours.</p>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        {(
+          [
+            ['Half day', () => today({ hours: [t.today?.[0] ?? '07:00', '13:00'] }), false],
+            ['Day off', () => today({ day_off: true }), false],
+            ['Open 1 more hour', () => today({ extend_minutes: 60 }), false],
+            ['Back to normal', () => today({ clear: true }), !t.today_only && !t.extended_until],
+          ] as const
+        ).map(([label, act, off]) => (
+          <button key={label} type="button" onClick={act} disabled={off} className={`h-[50px] rounded-pill px-3 text-[15px] font-bold leading-tight disabled:opacity-40 ${PILL_OFF}`}>
+            {label}
+          </button>
+        ))}
       </div>
+
+      <SectionLabel className="mt-8">Every week</SectionLabel>
+      <ul className="mt-3 flex flex-col gap-2">
+        {WEEKDAYS.map((day) => {
+          const h = weekly[day]
+          return (
+            <li key={day}>
+              <FinderBox className="flex min-h-[60px] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-2">
+                <span className="text-base font-bold">{WEEKDAY_NAMES[day]}</span>
+                <label className="flex items-center gap-2 text-sm font-semibold text-finder-muted">
+                  <input
+                    type="checkbox"
+                    aria-label={`${WEEKDAY_NAMES[day]} closed`}
+                    checked={h === null}
+                    onChange={(e) => setDay(day, e.target.checked ? null : ['07:00', '19:00'])}
+                    className="h-5 w-5 accent-finder-link"
+                  />
+                  Closed
+                </label>
+                {h ? (
+                  <div className="flex w-full items-center gap-2">
+                    <input id={`${day}-open`} aria-label={`${WEEKDAY_NAMES[day]} opens`} type="time" value={h[0]} onChange={(e) => setDay(day, [e.target.value, h[1]])} className={timeClass} />
+                    <span className="text-sm font-semibold text-finder-muted">to</span>
+                    <input id={`${day}-close`} aria-label={`${WEEKDAY_NAMES[day]} closes`} type="time" value={h[1]} onChange={(e) => setDay(day, [h[0], e.target.value])} className={timeClass} />
+                  </div>
+                ) : (
+                  <span className="w-full text-sm font-medium text-finder-muted">Closed all day</span>
+                )}
+              </FinderBox>
+            </li>
+          )
+        })}
+      </ul>
+
+      {error && (
+        <p role="alert" className="mt-3 text-sm font-semibold text-danger">
+          {error}
+        </p>
+      )}
+      <FinderCta className="mt-6" onClick={save} disabled={saving}>
+        {saving ? 'Saving…' : 'Save weekly hours'}
+      </FinderCta>
     </div>
   )
 }

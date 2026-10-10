@@ -199,7 +199,8 @@ describe('working hours', () => {
     const user = userEvent.setup()
     render(<App start="/agent/hours" />)
     await signIn(user)
-    await screen.findByText(/working hours/i)
+    // The title shows while loading; the week's rows mean the schedule has arrived.
+    await screen.findByText(/every week/i)
     expect(screen.getAllByRole('checkbox', { name: /closed$/i })).toHaveLength(7)
     await user.click(screen.getByRole('checkbox', { name: /sunday closed/i }))
     await user.click(screen.getByRole('button', { name: /save weekly hours/i }))
