@@ -41,12 +41,16 @@ export default function ActivityPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
   const [range, setRange] = useState<InsightRange>('week')
+  // Two rows by default; the whole day on request, so the figure stays easy to spot.
+  const [allRows, setAllRows] = useState(false)
   const tx = useAsync<AgentTransactions>((s) => operatorApi.transactions(ref, s), [ref])
   const insights = useAsync<AgentInsights>((s) => operatorApi.insights(ref, range, s), [ref, range])
   const events = useAsync<ActivityEvent[]>((s) => operatorApi.activity(ref, s), [ref])
   const i = insights.data
   const t = tx.data
   const rest = (events.data ?? []).filter((e) => !isTransactionEvent(e))
+  const rows = t?.rows ?? []
+  const shown = allRows ? rows : rows.slice(0, 2)
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-white">
@@ -73,7 +77,7 @@ export default function ActivityPage() {
       <SectionLabel className="mt-6">Transactions today</SectionLabel>
       <div className="mt-3 flex flex-col gap-2">
         {t && t.rows.length === 0 && <p className="text-sm font-medium text-finder-muted">Nothing yet today.</p>}
-        {(t?.rows ?? []).map((r) => (
+        {shown.map((r) => (
           <FinderBox key={r.id} className="flex min-h-[60px] items-center gap-4 px-5 py-3">
             <span className="w-12 shrink-0 text-sm font-bold text-finder-muted">{r.time_text}</span>
             <span className="min-w-0 flex-1">
@@ -89,6 +93,11 @@ export default function ActivityPage() {
             </span>
           </FinderBox>
         ))}
+        {rows.length > 2 && (
+          <button type="button" onClick={() => setAllRows((v) => !v)} aria-expanded={allRows} className="flex h-control items-center self-start text-base font-bold text-finder-link">
+            {allRows ? 'Show fewer' : `Show all ${rows.length} ›`}
+          </button>
+        )}
       </div>
 
       <SectionLabel className="mt-6">Your numbers</SectionLabel>

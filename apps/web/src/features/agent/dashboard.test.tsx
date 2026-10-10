@@ -50,11 +50,14 @@ describe('agent activity', () => {
     await screen.findByText(/Indicative tariff/)
     const hero = screen.getByLabelText("Today's commission")
     expect(hero).toHaveTextContent(/SLE/)
-    // Seeded operator rows: cash out 2,000 earns 25, exact; the failed one earns nothing.
-    expect(await screen.findByText('+SLE 25')).toBeInTheDocument()
-    expect(screen.getByText('Could not complete')).toBeInTheDocument()
-    // The agent's own log, by band: an estimate, marked as such.
+    // Only two rows show until asked: the agent's own log (newest) and the latest operator row.
     expect(screen.getByText('≈ SLE 6')).toBeInTheDocument()
     expect(screen.getByText(/Logged by you · estimate/)).toBeInTheDocument()
+    expect(await screen.findByText('+SLE 25')).toBeInTheDocument()
+    expect(screen.queryByText('Could not complete')).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: /show all 6/i }))
+    // Seeded operator rows: the failed one earns nothing.
+    expect(screen.getByText('Could not complete')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /show fewer/i })).toBeInTheDocument()
   })
 })
