@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { BEEP_LEFT_SHOP, beep, cancelBeep } from '@/lib/notify'
+import { readPrefs } from '@/lib/prefs'
 import { FinderBox } from '@/features/end-user/components/finder'
 import { PILL_ON, PILL_OFF } from './agentChrome'
 import { AWAY_GRACE_MS, CHECK_EVERY_MS, presenceCall, type Point, type PresenceCall } from '../shopPresence'
@@ -61,7 +62,7 @@ export function ShopPresenceWatch() {
   }, [load])
 
   const check = useCallback(() => {
-    if (!ref || !shop || presence !== 'open' || typeof navigator === 'undefined' || !navigator.geolocation) return
+    if (!ref || !shop || presence !== 'open' || !readPrefs().leftShopWatch || typeof navigator === 'undefined' || !navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const now = Date.now()

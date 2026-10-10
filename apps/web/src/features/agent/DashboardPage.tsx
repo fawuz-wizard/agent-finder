@@ -11,6 +11,7 @@ import { ListingCard } from './components/ListingCard'
 import { floatRowText } from './floatRow'
 import { formatSle } from './money'
 import { BEEP_CLOSING, askToBeep, beep, cancelBeep } from '@/lib/notify'
+import { readPrefs } from '@/lib/prefs'
 
 const PRESENCE: { value: Presence; label: string }[] = [
   { value: 'open', label: 'Open' },
@@ -63,7 +64,7 @@ export default function DashboardPage() {
   const closesAt = home.data?.schedule.closes_at ?? null
   const openNow = home.data?.schedule.open_now ?? false
   useEffect(() => {
-    if (!closesAt || !openNow) {
+    if (!closesAt || !openNow || !readPrefs().closingBeep) {
       void cancelBeep(BEEP_CLOSING)
       return
     }

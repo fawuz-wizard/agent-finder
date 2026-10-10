@@ -600,3 +600,50 @@ async def test_low_today_lowers_one_side_until_midnight_and_never_raises(client,
         "/api/v1/agent/availability/low", headers=agent, json={"side": "deposit", "level": "ok"}
     )
     assert r.json()["low"] == {"cash_out": None, "deposit": None, "until_text": "until midnight"}
+
+
+async def test_agent_changes_own_pin_signs_out_other_phones_and_reports_a_wrong_record(
+    client, agent, dealer
+):
+    """Profile: the agent changes their PIN (current one first), signs out other phones, and
+    tells the aggregator when Orange's record is wrong; the app never edits the record."""
+    wrong = await client.post(
+        "/api/v1/agent/profile/pin", headers=agent, json={"current_pin": "9999", "new_pin": "2468"}
+    )
+    assert wrong.status_code == 403
+    ok = await client.post(
+        "/api/v1/agent/profile/pin", headers=agent, json={"current_pin": "1234", "new_pin": "2468"}
+    )
+    assert ok.status_code == 200 and ok.json()["pin_set"] is True
+    old = await client.post(
+        "/api/v1/auth/sign-in", json={"ref": "Agent 024", "pin": "1234", "role": "agent"}
+    )
+    assert old.status_code in (401, 403)
+    new = await client.post(
+        "/api/v1/auth/sign-in", json={"ref": "Agent 024", "pin": "2468", "role": "agent"}
+    )
+    assert new.status_code == 200
+    other = {"Authorization": f"Bearer {new.json()['token']}"}
+    # The first phone signs out the others: the second phone's session stops working.
+    out = await client.post("/api/v1/agent/profile/sign-out-others", headers=agent)
+    assert out.status_code == 200 and out.json()["signed_out"] >= 1
+    assert (await client.get("/api/v1/agent/home", headers=other)).status_code == 401
+    assert (await client.get("/api/v1/agent/home", headers=agent)).status_code == 200
+    # A wrong address goes to the aggregator as a note, not into the record.
+    before = (await client.get("/api/v1/agent/profile", headers=agent)).json()["street"]
+    r = await client.post(
+        "/api/v1/agent/profile/report-mistake",
+        headers=agent,
+        json={"field": "address", "text": "We moved to Lumley Beach Road last month"},
+    )
+    assert r.status_code == 201
+    assert (await client.get("/api/v1/agent/profile", headers=agent)).json()["street"] == before
+    resp = await client.get("/api/v1/actions?agent=Agent%20024", headers=dealer)
+    assert resp.status_code == 200, resp.text
+    acts = resp.json()
+    assert any(x["action"] == "agent_note" and "Lumley Beach Road" in x["note"] for x in acts)
+    # Back to the demo PIN for the other tests.
+    back = await client.post(
+        "/api/v1/agent/profile/pin", headers=agent, json={"current_pin": "2468", "new_pin": "1234"}
+    )
+    assert back.status_code == 200

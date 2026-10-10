@@ -1,52 +1,60 @@
 # Run Agent Finder on your machine
 
-You need **Git** and **Node 20** (check with `node -v`). Nothing else for the demo.
+Two apps from one codebase: **Agent Finder** (the customer's side, inside the Orange Money app)
+and the **Agent App** (agents and aggregators). You need **Git** and **Node 20** (`node -v`).
+Nothing else for the demo: all the data is simulated in the browser.
 
 ## 1. Get the code
 
 ```bash
 git clone https://github.com/fawuz-wizard/agent-finder.git
-cd agent-finder
+cd agent-finder/apps/web
+npm install
 ```
 
-In VS Code: File › Open Folder › `agent-finder`.
-
-## 2. Run the app (demo mode, no backend needed)
-
-Open the VS Code terminal (Ctrl + `) and run:
+## 2. The customer's side
 
 ```bash
-cd apps/web
-npm install
 npm run dev
 ```
 
-Open http://localhost:5173 in your browser. It runs on the in-browser demo network: all the
-data is simulated in the app and resets on reload. To use it from a phone on the same wifi,
-run `npm run dev -- --host` and open the "Network" address it prints.
+Open http://localhost:5173. The first screen is a simulated Orange Money home; tap the
+**Agent Finder** banner. Allow location when the browser asks (the app names the place you
+are in and searches around it; "Change" picks an area by hand). Keep **Cash out**, tap
+**2,000**, then **Find agent**. Open a shop with **Get details**, then **Get Directions**.
 
-## 3. What to try
+## 3. The Agent App
 
-**Demo host shell** (`/`): the simulated Max it home. The switch "Orange Money feed (demo)"
-flips the whole product between "capacity from the agents' history and the dealer's notes"
-(off) and "capacity read from Orange Money transactions" (on).
+In a second terminal, same folder:
 
-**Customer**: tap the Agent Finder banner, pick Cash out and 8,000 in Lumley. Tap
-"Get directions" on an agent: the way there opens under the agent, inside the app. Tap
-"I'm going there"; about 20 seconds later the home screen asks how it went (15 minutes in
-live mode).
+```bash
+VITE_APP_SURFACE=agent npm run dev -- --port 5174
+```
 
-**Agent**: go to `/sign-in`, choose Agent, ref `Agent 024`, PIN `1234`. The home shows
-presence, working hours, what customers see, and float. Availability is Open / Away /
-Closed only. Working hours has the weekly pattern and today-only changes; set a half day
-ending a few minutes from now and the home screen warns you with "Stay open 1 more hour".
+Open http://localhost:5174. Sign in: **Agent**, code `024`, PIN `1234`. Four tabs:
 
-**Dealer**: sign out, sign in as Dealer, ref `kissy`, PIN `1234`. Dashboard tiles filter the
-register; the Float tab opens on "Likely to run short"; Attention rows have Nudge, Call,
-Snooze, Resolve. Open an agent and fill "Usually handles" — that is what sets what customers
-are told the agent can cover, until Orange Money's records replace it.
+| Tab | What it shows |
+|---|---|
+| **Dashboard** | Your own listing as customers see it, Open / Away / Closed, "low on cash out or cash in today", today's commission and figures, the float request |
+| **Activity** | Today's commission, each transaction and what it earned, the chart, the rest of the day |
+| **Services** | Record a cash in (customer's number and amount) or a cash out (amount); float: your position, request, history |
+| **Profile** | Orange's record (read only, "Report a mistake"), the shop pin, working hours, the phone switch, alerts, PIN, phones signed in, sign out |
 
-## 4. Optional: run the real API too
+Other demo agents: `031`, `009`, `017`, `038`. Aggregator: sign out, choose **Aggregator**,
+number `kissy`, PIN `1234`: Overview, Agents, Float, Attention, Profile.
+
+Everything is simulated and resets when you reload. The commission figures come from an
+indicative table until Orange's tariff is loaded; every screen says so.
+
+## 4. On your phone (same Wi‑Fi)
+
+Run either dev server with `--host` and open the "Network" address it prints on the phone.
+Location only works over HTTPS in a phone browser, so on the phone the finder falls back to
+an area. For the real thing, install the apps: scan the QR codes in `docs/demo/demo-kit.html`
+(or the PDF the team shares). They download the newest build from
+https://github.com/fawuz-wizard/agent-finder/releases/tag/pilot-latest.
+
+## 5. Optional: the real server
 
 You need **Python 3.11+**.
 
@@ -55,26 +63,42 @@ cd apps/api
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-uvicorn app.main:app --reload --port 8000
+APP_ENV=development SEED_ON_START=false uvicorn app.main:app --reload --port 8000
 ```
 
-That creates a local SQLite database seeded with the demo agents (PIN 1234). Then point the
-web app at it: copy `apps/web/.env.example` to `apps/web/.env.local`, set
-`VITE_API_MODE=live`, and restart `npm run dev`.
-
-To see a real Google map under an agent instead of the sketch, add a Maps browser key to
-`apps/web/.env.local` as `VITE_GOOGLE_MAPS_API_KEY` (see `docs/google-cloud-setup.md`).
-
-## 5. Checks
+That creates an empty SQLite database (`apps/api/agentfinder.db`). Fill it with Orange's
+agent file, which the team holds outside the repo:
 
 ```bash
-cd apps/web && npm run typecheck && npm run lint && npm test
+python scripts/import_orange.py ~/Downloads/orange-agents-clean.csv --apply
+python scripts/set_pin.py <agent code or aggregator line> 1234
+```
+
+Then point the web app at it: copy `apps/web/.env.example` to `apps/web/.env.local`, set
+`VITE_API_MODE=live` and `VITE_API_BASE_URL=http://localhost:8000`, restart `npm run dev`.
+Agents sign in with their agent code or Orange Money line; aggregators with their line.
+Imported shops appear to customers only once an aggregator has confirmed their pin.
+
+## 6. Checks before you push
+
+```bash
+cd apps/web && npm run typecheck && npm run lint && npm test && npm run build
 cd apps/api && ruff check . && ruff format --check . && python -m pytest -q
 ```
 
-## 6. On a phone
+Every push to `main` rebuilds both Android apps and replaces them on the `pilot-latest`
+release, so the QR codes always serve the newest build.
 
-Android: the GitHub Actions workflow **Android APK** builds an installable `.apk` from every
-push to `main`; download it from the run's artifacts and open it on the phone. iPhone: open the
-hosted web app in Safari and choose Share → Add to Home Screen. Details and the API settings
-are in `apps/web/RUNNING.md` under "Android APK".
+## 7. Where things are
+
+| | |
+|---|---|
+| Customer screens | `apps/web/src/features/end-user` |
+| Agent screens | `apps/web/src/features/agent` |
+| Aggregator screens | `apps/web/src/features/dealer` |
+| Shared design pieces | `apps/web/src/features/end-user/components/finder.tsx`, `apps/web/src/features/agent/components/agentChrome.tsx`, tokens in `apps/web/src/design/tokens.css` |
+| Demo network (mock mode) | `apps/web/src/services/operatorDemo.ts`, `demoNetwork.ts` |
+| API | `apps/api/app` (FastAPI); ranking and wording in `app/services` |
+| Commission table | `apps/api/app/services/commission.py` and `apps/web/src/features/agent/commission.ts` |
+| Design doc, roadmap, demo kit | `docs/designs`, `docs/roadmap`, `docs/demo` |
+| More detail | `apps/web/RUNNING.md` |

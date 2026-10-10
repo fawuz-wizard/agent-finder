@@ -18,18 +18,24 @@ loses a transaction they might have wanted.
 
 ## How it works
 
-1. A customer says what they need: **Withdraw · Le 500**, near Lumley.
-2. Agents have each tapped one of four words — **Most / Some / Small / None** — for cash and for
-   deposits, as often as things change. Those words are compared on the server against the agent's
-   own private thresholds.
-3. The customer sees a ranked list: *Can likely handle your request · 0.4 km · Updated 18 min ago*,
-   with a real Google Map available on request, and gets directions.
-4. Freshness is first-class: a status ages visibly (fresh → ageing → may have changed → expired)
-   and an expired status is never shown as available.
-5. Agents stay in control: one-tap hide, close, and automatic night-time hiding for safety.
+1. A customer says what they need: **Cash out · SLE 2,000**, around where they are (the phone's
+   own position, named; an area only as a fallback).
+2. The server estimates what each nearby agent can likely handle from evidence: the agent's
+   recent transactions (their own records now, Orange's feed later), what customers reported
+   after visits, and the agent's one honest correction ("low on cash out today"). Agents never
+   type words or figures for customers.
+3. The customer sees a ranked list in the finder's own words: *Can likely handle your request*
+   or *Limited — may not cover this amount*, the distance, and directions inside the app.
+4. Freshness is first-class: an idle shop drifts to "uncertain", and an expired status is never
+   shown as available. Availability is hidden overnight for agents' safety.
+5. Agents stay in control: Open / Away / Closed, working hours that close the shop by
+   themselves, a beep before closing, and a question when the phone leaves the pinned shop.
+   The Agent App also shows each agent what they earn per transaction and per day.
+6. Aggregators see their agents, confirm each shop's pin, approve float requests, and get an
+   attention list; a Global Report and CSV exports serve the operator.
 
 Nothing public ever contains an amount, a balance, a category or a threshold. That rule is enforced
-by tests, not by convention.
+by tests, not by convention. To run it: see `RUN-LOCALLY.md`.
 
 ## Architecture
 

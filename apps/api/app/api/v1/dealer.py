@@ -11,7 +11,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agent_app import declaration_of, float_out
@@ -575,7 +575,18 @@ async def actions(
     p: Principal = Depends(require_role("dealer")),
     db: AsyncSession = Depends(get_session),
 ) -> list[dict]:
-    q = select(Action).where(Action.actor == p.name).order_by(Action.at.desc())
+    # My own actions, plus what my agents sent me themselves (a wrong record, a PIN change).
+    mine = select(Agent.ref).where(Agent.dealer_id == p.subject)
+    q = (
+        select(Action)
+        .where(
+            or_(
+                Action.actor == p.name,
+                and_(Action.action.in_(("agent_note", "agent_pin")), Action.agent_ref.in_(mine)),
+            )
+        )
+        .order_by(Action.at.desc())
+    )
     if agent:
         q = q.where(Action.agent_ref == agent)
     return [

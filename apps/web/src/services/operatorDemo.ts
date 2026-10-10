@@ -87,6 +87,8 @@ interface AgentState {
   weekly: WeeklyHours
   overrides: Record<string, DayHours>
   extendedUntil: number | null
+  /** Demo: the other phone was signed out from Profile. */
+  otherDevicesSignedOut?: boolean | undefined
   /** The agent's own correction for today, per side, until midnight. */
   low?: { cash_out: 'low' | 'none' | null; deposit: 'low' | 'none' | null; until: number } | undefined
   /** The dealer's note at registration. PRIVATE. */
@@ -856,6 +858,33 @@ export function demoConfirmLocation(ref: string): RegisteredAgent {
   return demoEditAgent(ref, {})
 }
 
+/** The agent changes their own PIN: the current one first, like the API. */
+export function demoChangePin(ref: string, currentPin: string, newPin: string): { pin_set: true } {
+  const a = find(ref)
+  if (currentPin !== (a.pin ?? DEMO_PIN)) throw new Error('That PIN is not correct.')
+  if (newPin === currentPin) throw new Error('Choose a different PIN.')
+  a.pin = newPin
+  record('You changed your PIN', 'agent_finder')
+  return { pin_set: true }
+}
+
+/** Sign out the other phones in the demo's device list; this one stays. */
+export function demoSignOutOthers(ref: string): { signed_out: number } {
+  const a = find(ref)
+  const n = a.otherDevicesSignedOut ? 0 : 1
+  a.otherDevicesSignedOut = true
+  return { signed_out: n }
+}
+
+/** A wrong record goes to the aggregator as a note; the record itself never changes here. */
+export function demoReportMistake(ref: string, field: string, text: string): { sent: true; note: string } {
+  const a = find(ref)
+  const note = `${a.shop} says their ${field.replace('_', ' ')} is wrong: ${text.trim()}`
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'agent_note', agent_ref: ref, at: new Date().toISOString(), note })
+  record('You told your aggregator something in your record is wrong', 'agent_finder')
+  return { sent: true, note }
+}
+
 export function demoResetPin(ref: string, pin: string): { ref: string; pin_set: true } {
   const a = agents.find((x) => x.ref === ref)
   if (!a) throw new Error('Not available.')
@@ -1097,10 +1126,12 @@ export function demoAgentProfile(ref: string): AgentProfile {
     lat: a.lat ?? null,
     lng: a.lng ?? null,
     street: a.area,
-    devices: [
-      { id: 'd1', label: 'This phone', last_seen_text: 'Active now', current: true },
-      { id: 'd2', label: 'Old phone · Tecno', last_seen_text: 'Last used 2 Sep', current: false },
-    ],
+    devices: a.otherDevicesSignedOut
+      ? [{ id: 'd1', label: 'This phone', last_seen_text: 'Active now', current: true }]
+      : [
+          { id: 'd1', label: 'This phone', last_seen_text: 'Active now', current: true },
+          { id: 'd2', label: 'Old phone · Tecno', last_seen_text: 'Last used 2 Sep', current: false },
+        ],
   }
 }
 

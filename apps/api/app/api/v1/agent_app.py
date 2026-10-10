@@ -5,13 +5,13 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import Principal, require_role
+from app.core.auth import Principal, hash_pin, require_role, verify_pin
 from app.core.errors import AppError
 from app.db.models import (
     Action,
@@ -21,6 +21,7 @@ from app.db.models import (
     Dealer,
     FloatRequest,
     OutcomeReport,
+    Session,
     UsageEvent,
 )
 from app.db.session import get_session
@@ -838,6 +839,81 @@ async def transactions_today(
         "commission_note": TARIFF_NOTE,
         "rows": rows,
     }
+
+
+class PinChangeBody(BaseModel):
+    current_pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
+    new_pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
+
+
+@router.post("/profile/pin", summary="Change my PIN: the current one first, then the new one")
+async def change_pin(
+    body: PinChangeBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    a = await load_agent(db, p.subject)
+    if not verify_pin(body.current_pin, a.ref, a.pin_hash):
+        raise AppError("That PIN is not correct.", code="wrong_pin", status_code=403)
+    if body.new_pin == body.current_pin:
+        raise AppError("Choose a different PIN.", code="validation", status_code=422)
+    a.pin_hash = hash_pin(body.new_pin, a.ref)
+    db.add(Action(actor=a.shop_name, agent_ref=a.ref, action="agent_pin", note="Changed their PIN"))
+    await db.commit()
+    return {"pin_set": True}
+
+
+@router.post(
+    "/profile/sign-out-others", summary="Sign out every other phone; this one stays signed in"
+)
+async def sign_out_others(
+    p: Principal = Depends(require_role("agent")),
+    authorization: str = Header(),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    token = authorization.split(" ", 1)[1].strip()
+    rows = (
+        (
+            await db.execute(
+                select(Session).where(
+                    Session.role == "agent",
+                    Session.subject == p.subject,
+                    Session.revoked.is_(False),
+                    Session.token != token,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for s in rows:
+        s.revoked = True
+    await db.commit()
+    return {"signed_out": len(rows)}
+
+
+class MistakeBody(BaseModel):
+    field: Literal[
+        "name", "agent_code", "address", "city", "region", "aggregator", "status", "other"
+    ]
+    text: str = Field(min_length=3, max_length=300)
+
+
+@router.post(
+    "/profile/report-mistake",
+    status_code=201,
+    summary="Tell my aggregator something in Orange's record is wrong; the app never edits it",
+)
+async def report_mistake(
+    body: MistakeBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    a = await load_agent(db, p.subject)
+    note = f"{a.shop_name} says their {body.field.replace('_', ' ')} is wrong: {body.text.strip()}"
+    db.add(Action(actor=a.shop_name, agent_ref=a.ref, action="agent_note", note=note))
+    await db.commit()
+    return {"sent": True, "note": note}
 
 
 @router.get("/profile", summary="Business, dealer, phone visibility, devices")

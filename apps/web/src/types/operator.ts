@@ -552,7 +552,7 @@ export interface SignalMuted {
 
 export interface ActionLogged {
   id: string
-  action: DealerAction | SignalMuteKind
+  action: DealerAction | SignalMuteKind | 'agent_note' | 'agent_pin'
   agent_ref: string
   at: string
   note: string

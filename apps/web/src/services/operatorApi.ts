@@ -159,6 +159,24 @@ export const operatorApi = {
     return delay(demo.demoAgentProfile(ref), signal)
   },
 
+  /** Change my PIN: the current one first. */
+  changePin(ref: string, current_pin: string, new_pin: string): Promise<{ pin_set: true }> {
+    if (config.useLiveApi) return api.post('/api/v1/agent/profile/pin', { current_pin, new_pin })
+    return delay(demo.demoChangePin(ref, current_pin, new_pin))
+  },
+
+  /** Sign out every other phone; this one stays. */
+  signOutOthers(ref: string): Promise<{ signed_out: number }> {
+    if (config.useLiveApi) return api.post('/api/v1/agent/profile/sign-out-others', {})
+    return delay(demo.demoSignOutOthers(ref))
+  },
+
+  /** Tell the aggregator something in Orange's record is wrong; the app never edits it. */
+  reportMistake(ref: string, field: string, text: string): Promise<{ sent: true; note: string }> {
+    if (config.useLiveApi) return api.post('/api/v1/agent/profile/report-mistake', { field, text })
+    return delay(demo.demoReportMistake(ref, field, text))
+  },
+
   setPhoneVisible(ref: string, visible: boolean): Promise<AgentProfile> {
     if (config.useLiveApi) return api.post<AgentProfile>('/api/v1/agent/profile/phone', { visible })
     return delay(demo.demoSetPhoneVisible(ref, visible))
