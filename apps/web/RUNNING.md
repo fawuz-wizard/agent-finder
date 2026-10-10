@@ -32,9 +32,13 @@ Vite prints a local address, usually `http://localhost:5173`.
 The outcome prompt appears on the home screen about 20 seconds after taking directions (15 minutes in a live deployment — `outcomePromptAfterMs` in `src/lib/config.ts`).
 
 **Location.** `/find` asks the phone for its position (blunted to about 110 m before it is used
-anywhere) and searches the 500 m core around it; the results say "Your location". If the
-position is denied or unavailable, it searches around the chosen area and says so, with a
-"Try again". The APK declares the location permission and asks on first use.
+anywhere) and searches the 500 m core around it; the results say "Distances from your location".
+Without a position the home screen says why (blocked, switched off, slow) and how to turn it
+on, and Find agent opens a sheet with "Turn on location" and "Search around Lumley instead":
+the area is the way out, not the default. In the APK, a phone with location switched off gets
+the system "Turn on location?" dialog (the `LocationSettings` plugin in
+`android/app/src/main/java/com/agentfinder/app/`); the browser can only ask permission. When
+the permission is granted later in settings, the page asks the phone again by itself.
 
 ## Agent and dealer side
 
