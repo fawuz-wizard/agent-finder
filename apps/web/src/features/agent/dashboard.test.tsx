@@ -44,7 +44,7 @@ describe('agent activity', () => {
   })
   it("shows the day's commission, exact for the operator's rows and an estimate for the agent's own log", async () => {
     const { operatorApi } = await import('@/services/operatorApi')
-    await operatorApi.logTransaction('Agent 024', 'deposit', '≤500', `tok-${Date.now()}`)
+    await operatorApi.logTransaction('Agent 024', { transaction: 'deposit', amount_band: '≤500', client_token: `tok-${Date.now()}` })
     renderSignedIn()
     // The box is on screen while loading; wait for the figures to land in it.
     await screen.findByText(/Indicative tariff/)

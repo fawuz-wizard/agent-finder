@@ -509,3 +509,51 @@ async def test_todays_transactions_carry_a_commission_each_and_a_total(client, a
         if row["source"] == "operator":
             assert row["estimated"] is False
             assert row["amount_sle"] is not None
+
+
+async def test_recording_a_cash_in_keeps_the_amount_and_masks_the_customers_number(client, agent):
+    """Orange's own flow asks the agent for the customer's number and the amount; the record
+    keeps the amount (so the commission is exact) and only the last three digits of the number."""
+    r = await client.post(
+        "/api/v1/agent/transactions",
+        headers=agent,
+        json={
+            "transaction": "deposit",
+            "amount_sle": 2000,
+            "customer_msisdn": "076 123 456",
+            "client_token": "t-cashin-1",
+        },
+    )
+    assert r.status_code == 201, r.text
+    out = r.json()
+    assert out["amount_sle"] == 2000
+    assert out["amount_band"] == "≤2k"
+    assert out["commission_sle"] == 15
+    assert out["estimated"] is False
+    assert out["customer_last3"] == "456"
+    assert "076" not in r.text.replace("076 123 456", "")  # the number itself never comes back
+    assert out["text"] == "Deposit · SLE 2,000"
+    rows = (await client.get("/api/v1/agent/transactions", headers=agent)).json()["rows"]
+    mine = next(x for x in rows if x["id"] == "log-t-cashin-1")
+    assert mine["amount_text"] == "SLE 2,000" and mine["estimated"] is False
+    acts = await client.get("/api/v1/agent/activity", headers=agent)
+    assert any(a["text"] == "You recorded: Deposit · SLE 2,000" for a in acts.json())
+    # A number too short to be a line is refused; nothing is stored.
+    bad = await client.post(
+        "/api/v1/agent/transactions",
+        headers=agent,
+        json={
+            "transaction": "deposit",
+            "amount_sle": 100,
+            "customer_msisdn": "12",
+            "client_token": "t-cashin-2",
+        },
+    )
+    assert bad.status_code == 422
+    # No amount and no band: refused.
+    none = await client.post(
+        "/api/v1/agent/transactions",
+        headers=agent,
+        json={"transaction": "cash_out", "client_token": "t-cashin-3"},
+    )
+    assert none.status_code == 422

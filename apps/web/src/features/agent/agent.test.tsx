@@ -236,21 +236,31 @@ describe('working hours', () => {
 })
 
 describe('transaction log', () => {
-  it('two taps log a transaction: it counts on Services and lands on the timeline, never with an amount', async () => {
+  it('recording a transaction asks what Orange asks, counts on Services and lands on the timeline', async () => {
     const user = userEvent.setup()
     render(<App start="/agent/services" />)
     await signIn(user)
     const counter = await screen.findByText(/Logged today: \d+/)
     const before = Number(counter.textContent!.match(/\d+/)![0])
-    await user.click(screen.getByRole('radio', { name: 'Cash out' }))
-    await user.click(screen.getByRole('button', { name: '500 – 2,000' }))
+    await user.click(screen.getByRole('radio', { name: 'Cash in' }))
+    // Cash in asks what Orange asks: the customer's number, then the amount.
+    await user.type(screen.getByLabelText("Customer's number"), '076 123 456')
+    await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
+    await user.click(screen.getByRole('button', { name: 'Record cash in' }))
     expect(await screen.findByText(`Logged today: ${before + 1}`)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Logged · Cash out · SLE 500 to 2,000')
-    // The band buttons fold away until the next side is chosen.
-    expect(screen.queryByRole('button', { name: '500 – 2,000' })).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Recorded · Cash in · SLE 2,000 · +SLE 15 commission')
+    // The form folds away until the next side is chosen.
+    expect(screen.queryByRole('button', { name: 'Record cash in' })).not.toBeInTheDocument()
     const acts = await operatorApi.activity('Agent 024')
-    expect(acts.some((a) => a.text === 'You logged: Cash out · SLE 500 to 2,000')).toBe(true)
-    expect(acts.every((a) => !/SLE 1,250|SLE 1250/.test(a.text))).toBe(true)
+    expect(acts.some((a) => a.text === 'You recorded: Cash in · SLE 2,000')).toBe(true)
+    // The customer's number never appears anywhere the agent can read it back.
+    expect(acts.every((a) => !/076|123 456/.test(a.text))).toBe(true)
+    // Cash out asks only for the amount.
+    await user.click(screen.getByRole('radio', { name: 'Cash out' }))
+    expect(screen.queryByLabelText("Customer's number")).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('Amount (SLE)'), '800')
+    await user.click(screen.getByRole('button', { name: 'Record cash out' }))
+    expect(await screen.findByText(`Logged today: ${before + 2}`)).toBeInTheDocument()
   })
 })
 

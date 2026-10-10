@@ -154,12 +154,29 @@ export interface AgentTransactions {
   rows: TransactionRow[]
 }
 
+/** What the agent sends when recording a transaction: the exact amount as in Orange's own
+ * flow (a band only as a fallback), the customer's number for a cash in, the SMS reference. */
+export interface LogTransactionBody {
+  transaction: 'cash_out' | 'deposit'
+  amount_sle?: number
+  amount_band?: TransactionBand
+  /** The customer's Orange Money number, as the agent types it for a cash in. Stored masked. */
+  customer_msisdn?: string
+  reference?: string
+  client_token: string
+}
+
 export interface LoggedTransaction {
   id: string
   at: string
   transaction: 'cash_out' | 'deposit'
+  amount_sle: number | null
   amount_band: TransactionBand
   band_text: string
+  /** Only the last three digits of the customer's number are ever returned. */
+  customer_last3: string | null
+  commission_sle: number
+  estimated: boolean
   text: string
   logged_today: number
 }

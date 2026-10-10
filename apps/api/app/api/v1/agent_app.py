@@ -287,9 +287,46 @@ BANDS = tuple(BAND_TEXT)
 
 
 class TransactionBody(BaseModel):
+    """What the agent records after serving a customer, the way Orange's own flow asks it:
+    the exact amount (a band only as a fallback), the customer's number for a cash in, the
+    reference from the confirmation SMS."""
+
     transaction: Literal["cash_out", "deposit"]
-    amount_band: Literal["≤500", "≤2k", "≤5k", "≤10k", "≤50k", ">50k"]
+    amount_sle: int | None = Field(default=None, gt=0, le=10_000_000)
+    amount_band: Literal["≤500", "≤2k", "≤5k", "≤10k", "≤50k", ">50k"] | None = None
+    customer_msisdn: str | None = Field(default=None, max_length=20)
+    reference: str | None = Field(default=None, max_length=32)
     client_token: str = Field(min_length=8, max_length=64)
+
+
+BAND_EDGES = ((500, "≤500"), (2_000, "≤2k"), (5_000, "≤5k"), (10_000, "≤10k"), (50_000, "≤50k"))
+
+
+def band_for_amount(amount_sle: int) -> str:
+    for upper, band in BAND_EDGES:
+        if amount_sle <= upper:
+            return band
+    return ">50k"
+
+
+def _customer_parts(msisdn: str | None) -> tuple[str | None, str | None]:
+    """The customer's number never stored whole: its last three digits and a salted hash."""
+    digits = "".join(ch for ch in (msisdn or "") if ch.isdigit())
+    if len(digits) < 8:
+        return None, None
+    import hashlib
+
+    return digits[-3:], hashlib.sha256(f"agent-finder:{digits[-8:]}".encode()).hexdigest()
+
+
+def _amount_text(t: AgentTransaction) -> str:
+    return f"SLE {t.amount_sle:,}" if t.amount_sle is not None else BAND_TEXT[t.amount_band]
+
+
+def _commission(t: AgentTransaction) -> int:
+    if t.amount_sle is not None:
+        return commission_for(t.transaction, t.amount_sle)
+    return commission_for_band(t.transaction, t.amount_band)
 
 
 def _transaction_out(t: AgentTransaction, logged_today: int) -> dict:
@@ -297,9 +334,13 @@ def _transaction_out(t: AgentTransaction, logged_today: int) -> dict:
         "id": t.id,
         "at": _aware(t.at).isoformat(),
         "transaction": t.transaction,
+        "amount_sle": t.amount_sle,
         "amount_band": t.amount_band,
         "band_text": BAND_TEXT[t.amount_band],
-        "text": f"{TRANSACTION_LABELS[t.transaction]} · {BAND_TEXT[t.amount_band]}",
+        "customer_last3": t.customer_last3,
+        "commission_sle": _commission(t),
+        "estimated": t.amount_sle is None,
+        "text": f"{TRANSACTION_LABELS[t.transaction]} · {_amount_text(t)}",
         "logged_today": logged_today,
     }
 
@@ -307,7 +348,7 @@ def _transaction_out(t: AgentTransaction, logged_today: int) -> dict:
 @router.post(
     "/transactions",
     status_code=201,
-    summary="Log a transaction I just served — two taps: the side and an amount band, never the amount",  # noqa: E501
+    summary="Record a transaction I just served: the side, the amount, the customer's number for a cash in",  # noqa: E501
 )
 async def log_transaction(
     body: TransactionBody,
@@ -315,18 +356,29 @@ async def log_transaction(
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     now = now_utc()
+    if body.amount_sle is None and body.amount_band is None:
+        raise AppError("Enter the amount.", code="validation", status_code=422)
+    if body.customer_msisdn and _customer_parts(body.customer_msisdn)[0] is None:
+        raise AppError(
+            "Enter the customer's number as Orange has it.", code="validation", status_code=422
+        )
     existing = await db.get(AgentTransaction, body.client_token)
     if existing is not None:
         if existing.agent_ref != p.subject:
             raise AppError("Not available.", code="not_found", status_code=404)
         counts = await today_counts(db, p.subject, now)
         return _transaction_out(existing, counts["logged"])
+    last3, digest = _customer_parts(body.customer_msisdn)
     row = AgentTransaction(
         id=body.client_token,
         agent_ref=p.subject,
         at=now,
         transaction=body.transaction,
-        amount_band=body.amount_band,
+        amount_band=body.amount_band or band_for_amount(body.amount_sle or 0),
+        amount_sle=body.amount_sle,
+        customer_last3=last3,
+        customer_hash=digest,
+        reference=(body.reference or None),
         source="agent",
     )
     db.add(row)
@@ -640,7 +692,7 @@ async def activity(
                 "id": f"tx-{t.id[:12]}",
                 "at": _aware(t.at).isoformat(),
                 "time_text": _aware(t.at).strftime("%H:%M"),
-                "text": f"You logged: {TRANSACTION_LABELS[t.transaction]} · {BAND_TEXT[t.amount_band]}",  # noqa: E501
+                "text": f"You recorded: {TRANSACTION_LABELS[t.transaction]} · {_amount_text(t)}",
                 "source": "agent_finder",
                 "tone": "neutral",
             }
@@ -706,12 +758,12 @@ async def transactions_today(
                 "time_text": t.at.strftime("%H:%M"),
                 "transaction": t.transaction,
                 "label": TRANSACTION_LABELS[t.transaction],
-                "amount_sle": None,
+                "amount_sle": t.amount_sle,
                 "amount_band": t.amount_band,
-                "amount_text": BAND_TEXT[t.amount_band],
+                "amount_text": _amount_text(t),
                 "successful": True,
-                "commission_sle": commission_for_band(t.transaction, t.amount_band),
-                "estimated": True,
+                "commission_sle": _commission(t),
+                "estimated": t.amount_sle is None,
                 "source": "agent",
             }
         )

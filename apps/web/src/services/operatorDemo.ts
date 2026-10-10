@@ -51,6 +51,7 @@ import type {
   WeeklyHours,
   AgentTransactions,
   TransactionRow,
+  LogTransactionBody,
 } from '@/types/operator'
 import { config } from '@/lib/config'
 import { TARIFF_NOTE, commissionFor, commissionForBand } from '@/features/agent/commission'
@@ -94,7 +95,7 @@ interface AgentState {
   lng?: number
   verified?: boolean
   /** Transactions the agent logged themselves (POST /agent/transactions). */
-  txLog?: { id: string; at: number; tx: 'cash_out' | 'deposit'; band: TransactionBand }[]
+  txLog?: { id: string; at: number; tx: 'cash_out' | 'deposit'; band: TransactionBand; amount: number | null; last3: string | null }[]
 }
 
 function minutesAgo(min: number): number {
@@ -881,28 +882,41 @@ const BAND_TEXT: Record<TransactionBand, string> = {
   '>50k': 'over SLE 50,000',
 }
 
-/** Two taps: the side and a band. Idempotent on the token, like the API. */
-export function demoLogTransaction(
-  ref: string,
-  tx: 'cash_out' | 'deposit',
-  band: TransactionBand,
-  token: string,
-): LoggedTransaction {
+/** The band an exact amount falls in, for the ranker's evidence. */
+export function bandForAmount(amount: number): TransactionBand {
+  return amount <= 500 ? '≤500' : amount <= 2_000 ? '≤2k' : amount <= 5_000 ? '≤5k' : amount <= 10_000 ? '≤10k' : amount <= 50_000 ? '≤50k' : '>50k'
+}
+
+/** Record a transaction: the amount as the agent typed it in Orange's flow, or a band. Idempotent on the token, like the API. */
+export function demoLogTransaction(ref: string, body: LogTransactionBody): LoggedTransaction {
   const a = find(ref)
+  const tx = body.transaction
+  const amount = body.amount_sle ?? null
+  const band = amount !== null ? bandForAmount(amount) : body.amount_band
+  if (!band) throw new Error('Enter the amount.')
+  if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) throw new Error('Enter the amount.')
+  const digits = (body.customer_msisdn ?? '').replace(/\D/g, '')
+  if (tx === 'deposit' && body.customer_msisdn !== undefined && digits.length > 0 && digits.length < 8) throw new Error("Enter the customer's number as Orange has it.")
+  const last3 = digits.length >= 8 ? digits.slice(-3) : null
   a.txLog ??= []
-  let entry = a.txLog.find((t) => t.id === token)
+  let entry = a.txLog.find((t) => t.id === body.client_token)
   if (!entry) {
-    entry = { id: token, at: Date.now(), tx, band }
+    entry = { id: body.client_token, at: Date.now(), tx, band, amount, last3 }
     a.txLog.push(entry)
-    record(`You logged: ${tx === 'cash_out' ? 'Cash out' : 'Deposit'} · ${BAND_TEXT[band]}`, 'agent_finder')
+    record(`You recorded: ${tx === 'cash_out' ? 'Cash out' : 'Cash in'} · ${amount !== null ? sle(amount) : BAND_TEXT[band]}`, 'agent_finder')
   }
+  const text = `${entry.tx === 'cash_out' ? 'Cash out' : 'Cash in'} · ${entry.amount !== null ? sle(entry.amount) : BAND_TEXT[entry.band]}`
   return {
     id: entry.id,
     at: new Date(entry.at).toISOString(),
     transaction: entry.tx,
+    amount_sle: entry.amount,
     amount_band: entry.band,
     band_text: BAND_TEXT[entry.band],
-    text: `${entry.tx === 'cash_out' ? 'Cash out' : 'Deposit'} · ${BAND_TEXT[entry.band]}`,
+    customer_last3: entry.last3,
+    commission_sle: entry.amount !== null ? commissionFor(entry.tx, entry.amount) : commissionForBand(entry.tx, entry.band),
+    estimated: entry.amount === null,
+    text,
     logged_today: loggedToday(a),
   }
 }
@@ -1005,12 +1019,12 @@ export function demoAgentTransactions(ref: string): AgentTransactions {
       time_text: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
       transaction: t.tx,
       label: t.tx === 'cash_out' ? 'Cash out' : 'Deposit',
-      amount_sle: null,
+      amount_sle: t.amount,
       amount_band: t.band,
-      amount_text: BAND_TEXT[t.band],
+      amount_text: t.amount !== null ? sle(t.amount) : BAND_TEXT[t.band],
       successful: true,
-      commission_sle: commissionForBand(t.tx, t.band),
-      estimated: true,
+      commission_sle: t.amount !== null ? commissionFor(t.tx, t.amount) : commissionForBand(t.tx, t.band),
+      estimated: t.amount === null,
       source: 'agent',
     })
   }

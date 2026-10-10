@@ -4,8 +4,7 @@ import { useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import { TRANSACTION_BANDS } from '@/types/operator'
-import type { AgentHome, FloatRequest, TransactionBand } from '@/types/operator'
+import type { AgentHome, FloatRequest } from '@/types/operator'
 import { FinderBox, FinderCta, FinderHeader } from '@/features/end-user/components/finder'
 import { EdgeCard, FieldLabel, MoneyField, PILL_OFF, PILL_ON, SectionLabel, TextField } from './components/agentChrome'
 import { formatSle } from './money'
@@ -66,9 +65,12 @@ export default function ServicesPage() {
   const toast = useToast()
   const ids = useId()
 
-  // Transaction: the side, then an amount band. One token per attempt, so a retry after a
-  // timeout cannot log the same transaction twice.
+  // Recording: the side, then what Orange's own flow asks for: the customer's number for a
+  // cash in, and the amount. One token per attempt, so a retry after a timeout cannot record
+  // the same transaction twice.
   const [side, setSide] = useState<'cash_out' | 'deposit' | null>(null)
+  const [txAmount, setTxAmount] = useState('')
+  const [customer, setCustomer] = useState('')
   const [logging, setLogging] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
   const [token, setToken] = useState(newToken)
@@ -86,18 +88,35 @@ export default function ServicesPage() {
   const history = requests.filter((r) => r !== pending)
   const position = home.data?.float_position ?? null
 
-  async function logBand(band: TransactionBand) {
+  async function recordTransaction() {
     if (!side || logging) return
+    const amount = Number(txAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setLogError('Enter the amount.')
+      return
+    }
+    const digits = customer.replace(/\D/g, '')
+    if (side === 'deposit' && digits.length < 8) {
+      setLogError("Enter the customer's number, as Orange has it.")
+      return
+    }
     setLogging(true)
     setLogError(null)
     try {
-      const out = await operatorApi.logTransaction(ref, side, band, token)
+      const out = await operatorApi.logTransaction(ref, {
+        transaction: side,
+        amount_sle: amount,
+        ...(side === 'deposit' ? { customer_msisdn: digits } : {}),
+        client_token: token,
+      })
       setToken(newToken())
       setSide(null)
-      toast.show(`Logged · ${out.text}`)
+      setTxAmount('')
+      setCustomer('')
+      toast.show(`Recorded · ${out.text} · +${formatSle(out.commission_sle)} commission`)
       home.refresh()
     } catch (e) {
-      setLogError(e instanceof Error ? e.message : 'Could not log that.')
+      setLogError(e instanceof Error ? e.message : 'Could not record that.')
     } finally {
       setLogging(false)
     }
@@ -155,13 +174,13 @@ export default function ServicesPage() {
 
       <h1 className="mt-6 text-xl font-bold leading-tight">What did you just do?</h1>
       <p className="mt-1 text-sm font-medium text-finder-muted">
-        Two taps after you serve someone. The amount is never sent, only a band. <span className="font-bold text-white">Logged today: {home.data?.today.logged ?? 0}</span>
+        After you serve someone, the same details Orange asks you for. <span className="font-bold text-white">Logged today: {home.data?.today.logged ?? 0}</span>
       </p>
       <div role="radiogroup" aria-label="What did you just do?" className="mt-5 flex gap-10">
         {(
           [
+            ['deposit', 'Cash in'],
             ['cash_out', 'Cash out'],
-            ['deposit', 'Deposit'],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -177,22 +196,20 @@ export default function ServicesPage() {
         ))}
       </div>
       {side && (
-        <>
-          <p className="mt-4 text-[15px] font-medium">How much, roughly? (SLE)</p>
-          <div role="group" aria-label="How much, roughly? (SLE)" className="-mx-5 mt-3 flex gap-2 overflow-x-auto px-5 pb-1">
-            {TRANSACTION_BANDS.map((b) => (
-              <button
-                key={b.band}
-                type="button"
-                onClick={() => void logBand(b.band)}
-                disabled={logging}
-                className="h-chip shrink-0 whitespace-nowrap rounded-pill border-2 border-white/60 px-4 text-base font-bold text-white disabled:opacity-45"
-              >
-                {b.label}
-              </button>
-            ))}
-          </div>
-        </>
+        <div className="mt-4 flex flex-col gap-3">
+          {side === 'deposit' && (
+            <>
+              <FieldLabel htmlFor={`${ids}-customer`}>Customer's number</FieldLabel>
+              <TextField id={`${ids}-customer`} value={customer} onChange={(e) => setCustomer(e.target.value.replace(/[^\d ]/g, '').slice(0, 15))} inputMode="tel" placeholder="e.g. 076 000 000" />
+              <p className="-mt-1 text-sm font-medium text-finder-muted">The Orange Money number the cash goes to, as you typed it for Orange. Only its last three digits are kept.</p>
+            </>
+          )}
+          <FieldLabel htmlFor={`${ids}-tx-amount`}>Amount (SLE)</FieldLabel>
+          <MoneyField id={`${ids}-tx-amount`} value={txAmount} onChange={(e) => setTxAmount(e.target.value.replace(/\D/g, '').slice(0, 7))} />
+          <FinderCta className="mt-1" onClick={() => void recordTransaction()} disabled={logging}>
+            {logging ? 'Recording…' : side === 'deposit' ? 'Record cash in' : 'Record cash out'}
+          </FinderCta>
+        </div>
       )}
       {logError && (
         <p role="alert" className="mt-2 text-sm font-semibold text-danger">

@@ -31,10 +31,10 @@ import type {
   DeclareBody,
   FloatForecast,
   LoggedTransaction,
+  LogTransactionBody,
   RecordKind,
   RegisterAgentBody,
   RegisteredAgent,
-  TransactionBand,
   Schedule,
   TodayChange,
   UsualNote,
@@ -111,20 +111,13 @@ export const operatorApi = {
     }
   },
 
-  /** Two taps after serving a customer: the side and an amount band. Idempotent on the token. */
-  logTransaction(
-    ref: string,
-    transaction: 'cash_out' | 'deposit',
-    amount_band: TransactionBand,
-    client_token: string,
-  ): Promise<LoggedTransaction> {
-    if (config.useLiveApi) {
-      return api.post<LoggedTransaction>('/api/v1/agent/transactions', { transaction, amount_band, client_token })
-    }
+  /** Record a transaction just served: the side, the amount, the customer's number for a cash in. Idempotent on the token. */
+  logTransaction(ref: string, body: LogTransactionBody): Promise<LoggedTransaction> {
+    if (config.useLiveApi) return api.post<LoggedTransaction>('/api/v1/agent/transactions', body)
     try {
-      return delay(demo.demoLogTransaction(ref, transaction, amount_band, client_token))
+      return delay(demo.demoLogTransaction(ref, body))
     } catch (e) {
-      return Promise.reject(e instanceof Error ? e : new Error('Could not log that.'))
+      return Promise.reject(e instanceof Error ? e : new Error('Could not record that.'))
     }
   },
 

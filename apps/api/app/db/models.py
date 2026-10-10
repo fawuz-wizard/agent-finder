@@ -149,6 +149,13 @@ class AgentTransaction(Base):
     transaction: Mapped[str] = mapped_column(String(12), nullable=False)  # cash_out|deposit
     amount_band: Mapped[str] = mapped_column(String(12), nullable=False)
     source: Mapped[str] = mapped_column(String(10), nullable=False, default="agent")
+    # The exact amount, as the agent types it in Orange's own flow; the band is derived.
+    amount_sle: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The customer's number for a cash in: never stored whole. The last three digits for the
+    # agent's eye, a salted hash for reconciliation with Orange's records.
+    customer_last3: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    customer_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reference: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class FloatRequest(Base):
