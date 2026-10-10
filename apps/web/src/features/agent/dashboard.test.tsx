@@ -54,10 +54,10 @@ describe('agent activity', () => {
     expect(screen.getByText('≈ SLE 6')).toBeInTheDocument()
     expect(screen.getByText(/Logged by you · estimate/)).toBeInTheDocument()
     expect(await screen.findByText('+SLE 25')).toBeInTheDocument()
-    expect(screen.queryByText('Could not complete')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Could not complete/)).not.toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: /show all 6/i }))
     // Seeded operator rows: the failed one earns nothing.
-    expect(screen.getByText('Could not complete')).toBeInTheDocument()
+    expect(screen.getByText(/Could not complete/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /show fewer/i })).toBeInTheDocument()
   })
 })

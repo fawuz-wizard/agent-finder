@@ -81,11 +81,9 @@ export default function ActivityPage() {
           <FinderBox key={r.id} className="flex min-h-[60px] items-center gap-4 px-5 py-3">
             <span className="w-12 shrink-0 text-sm font-bold text-finder-muted">{r.time_text}</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-base font-bold">
-                {r.label} <span className="font-semibold text-finder-muted">· {r.amount_text}</span>
-              </span>
+              <span className="block text-base font-bold">{r.label}</span>
               <span className={`block text-xs font-semibold ${r.successful ? 'text-finder-muted' : 'text-danger'}`}>
-                {r.successful ? (r.estimated ? 'Logged by you · estimate' : 'Successful') : 'Could not complete'}
+                {r.amount_text} · {r.successful ? (r.estimated ? 'Logged by you · estimate' : 'Successful') : 'Could not complete'}
               </span>
             </span>
             <span className={`shrink-0 text-right text-base font-bold ${r.successful ? 'text-finder-likely' : 'text-finder-muted'}`}>
