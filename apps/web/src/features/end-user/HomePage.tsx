@@ -85,7 +85,7 @@ export default function HomePage() {
 
   function retryLocation() {
     setPending(true)
-    location.request()
+    location.turnOn()
   }
 
   return (

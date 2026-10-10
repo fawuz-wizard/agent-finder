@@ -40,3 +40,36 @@ describe('useCoarseLocation', () => {
     expect(result.current.problem?.reason).toBe('off')
   })
 })
+
+describe('useCoarseLocation in the Android shell', () => {
+  it('raises the system dialog when location is switched off, then reads the position', async () => {
+    const { nativeLocation } = await import('@/lib/nativeLocation')
+    let on = false
+    const turnOn = vi.spyOn(nativeLocation, 'turnOn').mockImplementation(async () => {
+      on = true
+      return { enabled: true, permission: 'granted', accepted: true }
+    })
+    vi.spyOn(nativeLocation, 'available').mockReturnValue(true)
+    const p = phone((ok, fail) => (on ? ok({ coords: { latitude: 8.4701, longitude: -13.2609 } }) : fail({ code: 2 })))
+    const { result } = renderHook(() => useCoarseLocation(true))
+    await waitFor(() => expect(result.current.state).toBe('ready'))
+    expect(turnOn).toHaveBeenCalledTimes(1)
+    expect(p.getCurrentPosition).toHaveBeenCalledTimes(2)
+    vi.restoreAllMocks()
+  })
+
+  it('offers the dialog only once by itself; Turn on location shows it again', async () => {
+    const { nativeLocation } = await import('@/lib/nativeLocation')
+    const turnOn = vi.spyOn(nativeLocation, 'turnOn').mockResolvedValue({ enabled: false, permission: 'granted' })
+    vi.spyOn(nativeLocation, 'available').mockReturnValue(true)
+    const p = phone((_ok, fail) => fail({ code: 2 }))
+    const { result } = renderHook(() => useCoarseLocation(true))
+    await waitFor(() => expect(result.current.state).toBe('unavailable'))
+    await waitFor(() => expect(turnOn).toHaveBeenCalledTimes(1))
+    expect(p.getCurrentPosition).toHaveBeenCalledTimes(1)
+    await act(async () => result.current.turnOn())
+    await waitFor(() => expect(turnOn).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(p.getCurrentPosition).toHaveBeenCalledTimes(2))
+    vi.restoreAllMocks()
+  })
+})

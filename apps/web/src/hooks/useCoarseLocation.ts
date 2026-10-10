@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { explainLocation, type LocationProblem } from '@/lib/location'
+import { nativeLocation } from '@/lib/nativeLocation'
 
 /**
  * The customer never types where they are. The browser reports it, and we immediately
@@ -8,7 +9,9 @@ import { explainLocation, type LocationProblem } from '@/lib/location'
  * server. Everything degrades: if permission is denied, unavailable or slow, the caller
  * falls back to a named area and the search still works — after telling the customer how
  * to turn location on. When the phone's permission flips to allowed, the hook asks again
- * by itself, so the prompt resolves without another tap.
+ * by itself, so the prompt resolves without another tap. In the Android shell, a phone with
+ * location switched off gets the system "Turn on location?" dialog the first time, and
+ * again whenever the customer taps Turn on location.
  */
 export type LocationState = 'idle' | 'locating' | 'ready' | 'denied' | 'unavailable'
 
@@ -29,6 +32,7 @@ export function useCoarseLocation(auto = true) {
   const [point, setPoint] = useState<CoarsePoint | null>(null)
   const [problem, setProblem] = useState<LocationProblem | null>(null)
   const asked = useRef(false)
+  const offered = useRef(false)
 
   const request = useCallback(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -44,8 +48,14 @@ export function useCoarseLocation(auto = true) {
         setState('ready')
       },
       (err) => {
-        setProblem(explainLocation(err))
+        const problem = explainLocation(err)
+        setProblem(problem)
         setState(err.code === 1 ? 'denied' : 'unavailable')
+        // Location switched off on the phone itself: raise the system dialog once, unasked.
+        if (problem.reason === 'off' && nativeLocation.available() && !offered.current) {
+          offered.current = true
+          void nativeLocation.turnOn().then((s) => s.enabled && request())
+        }
       },
       // Low accuracy on purpose: cheaper, faster, and enough for "which agents are near me".
       { enableHighAccuracy: false, timeout: TIMEOUT_MS, maximumAge: 5 * 60_000 },
@@ -83,5 +93,12 @@ export function useCoarseLocation(auto = true) {
     }
   }, [request])
 
-  return { state, point, problem, request }
+  /** Turn on location: the system dialog where there is one, then ask the phone again. */
+  const turnOn = useCallback(() => {
+    offered.current = true
+    setState('locating')
+    void nativeLocation.turnOn().then(() => request())
+  }, [request])
+
+  return { state, point, problem, request, turnOn }
 }
