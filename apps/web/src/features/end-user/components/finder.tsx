@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/design'
 
@@ -96,5 +96,30 @@ export function ChevronIcon({ size = 20 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true" className="shrink-0">
       <path d="M7.5 4.5L13 10l-5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  )
+}
+
+/** Bottom sheet on the dark surface: one question, two buttons. Escape or the scrim closes. */
+export function FinderSheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-40">
+      <button type="button" aria-label="Close" className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-[480px] flex-col gap-4 rounded-t-panel bg-finder-bg px-5 pb-8 pt-6 text-white shadow-inset-finder"
+      >
+        <h2 className="text-md font-bold">{title}</h2>
+        {children}
+      </div>
+    </div>
   )
 }

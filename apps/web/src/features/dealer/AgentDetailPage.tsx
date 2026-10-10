@@ -8,6 +8,7 @@ import { PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
 import type { DealerAction, DealerAgentDetail } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
 import { MaskedValue } from './components/MaskedValue'
+import { locationErrorText } from '@/lib/location'
 
 
 /**
@@ -230,8 +231,8 @@ function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved
         setLng(pos.coords.longitude.toFixed(5))
         setLocating(false)
       },
-      () => {
-        setError('Could not read the location. Allow location access, or type the coordinates.')
+      (err) => {
+        setError(locationErrorText(err, 'Could not read the location. Type the coordinates instead.'))
         setLocating(false)
       },
       { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },

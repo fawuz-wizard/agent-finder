@@ -97,3 +97,60 @@ describe('U1 — Home', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('amount=2000')
   })
 })
+
+describe('U1 — Home asks for the live location first', () => {
+  function phone(answer: (ok: (p: unknown) => void, fail: (e: { code: number }) => void) => void) {
+    const getCurrentPosition = vi.fn(answer)
+    vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition } })
+    return getCurrentPosition
+  }
+
+  it('tells the customer how to turn location on when the phone refuses', async () => {
+    phone((_ok, fail) => fail({ code: 2 }))
+    renderHome()
+    expect(await screen.findByText('Location is switched off on this phone.')).toBeInTheDocument()
+    expect(screen.getByText(/turn on Location, then try again. Until then we search around Lumley/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Turn on location' })).toBeInTheDocument()
+  })
+
+  it('stops Find agent with the prompt, and searches around the area only when the customer says so', async () => {
+    const user = userEvent.setup()
+    phone((_ok, fail) => fail({ code: 1 }))
+    renderHome()
+    await screen.findByText('Location is blocked for this app.')
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Turn on your location' })
+    expect(screen.queryByTestId('loc')).not.toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Search around Lumley instead' }))
+    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Lumley')
+    expect(screen.getByTestId('loc')).not.toHaveTextContent('lat=')
+  })
+
+  it('searches around the phone as soon as the customer turns location on', async () => {
+    const user = userEvent.setup()
+    let on = false
+    phone((ok, fail) => (on ? ok({ coords: { latitude: 8.4701, longitude: -13.2609 } }) : fail({ code: 2 })))
+    renderHome()
+    await screen.findByText('Location is switched off on this phone.')
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Turn on your location' })
+    on = true
+    await user.click(within(sheet).getByRole('button', { name: 'Turn on location' }))
+    expect(await screen.findByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Lumley&lat=8.47&lng=-13.261')
+  })
+
+  it('waits for a slow fix rather than searching around the area', async () => {
+    const user = userEvent.setup()
+    let answer: ((p: unknown) => void) | null = null
+    phone((ok) => {
+      answer = ok
+    })
+    renderHome()
+    await screen.findByText('Finding your location…')
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    expect(screen.queryByTestId('loc')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Finding your location…' })).toBeDisabled()
+    answer!({ coords: { latitude: 8.4701, longitude: -13.2609 } })
+    expect(await screen.findByTestId('loc')).toHaveTextContent('lat=8.47&lng=-13.261')
+  })
+})

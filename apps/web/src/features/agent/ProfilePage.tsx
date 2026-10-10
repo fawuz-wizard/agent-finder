@@ -5,6 +5,7 @@ import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { AgentProfile } from '@/types/operator'
+import { locationErrorText } from '@/lib/location'
 
 function Row({ k, v, action }: { k: string; v: string; action?: React.ReactNode }) {
   return (
@@ -50,8 +51,8 @@ export default function ProfilePage() {
           setLocating(false)
         }
       },
-      () => {
-        setLocError('Could not read the location. Allow location access and try again, at the shop.')
+      (err) => {
+        setLocError(locationErrorText(err, 'Could not read the location. Try again, at the shop.'))
         setLocating(false)
       },
       { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },

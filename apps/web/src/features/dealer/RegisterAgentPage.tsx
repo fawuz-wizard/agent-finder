@@ -5,6 +5,7 @@ import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS } from '@/types/operator'
 import type { RegisterAgentBody } from '@/types/operator'
+import { locationErrorText } from '@/lib/location'
 
 const AREAS = ['Lumley', 'Aberdeen', 'Wilberforce', 'Congo Cross', 'Hill Station', 'Freetown']
 
@@ -63,8 +64,8 @@ export default function RegisterAgentPage() {
         set('lng', pos.coords.longitude.toFixed(5))
         setLocating(false)
       },
-      () => {
-        setError('Could not read the location. Allow location access, or type the coordinates.')
+      (err) => {
+        setError(locationErrorText(err, 'Could not read the location. Type the coordinates instead.'))
         setLocating(false)
       },
       { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
