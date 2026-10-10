@@ -9,7 +9,7 @@ import { useSession } from './session'
 /* Two roles, two pictures. Outline icons from the app's family: 2px stroke, round joins. */
 function ShopIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 9l1.5-5h15L21 9" />
       <path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
       <path d="M5 11v9h14v-9" />
@@ -19,7 +19,7 @@ function ShopIcon() {
 }
 function PeopleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="9" cy="8" r="3.5" />
       <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
       <circle cx="17" cy="9" r="2.5" />
@@ -83,7 +83,7 @@ export default function SignInPage() {
     <div className="flex flex-1 flex-col text-white">
       <div className="flex h-12 items-center justify-between gap-3 px-5">
         <span className="flex items-center gap-2 text-base font-bold">
-          <LogoMark size={22} className="text-white" />
+          <LogoMark size={20} className="text-white" />
           Agent App
         </span>
         {config.surface === 'customer' && (
@@ -140,7 +140,7 @@ export default function SignInPage() {
         <label htmlFor="sign-in-ref" className="mt-3 text-[15px] font-medium">
           {isAgent ? 'Agent code' : 'Orange Money number'}
         </label>
-        <FinderBox className="mt-2 flex h-[60px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+        <FinderBox className="mt-2 flex h-[54px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
           <input
             id="sign-in-ref"
             value={ref}
@@ -163,7 +163,7 @@ export default function SignInPage() {
             {showPin ? 'Hide PIN' : 'Show PIN'}
           </button>
         </div>
-        <FinderBox className="mt-2 flex h-[60px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+        <FinderBox className="mt-2 flex h-[54px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
           <input
             id="sign-in-pin"
             value={pin}

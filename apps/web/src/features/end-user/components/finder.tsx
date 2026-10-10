@@ -52,7 +52,7 @@ export function FinderCta({ className, ...rest }: React.ButtonHTMLAttributes<HTM
     <button
       type="button"
       className={cn(
-        'flex h-[60px] w-full items-center justify-center rounded-action bg-finder-cta text-md font-bold text-finder-on-orange',
+        'flex h-[54px] w-full items-center justify-center rounded-action bg-finder-cta text-md font-bold text-finder-on-orange',
         'transition-[filter] hover:brightness-95 active:brightness-90 disabled:opacity-45',
         className,
       )}
@@ -66,7 +66,7 @@ export function FinderBox({ className, ...rest }: React.HTMLAttributes<HTMLDivEl
   return <div className={cn('rounded-field bg-finder-bg shadow-inset-finder', className)} {...rest} />
 }
 
-export function PinIcon({ size = 24 }: { size?: number }) {
+export function PinIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
       <path d="M12 22s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z" fill="currentColor" />

@@ -16,7 +16,7 @@ export function AgentStrip() {
   return (
     <div className="flex h-12 items-center justify-between gap-3 px-5 text-white">
       <span className="flex items-center gap-2 text-base font-bold">
-        <LogoMark size={22} className="text-white" />
+        <LogoMark size={20} className="text-white" />
         Agent App
       </span>
       <span className="min-w-0 truncate text-sm font-semibold text-finder-muted">{session?.name}</span>
@@ -54,7 +54,7 @@ export function SectionLabel({ id, children, className = '' }: { id?: string | u
 /** A 60 px row with the inset glow: a label on the left, a value or an action on the right. */
 export function Row({ label, value, action, className = '' }: { label: ReactNode; value?: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <FinderBox className={`flex min-h-[60px] items-center justify-between gap-3 px-5 py-2 ${className}`}>
+    <FinderBox className={`flex min-h-[54px] items-center justify-between gap-3 px-5 py-2 ${className}`}>
       <span className="min-w-0 text-base font-bold text-white">{label}</span>
       {action ?? <span className="min-w-0 text-right text-base font-bold text-finder-muted">{value}</span>}
     </FinderBox>
@@ -82,7 +82,7 @@ export function Panel({ className = '', children, ...rest }: React.HTMLAttribute
 /** The finder's amount field: 60 px, "SLE" in front, the figure at 36 px. */
 export function MoneyField({ id, className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <FinderBox className={`flex h-[60px] items-center gap-4 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
+    <FinderBox className={`flex h-[54px] items-center gap-4 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
       <span className="text-md font-bold text-finder-muted">SLE</span>
       <input
         id={id}
@@ -99,7 +99,7 @@ export function MoneyField({ id, className = '', ...rest }: InputHTMLAttributes<
 /** A 60 px text field in the same frame. */
 export function TextField({ id, className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <FinderBox className={`flex h-[60px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
+    <FinderBox className={`flex h-[54px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
       <input id={id} autoComplete="off" className="h-full w-full min-w-0 bg-transparent text-base font-medium text-white outline-none placeholder:text-finder-muted/60" {...rest} />
     </FinderBox>
   )
@@ -124,7 +124,7 @@ const fillWhenActive = (active: boolean) => (active ? 'currentColor' : 'none')
 
 function DashboardIcon({ active }: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
       <rect x="3" y="3" width="8" height="8" rx="2" fill={fillWhenActive(active)} fillOpacity="0.25" />
       <rect x="13" y="3" width="8" height="5" rx="2" fill={fillWhenActive(active)} fillOpacity="0.25" />
       <rect x="13" y="10" width="8" height="11" rx="2" fill={fillWhenActive(active)} fillOpacity="0.25" />
@@ -134,7 +134,7 @@ function DashboardIcon({ active }: IconProps) {
 }
 function ServicesIcon({ active }: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="2" y="6" width="20" height="13" rx="3" fill={fillWhenActive(active)} fillOpacity="0.25" />
       <path d="M2 10h20M6 15h4" />
     </svg>
@@ -142,7 +142,7 @@ function ServicesIcon({ active }: IconProps) {
 }
 function ActivityIcon({ active }: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="3" y="12" width="4" height="8" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
       <rect x="10" y="6" width="4" height="14" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
       <rect x="17" y="9" width="4" height="11" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
@@ -151,7 +151,7 @@ function ActivityIcon({ active }: IconProps) {
 }
 function ProfileIcon({ active }: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="8" r="4" fill={fillWhenActive(active)} fillOpacity="0.25" />
       <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
     </svg>

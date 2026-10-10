@@ -189,7 +189,7 @@ export default function ServicesPage() {
             role="radio"
             aria-checked={side === value}
             onClick={() => setSide(value)}
-            className={`h-[50px] w-[117px] rounded-pill text-base font-bold transition-colors ${side === value ? PILL_ON : PILL_OFF}`}
+            className={`h-[46px] w-[108px] rounded-pill text-base font-bold transition-colors ${side === value ? PILL_ON : PILL_OFF}`}
           >
             {label}
           </button>
@@ -218,7 +218,7 @@ export default function ServicesPage() {
       )}
 
       <SectionLabel className="mt-8">Float</SectionLabel>
-      <FinderBox className="mt-3 flex min-h-[60px] items-center justify-between gap-3 px-5 py-2">
+      <FinderBox className="mt-3 flex min-h-[54px] items-center justify-between gap-3 px-5 py-2">
         <span className="text-base font-bold">Your position</span>
         {position ? (
           <span className="text-right">
@@ -274,7 +274,7 @@ export default function ServicesPage() {
       <div className="mt-3 flex flex-col gap-2">
         {history.length === 0 && <p className="text-sm font-medium text-finder-muted">Nothing yet.</p>}
         {history.map((r) => (
-          <FinderBox key={r.id} className="flex min-h-[60px] flex-col justify-center gap-1 px-5 py-3">
+          <FinderBox key={r.id} className="flex min-h-[54px] flex-col justify-center gap-1 px-5 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-base font-bold">
                 {formatSle(r.amount_sle)} <span className="font-semibold text-finder-muted">· {new Date(r.requested_at).toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>

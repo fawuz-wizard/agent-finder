@@ -173,7 +173,7 @@ export default function ProfilePage() {
         ? 'Pinned by your aggregator.'
         : 'Placed for a demonstration, not yet checked.'
     : 'Not on the map yet. Customers cannot find you until it is.'
-  const pinField = 'h-[60px] w-full rounded-field bg-finder-bg px-4 text-md font-bold tracking-[0.4em] text-white shadow-inset-finder outline-none placeholder:text-finder-muted/50 placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
+  const pinField = 'h-[54px] w-full rounded-field bg-finder-bg px-4 text-md font-bold tracking-[0.4em] text-white shadow-inset-finder outline-none placeholder:text-finder-muted/50 placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-white">
@@ -253,7 +253,7 @@ export default function ProfilePage() {
           <Row key={d.id} label={d.label} value={d.last_seen_text} />
         ))}
         {data.devices.length > 1 && (
-          <button type="button" onClick={() => void signOutOthers()} disabled={othersBusy} className={`h-[50px] rounded-pill text-base font-bold ${PILL_OFF}`}>
+          <button type="button" onClick={() => void signOutOthers()} disabled={othersBusy} className={`h-[46px] rounded-pill text-base font-bold ${PILL_OFF}`}>
             {othersBusy ? '…' : 'Sign out the other phones'}
           </button>
         )}
@@ -272,7 +272,7 @@ export default function ProfilePage() {
             signOut()
             navigate('/sign-in', { replace: true })
           }}
-          className="flex h-[60px] w-full items-center justify-center rounded-field text-md font-bold text-finder-link"
+          className="flex h-[54px] w-full items-center justify-center rounded-field text-md font-bold text-finder-link"
         >
           Sign out
         </button>

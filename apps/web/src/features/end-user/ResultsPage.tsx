@@ -115,7 +115,7 @@ export default function ResultsPage() {
           <>
             {lists.recommended.length > 0 && (
               <>
-                <div role="tablist" aria-label="How to order the agents" className="flex h-[44px] rounded-field bg-finder-line">
+                <div role="tablist" aria-label="How to order the agents" className="flex h-[40px] rounded-field bg-finder-line">
                   {(['recommended', 'nearest'] as const).map((v) => (
                     <button
                       key={v}
