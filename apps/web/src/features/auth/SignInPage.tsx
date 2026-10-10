@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Button, Card, LogoMark } from '@/design'
+import { LogoMark } from '@/design'
 import { config } from '@/lib/config'
 import type { Role } from '@/types/operator'
+import { FinderBox, FinderCta } from '@/features/end-user/components/finder'
 import { useSession } from './session'
 
 /* Two roles, two pictures. Outline icons from the app's family: 2px stroke, round joins. */
@@ -33,13 +34,6 @@ function CheckIcon() {
     </svg>
   )
 }
-function ArrowIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  )
-}
 
 const ROLES: { value: Role; label: string; hint: string; Icon: () => JSX.Element }[] = [
   { value: 'agent', label: 'Agent', hint: 'At a shop', Icon: ShopIcon },
@@ -47,10 +41,10 @@ const ROLES: { value: Role; label: string; hint: string; Icon: () => JSX.Element
 ]
 
 /**
- * Sign in, in two steps on one screen: who you are, then your details. The role only decides
- * which experience opens; the backend resolves the real account from the credentials. An
- * agent signs in with the agent code on Orange's record (or the number the app gave them, or
- * their Orange Money line); an aggregator with their Orange Money line.
+ * Sign in, on the finder's design: who you are as two picture tiles, then your details in
+ * the 60 px fields, one orange button. The role only decides which experience opens; the
+ * backend resolves the real account from the credentials. An agent signs in with the agent
+ * code on Orange's record (or their Orange Money line); an aggregator with their line.
  */
 export default function SignInPage() {
   const { signIn } = useSession()
@@ -83,148 +77,130 @@ export default function SignInPage() {
     }
   }
 
-  const field =
-    'h-cta w-full rounded-cta border-2 border-line bg-paper px-4 text-lg font-semibold text-ink outline-none placeholder:font-normal placeholder:text-muted focus:border-ink'
+  const input = 'h-full w-full min-w-0 bg-transparent text-md font-bold text-white outline-none placeholder:font-medium placeholder:text-finder-muted/60'
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="flex h-11 items-center justify-between border-b-2 border-ink bg-paper px-4">
-        <span className="flex items-center gap-2 text-sm font-bold tracking-tight">
-          <LogoMark size={22} className="text-ink" />
+    <div className="flex flex-1 flex-col text-white">
+      <div className="flex h-12 items-center justify-between gap-3 px-5">
+        <span className="flex items-center gap-2 text-base font-bold">
+          <LogoMark size={22} className="text-white" />
           Agent App
         </span>
         {config.surface === 'customer' && (
-          <Link to="/" className="text-sm font-semibold text-muted">
+          <Link to="/" className="text-sm font-bold text-finder-muted">
             Back
           </Link>
         )}
-      </header>
+      </div>
 
       <form
-        className="flex flex-1 flex-col gap-6 p-4 pb-8"
+        className="flex flex-1 flex-col px-5 pb-8"
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
         }}
       >
-        {/* Hierarchy: one headline, one sentence. */}
-        <div className="pt-4">
-          <h1 className="text-[28px] font-bold leading-none tracking-tight">Sign in</h1>
-          <p className="mt-2 text-base text-muted">Orange Money agents and the aggregators who manage them.</p>
+        <h1 className="mt-6 text-xl font-bold leading-tight">Sign in</h1>
+        <p className="mt-1 text-sm font-medium text-finder-muted">Orange Money agents and the aggregators who manage them.</p>
+
+        <p className="mt-6 text-base font-bold uppercase text-finder-muted">Who you are</p>
+        <div role="radiogroup" aria-label="Who you are" className="mt-3 grid grid-cols-2 gap-3">
+          {ROLES.map(({ value, label, hint, Icon }) => {
+            const on = role === value
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => {
+                  setRole(value)
+                  setError(null)
+                }}
+                className={`relative flex flex-col items-start gap-3 rounded-panel px-4 py-4 text-left transition-colors ${
+                  on ? 'bg-finder-link text-finder-on-orange' : 'bg-finder-bg text-white shadow-inset-finder'
+                }`}
+              >
+                {on && (
+                  <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-finder-bg text-white" aria-hidden="true">
+                    <CheckIcon />
+                  </span>
+                )}
+                <Icon />
+                <span className="block">
+                  <span className="block text-base font-bold leading-tight">{label}</span>
+                  <span className={`block text-xs font-semibold leading-snug ${on ? 'text-finder-on-orange/80' : 'text-finder-muted'}`}>{hint}</span>
+                </span>
+              </button>
+            )
+          })}
         </div>
 
-        {/* Step 1 — who you are. Proximity: the two choices sit together as one group. */}
-        <fieldset>
-          <legend className="mb-2 flex items-center gap-2 text-sm font-bold">
-            <span className="flex h-6 w-6 items-center justify-center bg-ink text-xs font-bold text-paper">1</span>
-            Who you are
-          </legend>
-          <div role="radiogroup" aria-label="Who you are" className="grid grid-cols-2 gap-2">
-            {ROLES.map(({ value, label, hint, Icon }) => {
-              const on = role === value
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => {
-                    setRole(value)
-                    setError(null)
-                  }}
-                  className={`relative flex flex-col items-start gap-2 border-2 px-3 py-3 text-left transition-colors ${
-                    on ? 'border-ink bg-paper text-ink' : 'border-line bg-paper text-muted'
-                  }`}
-                >
-                  {on && (
-                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center bg-brand text-ink" aria-hidden="true">
-                      <CheckIcon />
-                    </span>
-                  )}
-                  <span className={on ? 'text-brand-text' : ''}>
-                    <Icon />
-                  </span>
-                  <span className="block">
-                    <span className="block text-base font-bold leading-tight">{label}</span>
-                    <span className="block text-xs leading-snug">{hint}</span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </fieldset>
+        <p className="mt-6 text-base font-bold uppercase text-finder-muted">Your details</p>
+        <label htmlFor="sign-in-ref" className="mt-3 text-[15px] font-medium">
+          {isAgent ? 'Agent code' : 'Orange Money number'}
+        </label>
+        <FinderBox className="mt-2 flex h-[60px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+          <input
+            id="sign-in-ref"
+            value={ref}
+            onChange={(e) => setRef(e.target.value)}
+            autoComplete="username"
+            inputMode={isAgent ? 'text' : 'tel'}
+            placeholder={isAgent ? 'e.g. 100245' : 'e.g. 076 000 000'}
+            className={input}
+          />
+        </FinderBox>
+        <p className="mt-2 text-sm font-medium text-finder-muted">
+          {isAgent ? 'On your Orange record. Your Orange Money number works too.' : 'The line Orange has for your aggregator account.'}
+        </p>
 
-        {/* Step 2 — your details. One card, label above each field, helper under it. */}
-        <Card className="gap-4">
-          <p className="flex items-center gap-2 text-sm font-bold">
-            <span className="flex h-6 w-6 items-center justify-center bg-ink text-xs font-bold text-paper">2</span>
-            Your details
+        <div className="mt-4 flex items-center justify-between">
+          <label htmlFor="sign-in-pin" className="text-[15px] font-medium">
+            PIN
+          </label>
+          <button type="button" onClick={() => setShowPin((v) => !v)} className="text-sm font-bold text-finder-link" aria-pressed={showPin}>
+            {showPin ? 'Hide PIN' : 'Show PIN'}
+          </button>
+        </div>
+        <FinderBox className="mt-2 flex h-[60px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+          <input
+            id="sign-in-pin"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            inputMode="numeric"
+            type={showPin ? 'text' : 'password'}
+            autoComplete="current-password"
+            placeholder="4 to 6 digits"
+            className={`${input} ${showPin || !pin ? '' : 'tracking-[0.4em]'}`}
+          />
+        </FinderBox>
+        {error && (
+          <p role="alert" className="mt-3 border-l-4 border-danger pl-3 text-sm font-semibold text-danger">
+            {error}
           </p>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="sign-in-ref" className="text-sm font-bold">
-              {isAgent ? 'Agent code' : 'Orange Money number'}
-            </label>
-            <input
-              id="sign-in-ref"
-              value={ref}
-              onChange={(e) => setRef(e.target.value)}
-              autoComplete="username"
-              inputMode={isAgent ? 'text' : 'tel'}
-              placeholder={isAgent ? 'e.g. 100245' : 'e.g. 076 000 000'}
-              className={field}
-            />
-            <span className="text-xs text-muted">
-              {isAgent ? 'On your Orange record. Your Orange Money number works too.' : 'The line Orange has for your aggregator account.'}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="sign-in-pin" className="text-sm font-bold">
-                PIN
-              </label>
-              <button type="button" onClick={() => setShowPin((v) => !v)} className="text-xs font-semibold text-muted underline" aria-pressed={showPin}>
-                {showPin ? 'Hide PIN' : 'Show PIN'}
-              </button>
-            </div>
-            <input
-              id="sign-in-pin"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              inputMode="numeric"
-              type={showPin ? 'text' : 'password'}
-              autoComplete="current-password"
-              placeholder="4 to 6 digits"
-              className={`${field} ${showPin || !pin ? '' : 'tracking-[0.4em]'}`}
-            />
-          </div>
-          {error && (
-            <p role="alert" className="border-l-4 border-danger bg-danger-tint px-3 py-2 text-sm font-semibold text-danger">
-              {error}
-            </p>
-          )}
-        </Card>
+        )}
 
-        {/* Contrast: one orange action; everything else is ink or muted. */}
-        <Button size="cta" type="submit" disabled={busy || !ready} trailing={busy ? undefined : <ArrowIcon />}>
+        <FinderCta type="submit" className="mt-6" disabled={busy || !ready}>
           {busy ? 'Signing in…' : 'Sign in'}
-        </Button>
+        </FinderCta>
 
-        <p className="text-center text-sm text-muted">
+        <p className="mt-4 text-center text-sm font-medium text-finder-muted">
           {isAgent ? 'No PIN yet? Your aggregator sets it when you are registered.' : 'No PIN yet? Ask the Agent Finder team.'}
         </p>
 
         {config.isDemo && (
-          <Card className="bg-canvas">
-            <p className="text-sm text-muted">
-              Demo sign-in. PIN <b>1234</b>. Agent codes: 024, 031, 009, 017, 038. Aggregator: kissy.
+          <FinderBox className="mt-6 px-4 py-3">
+            <p className="text-sm font-medium text-finder-muted">
+              Demo sign-in. PIN <b className="text-white">1234</b>. Agent codes: 024, 031, 009, 017, 038. Aggregator: kissy.
             </p>
-          </Card>
+          </FinderBox>
         )}
 
         {config.surface === 'customer' && (
-          <p className="mt-auto text-center text-sm text-muted">
+          <p className="mt-auto pt-6 text-center text-sm font-medium text-finder-muted">
             Looking for an agent?{' '}
-            <Link to="/find" className="font-semibold text-ink underline">
+            <Link to="/find" className="font-bold text-finder-link">
               Open Agent Finder
             </Link>
           </p>

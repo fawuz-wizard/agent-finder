@@ -50,12 +50,14 @@ function RoleStrip({ role }: { role: 'Agent' | 'Aggregator' }) {
   )
 }
 
-const shell = 'mx-auto flex min-h-dvh w-full max-w-[480px] flex-col overflow-x-hidden bg-canvas md:min-h-0 md:my-8 md:border-2 md:border-line'
+// No overflow rule here: a shell that clips becomes the box a sticky tab bar sticks to,
+// instead of the screen. Horizontal overflow is clipped on <html> in tokens.css.
+const shell = 'mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-canvas md:min-h-0 md:my-8 md:border-2 md:border-line'
 
 /** Agent shell: the customer module's dark surface and three tabs that never leave the screen. */
 export function AgentLayout() {
   return (
-    <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col overflow-x-hidden bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
+    <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
       <DemoRibbon />
       <AgentStrip />
       <Outlet />
@@ -76,11 +78,11 @@ export function DealerLayout() {
   )
 }
 
-/** Sign-in shell: light, phone-width, no tabs. The Agent App never shows the customer's dark module. */
+/** Sign-in shell: the finder's dark surface, phone-width, no tabs. */
 export function SignInLayout() {
   if (config.surface !== 'agent') return <CustomerLayout />
   return (
-    <div className={shell}>
+    <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
       <DemoRibbon />
       <Outlet />
     </div>

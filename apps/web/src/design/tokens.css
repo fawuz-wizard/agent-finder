@@ -175,6 +175,9 @@
   html {
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
+    /* Clip sideways overflow at the root, never on a shell: a clipping shell would become
+       the box that sticky tab bars stick to, and they would scroll away with the page. */
+    overflow-x: hidden;
     background: var(--color-canvas);
     color: var(--color-ink);
   }
