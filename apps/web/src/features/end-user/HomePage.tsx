@@ -126,10 +126,10 @@ export default function HomePage() {
           </h2>
           {recent.map((r) => (
             <FinderBox key={r.id} className="flex min-h-[60px] items-center justify-between gap-3 px-5 py-2 text-base font-bold">
-              <Link to={`/agents/${r.id}?area=${encodeURIComponent(r.area)}`} className="min-w-0 flex-1 truncate">
+              <Link to={`/agents/${r.id}?area=${encodeURIComponent(r.area)}`} className="min-w-[45%] flex-1 truncate">
                 {r.name}
               </Link>
-              <span className="shrink-0 whitespace-nowrap text-finder-muted">
+              <span className="min-w-0 truncate text-finder-muted">
                 {r.area} · {whenLabel(r.at)}
               </span>
             </FinderBox>
