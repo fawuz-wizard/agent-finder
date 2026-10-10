@@ -18,7 +18,8 @@
   .qr { border: 2px solid var(--line); padding: 12px; text-align: center; }
   .qr img { width: 100%; max-width: 200px; height: auto; display: block; margin: 0 auto 8px; }
   .qr b { display: block; font-size: 15px; }
-  .qr small { color: var(--muted); font-size: 12px; word-break: break-all; }
+  .qr small { color: var(--muted); font-size: 12px; }
+  .qr small code { display: block; margin-top: 2px; background: none; padding: 0; }
   .qr.main { border-color: var(--orange); border-width: 3px; }
   ol, ul { margin: 6px 0 0; padding-left: 20px; }
   li { margin: 4px 0; }
@@ -47,12 +48,12 @@
     <div class="qr">
       <img src="qr-agent-finder-apk.svg" alt="QR code: Agent Finder APK" />
       <b>Agent Finder</b>
-      <small>The customer's side (agent-finder.apk)</small>
+      <small>The customer's side <code>agent-finder.apk</code></small>
     </div>
     <div class="qr">
       <img src="qr-agent-app-apk.svg" alt="QR code: Agent App APK" />
       <b>Agent App</b>
-      <small>Agents and aggregators (agent-app.apk)</small>
+      <small>Agents and aggregators <code>agent-app.apk</code></small>
     </div>
   </div>
   <ol>
