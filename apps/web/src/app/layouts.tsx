@@ -2,6 +2,7 @@ import { Outlet, Link } from 'react-router-dom'
 import { AgentTabBar } from '@/features/agent/components/AgentTabBar'
 import { DealerTabBar } from '@/features/dealer/components/DealerTabBar'
 import { LogoMark, Wordmark } from '@/design'
+import { HostStrip } from '@/features/end-user/components/finder'
 import { config } from '@/lib/config'
 import { useSession } from '@/features/auth/session'
 import { t } from '@/i18n'
@@ -20,11 +21,12 @@ export function CustomerLayout() {
   return (
     // text-ink re-resolves the inherited colour inside the forced dark scope; without it,
     // descendants inherit the light ink already computed on <html>.
-    <div data-theme="dark" className="flex min-h-dvh w-full flex-col bg-app-bg text-ink">
+    <div data-theme="dark" className="flex min-h-dvh w-full flex-col bg-finder-bg font-finder text-ink">
       <DemoRibbon />
       {/* The customer module ships embedded in a phone super-app; on desktop it presents as a
           framed phone-width module rather than stretching into a thin full-width stack. */}
-      <main className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col md:my-8 md:flex-none md:border-2 md:border-line">
+      <main className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col bg-finder-bg md:my-8 md:min-h-[900px] md:flex-none md:border-2 md:border-line">
+        <HostStrip />
         <Outlet />
       </main>
     </div>

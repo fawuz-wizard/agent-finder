@@ -84,7 +84,7 @@ describe('U3 — Results', () => {
     renderResults('?tx=cash_out&amount=2000&area=Lumley&lat=8.4405&lng=-13.2795')
     await screen.findByText("Fatmata's Shop")
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ lat: 8.441, lng: -13.28 }), expect.anything())
-    expect(screen.getByText('500 m core · Your location')).toBeInTheDocument()
+    expect(screen.getByText('Distances from your location, within 500 m')).toBeInTheDocument()
     // Fatmata's own point: she is the closest to the phone now, and the link carries the point.
     const link = screen.getByRole('link', { name: "Fatmata's Shop" })
     expect(link.getAttribute('href')).toContain('lat=8.441')
@@ -94,7 +94,7 @@ describe('U3 — Results', () => {
   it('says which area it searched around when no position was shared', async () => {
     renderResults()
     await screen.findByText("Fatmata's Shop")
-    expect(screen.getByText('500 m core · Around Lumley')).toBeInTheDocument()
+    expect(screen.getByText('Distances from around Lumley, within 500 m')).toBeInTheDocument()
   })
 
   it('offers a next action when the search fails', async () => {

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -35,7 +35,7 @@ describe('U1 — Home', () => {
     renderHome()
     expect(await screen.findByText('Searching around your location')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
-    await user.click(screen.getByRole('button', { name: 'Find an agent' }))
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
     expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Lumley&amount=2000&lat=8.47&lng=-13.261')
   })
 
@@ -51,7 +51,7 @@ describe('U1 — Home', () => {
     expect(screen.getByRole('heading', { name: 'What do you need?' })).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: 'Deposit' }))
     await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
-    await user.click(screen.getByRole('button', { name: 'Find an agent' }))
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
 
     expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=deposit&area=Lumley&amount=2000')
   })
@@ -67,8 +67,24 @@ describe('U1 — Home', () => {
     const user = userEvent.setup()
     renderHome()
     await user.type(screen.getByLabelText('Amount (SLE)'), '0')
-    await user.click(screen.getByRole('button', { name: 'Find an agent' }))
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
     expect(screen.getByText('Enter an amount above SLE 0.')).toBeInTheDocument()
     expect(screen.queryByTestId('loc')).not.toBeInTheDocument()
+  })
+  it('lists the shops opened lately under Recent, newest first', async () => {
+    localStorage.setItem(
+      'af.recentAgents',
+      JSON.stringify([
+        { id: 'af-1', name: "Fatmata's Shop", area: 'Lumley', at: Date.now() },
+        { id: 'af-2', name: 'Coco and Sons', area: 'Aberdeen', at: Date.now() - 24 * 60 * 60 * 1000 },
+      ]),
+    )
+    renderHome()
+    const recent = await screen.findByRole('region', { name: 'Recent' })
+    const links = within(recent).getAllByRole('link')
+    expect(links.map((l) => l.textContent)).toEqual(["Fatmata's Shop", 'Coco and Sons'])
+    expect(links[0]).toHaveAttribute('href', '/agents/af-1?area=Lumley')
+    expect(within(recent).getByText('Aberdeen · yesterday')).toBeInTheDocument()
+    localStorage.clear()
   })
 })

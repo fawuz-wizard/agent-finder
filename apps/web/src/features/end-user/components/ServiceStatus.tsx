@@ -1,7 +1,12 @@
 import { StatusDot, type StatusKind } from '@/design'
 import type { PublicOutcome } from '@/types/public'
+import { TickIcon } from './finder'
 
-/** Maps the server's outcome onto the shared status indicator. Text always accompanies it. */
+/**
+ * The server's outcome as the file's status pill: green with a tick when the agent can
+ * likely handle the request, amber for every other answer. Shape and words carry the
+ * meaning; the colour reinforces it.
+ */
 const DOT: Record<PublicOutcome, StatusKind> = {
   likely: 'fresh',
   unknown: 'notset',
@@ -10,16 +15,6 @@ const DOT: Record<PublicOutcome, StatusKind> = {
   closed: 'closed',
   hidden: 'hidden',
   not_set: 'notset',
-}
-
-const TONE: Record<PublicOutcome, string> = {
-  likely: 'bg-success-tint text-success',
-  unknown: 'bg-canvas text-muted',
-  limited: 'bg-warning-tint text-warning',
-  expired: 'bg-warning-tint text-warning',
-  closed: 'bg-danger-tint text-danger',
-  hidden: 'bg-canvas text-muted',
-  not_set: 'bg-canvas text-muted',
 }
 
 export function ServiceStatus({
@@ -31,12 +26,15 @@ export function ServiceStatus({
   text: string
   size?: 'md' | 'lg'
 }) {
+  const likely = outcome === 'likely'
   return (
     <p
-      className={`inline-flex items-center gap-2 rounded-pill px-3 ${size === 'lg' ? 'py-2 text-lg' : 'py-1.5 text-base'} font-semibold ${TONE[outcome]}`}
+      className={`inline-flex max-w-full items-center gap-2 rounded-tag px-3 font-semibold ${
+        size === 'lg' ? 'min-h-[40px] py-2 text-base' : 'min-h-[33px] py-1 text-sm'
+      } ${likely ? 'bg-finder-likely-tint text-finder-likely' : 'bg-finder-limited-tint text-finder-limited'}`}
     >
-      <StatusDot kind={DOT[outcome]} size={size === 'lg' ? 16 : 14} />
-      {text}
+      {likely ? <TickIcon size={size === 'lg' ? 18 : 16} /> : <StatusDot kind={DOT[outcome]} size={size === 'lg' ? 16 : 14} />}
+      <span className="min-w-0">{text}</span>
     </p>
   )
 }

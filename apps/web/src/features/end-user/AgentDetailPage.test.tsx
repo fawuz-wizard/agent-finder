@@ -64,7 +64,7 @@ describe('directions stay inside the app', () => {
         <AgentResultCard agent={agent} to="/agents/af-4821?tx=cash_out&amount=2000" />
       </MemoryRouter>,
     )
-    const link = screen.getByRole('link', { name: /view shop/i })
+    const link = screen.getByRole('link', { name: /get details/i })
     expect(link).toHaveAttribute('href', '/agents/af-4821?tx=cash_out&amount=2000')
     expect(link).not.toHaveAttribute('target')
   })

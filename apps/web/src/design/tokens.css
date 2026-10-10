@@ -91,6 +91,33 @@
   /* Orange disables elevation ($enable-shadows: false); panels separate with 2px borders. */
   --shadow-sheet: 0 -2px 0 0 #cccccc;
 
+  /* Customer module ("Om Agent Finder" Figma, Oct 2026). The customer screens sit inside the
+     Orange Money app and follow that file, not Boosted: Poppins, rounded panels, one dark
+     surface with an inset glow instead of borders. Agent App screens never use these. */
+  --color-finder-bg: #1e1e1e;
+  --color-finder-line: #303030;        /* inset glow and the tab track */
+  --color-finder-muted: #a8a8a8;
+  --color-finder-tab-off: #747474;
+  --color-finder-link: #fa7211;        /* text links, pills, Call / Get directions */
+  --color-finder-cta: #ff7900;         /* the one big button */
+  --color-finder-likely: #3fa36b;
+  --color-finder-likely-tint: #dff5e7;
+  --color-finder-limited: #8a6a1b;     /* file has #d9b26f; darkened to read on the tint */
+  --color-finder-limited-tint: #f4e7b5;
+  --color-finder-sheet: #ffffff;       /* agent detail sheet */
+  --color-finder-ink: #1e1e1e;
+  --color-finder-chip: #daeafa;        /* service chips on the detail sheet */
+  --color-finder-open: #03ca55;
+  --color-finder-star: #ffb84a;
+  --font-finder: 'Poppins', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+  --text-md: 1.25rem;    /* 20 — finder titles, names, distances */
+  --text-3xl: 2.25rem;   /* 36 — the amount */
+  --radius-field: 7px;   /* inputs, tab track, recent rows */
+  --radius-action: 10px; /* Find agent */
+  --radius-tag: 15px;    /* status pills */
+  --radius-panel: 20px;  /* result cards, the detail sheet */
+  --shadow-inset-finder: inset 0 0 5px 0 #303030;
+
   /* Boosted grid breakpoints */
   --breakpoint-sm: 480px;
   --breakpoint-md: 768px;

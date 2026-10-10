@@ -1,20 +1,20 @@
-import { TRANSACTION_HINTS, TRANSACTION_LABELS, type TransactionType } from '@/types/public'
-import { cn } from '@/design'
+import { TRANSACTION_LABELS, type TransactionType } from '@/types/public'
 
 const ORDER: TransactionType[] = ['cash_out', 'deposit']
 
-/** Radio group, 48 px targets, keyboard-navigable. Selection is the first thing the customer states. */
+/**
+ * Two pills, 117 × 50, as the file draws them: the chosen one filled orange, the other
+ * outlined in white. A radio group, so arrow keys move between them.
+ */
 export function TransactionTypeSelector({
   value,
   onChange,
-  variant = 'chips',
 }: {
   value: TransactionType | null
   onChange: (t: TransactionType) => void
-  variant?: 'chips' | 'cards'
 }) {
   return (
-    <div role="radiogroup" aria-label="What do you need?" className={cn(variant === 'chips' ? 'flex gap-2' : 'flex flex-col gap-2')}>
+    <div role="radiogroup" aria-label="What do you need?" className="flex gap-10">
       {ORDER.map((t) => {
         const selected = value === t
         return (
@@ -24,21 +24,11 @@ export function TransactionTypeSelector({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(t)}
-            className={cn(
-              'select-none rounded-pill border text-base font-semibold transition-colors',
-              variant === 'chips' ? 'h-control flex-1 px-2' : 'flex h-auto flex-col items-start gap-0.5 rounded-card px-4 py-3 text-left',
-              selected
-                ? 'border-2 border-brand-deep bg-brand-light text-brand-text'
-                : 'border-ink/25 bg-paper text-ink hover:bg-brand-faint',
-            )}
+            className={`h-[50px] w-[117px] select-none rounded-pill text-base font-bold text-white transition-colors ${
+              selected ? 'bg-finder-link' : 'border-2 border-white bg-transparent'
+            }`}
           >
-            {selected && variant === 'chips' && (
-              <span aria-hidden="true" className="mr-1.5">
-                ✓
-              </span>
-            )}
-            <span>{TRANSACTION_LABELS[t]}</span>
-            {variant === 'cards' && <span className="text-sm font-normal text-muted">{TRANSACTION_HINTS[t]}</span>}
+            {TRANSACTION_LABELS[t]}
           </button>
         )
       })}

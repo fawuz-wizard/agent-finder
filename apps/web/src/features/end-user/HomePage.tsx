@@ -1,19 +1,19 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Wordmark } from '@/design'
 import { AREAS } from '@/lib/reference'
+import { readRecent, whenLabel } from '@/lib/recent'
 import { useCoarseLocation } from '@/hooks/useCoarseLocation'
 import type { TransactionType } from '@/types/public'
 import { TransactionTypeSelector } from './components/TransactionTypeSelector'
 import { AmountInput } from './components/AmountInput'
+import { FinderBox, FinderCta, FinderHeader, PinIcon } from './components/finder'
 // Loaded only when a visit is waiting to be reported, so the API client stays out of the
 // first customer payload.
 const OutcomePrompt = lazy(() => import('./OutcomePrompt').then((m) => ({ default: m.OutcomePrompt })))
-import { t } from '@/i18n'
 
 /**
- * U1 — Home. Transaction first, answer second: nothing is recommended until the
- * customer says what they need. No map, no hero, no dashboard.
+ * U1 — Home, as the "Agent finder page" frame draws it: where you are, what you need,
+ * how much, one button. Recent shops underneath; the two help links at the foot.
  */
 export default function HomePage() {
   const navigate = useNavigate()
@@ -27,6 +27,7 @@ export default function HomePage() {
   const [area, setArea] = useState<string>(() => params.get('area') ?? AREAS[0])
   const [pickArea, setPickArea] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recent] = useState(readRecent)
   // The phone's own position, blunted to ~110 m, so "agents around you" means around you. The
   // area stays as the label and as the fallback when the position is denied or unavailable.
   const location = useCoarseLocation(true)
@@ -51,53 +52,44 @@ export default function HomePage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 bg-app-bg p-4 text-white">
-      <header className="flex h-12 items-center justify-between">
-        {params.get('from') === 'host' ? (
-          <Link
-            to="/"
-            className="-ml-2 flex h-control items-center gap-1 rounded-card px-2 text-base font-semibold text-white/70"
-          >
-            <span aria-hidden="true" className="text-xl leading-none">
-              ‹
-            </span>
-            Back
-          </Link>
-        ) : (
-          <span className="flex items-center gap-2 text-base font-bold"><span className="text-brand-text">☰</span> Max it</span>
-        )}
-        {params.get('from') === 'host' && <Wordmark />}
-      </header>
+    <div className="flex flex-1 flex-col px-5 pb-6 text-white">
+      <FinderHeader back={params.get('from') === 'host' ? '/' : undefined} />
 
-      <button
-        type="button"
-        onClick={() => setPickArea((v) => !v)}
-        aria-expanded={pickArea}
-        className="flex h-control items-center gap-2 self-start rounded-card px-1 text-lg font-semibold"
-      >
-        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" className="text-muted">
-          <path d="M9 16s6-5.2 6-9A6 6 0 003 7c0 3.8 6 9 6 9z" fill="none" stroke="currentColor" strokeWidth="1.6" />
-          <circle cx="9" cy="7" r="2.2" fill="currentColor" />
-        </svg>
-        {area}
-        <span className="text-base font-semibold text-brand-text">Change</span>
-      </button>
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setPickArea((v) => !v)}
+          aria-expanded={pickArea}
+          className="-ml-1 flex h-control min-w-0 items-center gap-3 px-1 text-md font-bold"
+        >
+          <PinIcon />
+          <span className="truncate">{area}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setPickArea((v) => !v)}
+          aria-expanded={pickArea}
+          className="h-control shrink-0 text-md font-bold text-finder-link"
+        >
+          Change
+        </button>
+      </div>
 
-      <p className="-mt-3 flex items-center gap-2 text-xs text-white/55" role="status">
+      <p className="flex items-center gap-2 text-sm font-medium text-finder-muted" role="status">
         {location.state === 'ready'
           ? 'Searching around your location'
           : location.state === 'locating'
             ? 'Finding your location…'
             : `Location off — searching around ${area}`}
         {(location.state === 'denied' || location.state === 'unavailable') && (
-          <button type="button" onClick={location.request} className="font-semibold text-brand-text underline">
+          <button type="button" onClick={location.request} className="shrink-0 whitespace-nowrap font-bold text-finder-link">
             Try again
           </button>
         )}
       </p>
 
       {pickArea && (
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Choose your area">
+        <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Choose your area">
           {AREAS.map((a) => (
             <button
               key={a}
@@ -108,7 +100,7 @@ export default function HomePage() {
                 setArea(a)
                 setPickArea(false)
               }}
-              className={`h-control rounded-pill border px-4 text-base font-semibold ${a === area ? 'border-brand bg-brand text-ink' : 'border-line bg-paper'}`}
+              className={`h-chip rounded-pill px-4 text-base font-bold ${a === area ? 'bg-finder-link text-white' : 'border-2 border-white text-white'}`}
             >
               {a}
             </button>
@@ -116,21 +108,40 @@ export default function HomePage() {
         </div>
       )}
 
-      <section className="mt-3 flex flex-col gap-4 rounded-card bg-app-surface p-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold leading-tight">What do you need?</h1>
-        </div>
+      <h1 className="mt-5 text-xl font-bold leading-tight">What do you need?</h1>
+      <div className="mt-5">
         <TransactionTypeSelector value={transaction} onChange={setTransaction} />
+      </div>
+      <div className="mt-4">
         <AmountInput value={amount} onChange={setAmount} error={error} />
-        <Button size="cta" onClick={submit}>Find an agent</Button>
-        <p className="text-center text-xs text-white/55">Search within 500 m · {t('disclaimer')}</p>
-      </section>
+      </div>
+      <FinderCta className="mt-5" onClick={submit}>
+        Find agent
+      </FinderCta>
 
-      <nav className="mt-auto flex w-full items-center justify-between gap-2 pt-2 text-base font-semibold text-brand-text">
-        <Link to="/how-availability-works" className="flex h-control items-center rounded-card px-2">
+      {recent.length > 0 && (
+        <section className="mt-6 flex flex-col gap-2" aria-labelledby="recent-heading">
+          <h2 id="recent-heading" className="text-base font-bold uppercase text-finder-muted">
+            Recent
+          </h2>
+          {recent.map((r) => (
+            <FinderBox key={r.id} className="flex min-h-[60px] items-center justify-between gap-3 px-5 py-2 text-base font-bold">
+              <Link to={`/agents/${r.id}?area=${encodeURIComponent(r.area)}`} className="min-w-0 flex-1 truncate">
+                {r.name}
+              </Link>
+              <span className="shrink-0 whitespace-nowrap text-finder-muted">
+                {r.area} · {whenLabel(r.at)}
+              </span>
+            </FinderBox>
+          ))}
+        </section>
+      )}
+
+      <nav className="mt-auto flex w-full items-center justify-between gap-2 pt-8 text-base font-bold text-finder-link">
+        <Link to="/how-availability-works" className="flex h-control items-center">
           How availability works
         </Link>
-        <Link to="/report-a-visit" className="ml-auto flex h-control items-center justify-end rounded-card px-2 text-right">
+        <Link to="/report-a-visit" className="flex h-control items-center text-right">
           Report a visit
         </Link>
       </nav>

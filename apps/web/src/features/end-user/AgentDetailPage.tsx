@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Button, Card, Skeleton } from '@/design'
+import { Skeleton } from '@/design'
 import { customerApi } from '@/services/customerApi'
 import { ApiRequestError } from '@/lib/api'
+import { rememberRecent } from '@/lib/recent'
 import { usePendingVisit } from '@/hooks/usePendingVisit'
-import type { AgentDetail, TransactionType } from '@/types/public'
+import { TRANSACTION_LABELS, type AgentDetail, type TransactionType } from '@/types/public'
 import { RouteMap } from '@/features/map'
 import { ServiceStatus } from './components/ServiceStatus'
 import { FreshnessBadge } from './components/FreshnessBadge'
 import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
+import { FinderCta, FinderHeader, PinIcon } from './components/finder'
 import { pointFrom } from './searchPoint'
 
 function ratingToken(): string {
@@ -18,7 +20,53 @@ function ratingToken(): string {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-/** Agent detail — the outcome restated against the customer's own request, then directions. */
+/** "tel:+23272416283" → "+232 72 416 283", as the file prints it. */
+function phoneText(callUrl: string): string {
+  const digits = callUrl.replace(/^tel:/, '').replace(/[^\d+]/g, '')
+  const m = /^\+?232(\d{2})(\d{3})(\d{3})$/.exec(digits)
+  return m ? `+232 ${m[1]} ${m[2]} ${m[3]}` : digits
+}
+
+function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-3 text-[15px] font-medium text-finder-muted">
+      <span aria-hidden="true" className="flex w-5 shrink-0 justify-center text-finder-muted">
+        {icon}
+      </span>
+      <span className="flex min-w-0 flex-wrap items-center gap-x-2">{children}</span>
+    </p>
+  )
+}
+
+const ClockIcon = (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+    <circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M9 5v4.5l3 1.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+)
+const StarIcon = (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" className="text-finder-star">
+    <path d="M9 1.5l2.3 4.8 5.2.7-3.8 3.6.9 5.2L9 13.3l-4.6 2.5.9-5.2L1.5 7l5.2-.7z" fill="currentColor" />
+  </svg>
+)
+const PhoneIcon = (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+    <path d="M4 2h3l1.5 3.5L6.8 7a9 9 0 004.2 4.2l1.5-1.7L16 11v3a1.5 1.5 0 01-1.6 1.5A13 13 0 012.5 3.6 1.5 1.5 0 014 2z" fill="currentColor" />
+  </svg>
+)
+const DirectionsIcon = (
+  <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+    <path d="M10 1.5l8.5 8.5-8.5 8.5L1.5 10z" fill="currentColor" />
+    <path d="M7.5 11.5v-2.5h4V7.5l2.5 2.5-2.5 2.5V11h-2.5v1.5z" fill="var(--color-finder-link)" />
+  </svg>
+)
+
+/**
+ * Agent detail, as the "Agent details page" frames draw it: a picture of the shop, then a
+ * white sheet with the name, how far and whether it is open, rating, where, phone, the
+ * services, the hours, and Call / Get Directions at the foot. Our own answer to the
+ * customer's request sits right under the name, because that is what they came for.
+ */
 export default function AgentDetailPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
@@ -70,7 +118,10 @@ export default function AgentDetailPage() {
     setError(null)
     customerApi
       .agent(id, { transaction: tx, amount_sle: amount, area, ...(point ?? {}) }, ctrl.signal)
-      .then(setAgent)
+      .then((a) => {
+        setAgent(a)
+        rememberRecent({ id: a.id, name: a.name, area: a.area })
+      })
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === 'AbortError') return
         setError(
@@ -85,10 +136,11 @@ export default function AgentDetailPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-4 px-5 py-4 text-white">
+        <FinderHeader back={() => history.back()} />
         <ErrorState message={error} />
         <Link to="/find">
-          <Button size="control">Search again</Button>
+          <FinderCta>Search again</FinderCta>
         </Link>
       </div>
     )
@@ -96,56 +148,77 @@ export default function AgentDetailPage() {
 
   if (!agent) {
     return (
-      <div className="flex flex-col gap-3 p-4" aria-busy="true">
+      <div className="flex flex-col gap-3 px-5 py-4" aria-busy="true">
+        <Skeleton className="h-48 w-full" />
         <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-24 w-full" />
         <Skeleton className="h-14 w-full" />
       </div>
     )
   }
 
-  return (
-    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col bg-app-bg text-white">
-      <header className="mx-auto flex w-full max-w-3xl items-center gap-3 bg-app-bg px-4 py-3">
-        <button type="button" onClick={() => history.back()} aria-label="Back" className="-ml-2 flex h-control w-control items-center justify-center rounded-card text-2xl leading-none text-muted">
-          ‹
-        </button>
-        <p className="truncate text-base font-bold text-white">Agent Finder</p>
-      </header>
+  const services = ['Orange Money', ...(Object.keys(TRANSACTION_LABELS) as TransactionType[]).map((k) => TRANSACTION_LABELS[k])]
+  const actionClass =
+    'flex h-[44px] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-white transition-[filter] hover:brightness-95 active:brightness-90'
 
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 pb-32">
-        <div className="overflow-hidden rounded-xl bg-app-surface">
-          <div className="flex h-36 items-end bg-gradient-to-br from-app-surface via-app-surface to-app-surface p-4 text-sm text-white/80">Shop location · {agent.area}</div>
-          <div className="p-4">
-          <p className="flex items-center gap-2 text-sm text-white/65">◷ &nbsp;{agent.open_now ? 'Open now' : 'Hours vary'}</p>
-          <h1 className="mt-2 text-xl font-bold leading-tight">{agent.name}</h1>
-          <p className="mt-1 flex items-center gap-2 text-sm text-white/60">
+  return (
+    <div className="flex flex-1 flex-col bg-finder-sheet text-finder-ink">
+      {/* The shop's picture. Until agents add one, the sheet opens on the network's own mark. */}
+      <div className="relative flex h-[200px] items-end justify-center bg-finder-line text-white">
+        <button
+          type="button"
+          onClick={() => history.back()}
+          aria-label="Back"
+          className="absolute left-3 top-3 flex h-control w-control items-center justify-center rounded-pill bg-finder-bg/60 text-white"
+        >
+          <svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true">
+            <path d="M12 1L3 9l9 8" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <span className="mb-10 text-finder-link">
+          <PinIcon size={56} />
+        </span>
+      </div>
+
+      <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-sheet px-5 pb-28 pt-6">
+        <h1 className="text-xl font-bold leading-tight">{agent.name}</h1>
+        <div className="mt-3 flex flex-col gap-2">
+          <Row icon={ClockIcon}>
             <DistanceLabel metres={agent.distance_m} />
-            {agent.verified_label && (
-              <span className="rounded-pill bg-canvas px-2 py-0.5 text-xs font-semibold text-muted">{agent.verified_label}</span>
-            )}
-          </p>
+            <span aria-hidden="true">•</span>
+            <span className={`font-semibold ${agent.open_now ? 'text-finder-open' : 'text-finder-muted'}`}>
+              {agent.open_now ? 'Open now' : 'Hours vary'}
+            </span>
+            {agent.verified_label && <span className="rounded-pill bg-finder-chip px-2 py-0.5 text-xs font-semibold text-finder-ink">{agent.verified_label}</span>}
+          </Row>
           {agent.rating_count != null && agent.rating_count >= 3 && agent.rating_average != null && (
-            <p className="mt-1 text-sm text-app-star">★ &nbsp;{agent.rating_average} ({agent.rating_count} ratings)</p>
+            <Row icon={StarIcon}>
+              <span className="font-semibold text-finder-star">{agent.rating_average}</span>
+              <span>[{agent.rating_count} ratings]</span>
+            </Row>
           )}
-          <p className="mt-1 text-sm text-white/60">⌖ &nbsp;{agent.area}</p>
-          <h2 className="mt-4 font-bold">Services</h2>
-          <p className="mt-2 text-sm text-white/70">Orange Money · {agent.request_label.replace(/^For /, '').split(' · ')[0]}</p>
-          <h2 className="mt-4 font-bold">Opening Hours</h2>
-          <p className="mt-2 text-sm text-white/70">{agent.hours_text}</p>
-          </div>
+          <Row icon={<PinIcon size={18} />}>{agent.area}</Row>
+          {agent.call_url && <Row icon={PhoneIcon}>{phoneText(agent.call_url)}</Row>}
         </div>
 
-        <Card className="border-white/10 bg-app-card text-white">
-          <div className="flex flex-col gap-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">{agent.request_label}</p>
-            <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} size="lg" />
-            <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
-            <p className="text-sm text-muted">{agent.hours_text}</p>
-          </div>
-        </Card>
+        <section className="mt-5 flex flex-col gap-2 rounded-field bg-finder-chip/40 p-4" aria-label="Your request">
+          <p className="text-xs font-bold uppercase tracking-wider text-finder-muted">{agent.request_label}</p>
+          <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} size="lg" />
+          <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
+        </section>
 
-        <div ref={mapRef} id="agent-directions-map" className={showMap ? 'scroll-mt-4' : 'hidden'}>
+        <h2 className="mt-6 text-xl font-bold">Services</h2>
+        <ul className="mt-3 flex flex-wrap gap-3">
+          {services.map((s) => (
+            <li key={s} className="flex h-10 items-center rounded-field bg-finder-chip px-4 text-[15px] font-semibold text-finder-ink">
+              {s}
+            </li>
+          ))}
+        </ul>
+
+        <h2 className="mt-6 text-xl font-bold">Opening Hours</h2>
+        <p className="mt-3 text-base font-medium text-finder-muted">{agent.hours_text}</p>
+
+        <div ref={mapRef} id="agent-directions-map" className={showMap ? 'mt-6 scroll-mt-4' : 'hidden'}>
           {showMap && (
             <RouteMap
               agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }}
@@ -159,59 +232,71 @@ export default function AgentDetailPage() {
           )}
         </div>
 
-        <Card className="border-white/10 bg-app-card text-white">
-          <h2 className="font-bold">Rate this agent</h2>
-          <p className="mt-1 text-sm text-white/60">Any Max it user can rate. You do not need a completed transaction.</p>
+        <section className="mt-6 rounded-field bg-finder-chip/40 p-4">
+          <h2 className="text-base font-bold">Rate this agent</h2>
+          <p className="mt-1 text-sm font-medium text-finder-muted">Any Max it user can rate. You do not need a completed transaction.</p>
           {ratingState === 'sent' ? (
-            <p className="mt-3 text-sm font-semibold text-app-success" role="status">Thanks. Your rating was submitted.</p>
+            <p className="mt-3 text-sm font-semibold text-finder-likely" role="status">Thanks. Your rating was submitted.</p>
           ) : (
             <>
               <div role="radiogroup" aria-label="Rating out of five" className="mt-3 flex gap-2">
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} out of 5`} onClick={() => setRating((current) => current === n ? (n === 1 ? null : n - 1) : n)} className={`h-12 flex-1 rounded-card border text-2xl transition-colors ${rating !== null && n <= rating ? 'border-brand bg-brand text-ink' : 'border-white/20 bg-app-surface text-white/70'}`}>★</button>
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={rating === n}
+                    aria-label={`${n} out of 5`}
+                    onClick={() => setRating((current) => (current === n ? (n === 1 ? null : n - 1) : n))}
+                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-white' : 'bg-finder-sheet text-finder-muted'}`}
+                  >
+                    ★
+                  </button>
                 ))}
               </div>
-              {ratingError && <p className="mt-2 text-sm text-red-300" role="alert">{ratingError}</p>}
-              <button type="button" onClick={() => void submitRating()} disabled={!rating || ratingState === 'sending'} className="mt-3 h-control w-full rounded-card bg-brand text-base font-bold text-ink transition-opacity disabled:opacity-50">{ratingState === 'sending' ? 'Submitting…' : 'Submit rating'}</button>
+              {ratingError && <p className="mt-2 text-sm font-semibold text-danger" role="alert">{ratingError}</p>}
+              <button
+                type="button"
+                onClick={() => void submitRating()}
+                disabled={!rating || ratingState === 'sending'}
+                className="mt-3 h-[44px] w-full rounded-field bg-finder-link text-base font-semibold text-white transition-opacity disabled:opacity-40"
+              >
+                {ratingState === 'sending' ? 'Submitting…' : 'Submit rating'}
+              </button>
             </>
           )}
-          <p className="mt-2 text-xs text-white/45">One rating per agent per browser every 24 hours.</p>
-        </Card>
+          <p className="mt-2 text-xs font-medium text-finder-muted">One rating per agent per browser every 24 hours.</p>
+        </section>
 
-        <Card className="bg-app-surface text-white">
-          <h2 className="text-base font-bold">What this means</h2>
-          <p className="mt-1 text-sm text-muted">
-            We estimate availability from recent transaction activity. It can change, so confirm with the agent when you arrive.
-          </p>
-        </Card>
-
+        <p className="mt-6 text-sm font-medium text-finder-muted">
+          We estimate availability from recent transaction activity. It can change, so confirm with the agent when you arrive.
+        </p>
         <Link
           to="/report-a-visit"
           state={{ agentId: agent.id, agentName: agent.name }}
-          className="-mx-2 flex h-control items-center self-start rounded-card px-2 text-base font-semibold text-brand-text"
+          className="mt-2 flex h-control items-center self-start text-base font-bold text-finder-link"
         >
           Report a visit
         </Link>
       </div>
 
-      <div className="sticky bottom-0 mx-auto flex w-full max-w-3xl flex-col gap-2 border-t border-white/10 bg-app-bg p-4">
+      <div className="sticky bottom-0 mx-auto flex w-full max-w-[480px] gap-5 bg-finder-sheet px-5 pb-6 pt-3">
+        {agent.call_url && (
+          <a href={agent.call_url} className={actionClass}>
+            {PhoneIcon}
+            Call
+          </a>
+        )}
         <button
           type="button"
           aria-expanded={showMap}
           aria-controls="agent-directions-map"
           onClick={() => setShowMap((v) => !v)}
-          className="inline-flex h-cta w-full items-center justify-center rounded-cta bg-brand px-4 text-lg font-bold text-ink shadow-lg shadow-black/20 transition-transform active:scale-[0.99]"
+          className={actionClass}
         >
-          {showMap ? 'Hide map & route' : 'Get directions'}
+          {DirectionsIcon}
+          {showMap ? 'Hide map' : 'Get Directions'}
         </button>
-        {agent.call_url && (
-          <a
-            href={agent.call_url}
-            className="inline-flex h-control w-full items-center justify-center rounded-card border-2 border-brand-deep text-base font-semibold text-brand-text"
-          >
-            Call agent
-          </a>
-        )}
       </div>
     </div>
   )

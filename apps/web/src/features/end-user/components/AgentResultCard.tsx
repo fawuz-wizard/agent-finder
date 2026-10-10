@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom'
-import { Card } from '@/design'
 import type { AgentResult } from '@/types/public'
 import { DistanceLabel } from './DistanceLabel'
 import { FreshnessBadge } from './FreshnessBadge'
 import { ServiceStatus } from './ServiceStatus'
 import { WhyLine } from './WhyLine'
+import { ChevronIcon } from './finder'
 
+/**
+ * One result, as the file draws it: a rounded panel with an orange edge on the left, the
+ * shop's name and distance on one line, its street under, the status pill, "Get details".
+ */
 export function AgentResultCard({
   agent,
   to,
@@ -16,34 +20,42 @@ export function AgentResultCard({
   recommended?: boolean
 }) {
   return (
-    <Card className={`relative border border-white/10 bg-app-card text-white ${recommended ? 'border-l-4 border-l-app-highlight' : ''}`}>
-      <div className="flex flex-col gap-2">
+    <article className="relative rounded-panel bg-finder-link">
+      <div className="ml-[9px] flex flex-col rounded-panel bg-finder-bg px-4 pb-4 pt-4 text-white shadow-inset-finder">
         <div className="flex items-baseline gap-3">
-          <h3 className="text-lg font-bold leading-tight">
+          <h3 className="min-w-0 text-md font-bold leading-tight">
             <Link to={to} className="after:absolute after:inset-0 after:content-['']">
               {agent.name}
             </Link>
           </h3>
-          <span className="ml-auto">
+          <span className="ml-auto text-md font-bold text-finder-muted">
             <DistanceLabel metres={agent.distance_m} />
           </span>
         </div>
-        <p className="-mt-1 text-sm text-white/55">{agent.area}</p>
+        <p className="mt-0.5 text-sm font-bold text-finder-muted">{agent.area}</p>
         {agent.rating_count != null && agent.rating_count >= 3 && agent.rating_average != null && (
-          <p className="text-sm text-app-star">★ {agent.rating_average} · {agent.rating_count} ratings</p>
+          <p className="mt-1 text-sm font-semibold text-finder-star">★ {agent.rating_average} · {agent.rating_count} ratings</p>
         )}
-        <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} />
-        <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
-        {recommended && agent.why && <WhyLine text={agent.why} />}
-        <div className="relative z-10 flex">
-          <Link
-            to={to}
-            className="inline-flex h-control items-center rounded-card px-1 text-base font-bold text-brand-text hover:bg-white/5"
-          >
-            View shop ›
+        <div className="mt-4">
+          <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} />
+        </div>
+        {agent.freshness !== 'fresh' && (
+          <div className="mt-2">
+            <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
+          </div>
+        )}
+        {recommended && agent.why && (
+          <div className="mt-2">
+            <WhyLine text={agent.why} />
+          </div>
+        )}
+        <div className="relative z-10 mt-3 flex">
+          <Link to={to} className="inline-flex h-control items-center gap-1 text-base font-bold text-finder-link">
+            Get details
+            <ChevronIcon />
           </Link>
         </div>
       </div>
-    </Card>
+    </article>
   )
 }
