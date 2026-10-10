@@ -79,8 +79,8 @@ describe('agent app', () => {
     await screen.findByText("Fatmata's Shop")
     const card = screen.getByText(/customers now see/i).closest('div')!
     expect(within(card).getAllByText(/can likely handle your request/i).length).toBe(2)
-    expect(within(card).getByText(/· any amount/)).toBeInTheDocument()
-    expect(within(card).getByText(/· up to SLE 10,000/)).toBeInTheDocument()
+    expect(within(card).getByText(/^any amount$/)).toBeInTheDocument()
+    expect(within(card).getByText(/^up to SLE 10,000$/)).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/SLE 21,000/)
   })
 

@@ -1,15 +1,16 @@
-import type { ReactNode } from 'react'
+import type { InputHTMLAttributes, ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { LogoMark } from '@/design'
 import { useSession } from '@/features/auth/session'
-import { FinderBox } from '@/features/end-user/components/finder'
+import { FinderBox, PinIcon } from '@/features/end-user/components/finder'
 
 /**
- * The Agent App's chrome, in the same language as the customer module: the dark surface,
- * Poppins, panels with the inset glow, one orange for actions. Three tabs at the foot.
+ * The Agent App's chrome, built from the customer module's pieces so both apps read as one
+ * file: the strip, the "‹ Title" row, the pin-and-name row, 16 px section labels, 60 px
+ * rows, the orange-edged card, the 60 px field. Three tabs at the foot.
  */
 
-/** Who is signed in and which app this is. */
+/** Who is signed in and which app this is: the customer module's host strip, for agents. */
 export function AgentStrip() {
   const { session } = useSession()
   return (
@@ -23,33 +24,99 @@ export function AgentStrip() {
   )
 }
 
-/** A section of a screen: the file's panel, padded. */
+/** The pin row from the finder's first screen: where, in 20 px bold, with one orange action. */
+export function PlaceRow({ name, sub, action }: { name: ReactNode; sub?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="mt-0.5 text-white">
+          <PinIcon />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-md font-bold leading-tight text-white">{name}</p>
+          {sub && <p className="mt-0.5 text-sm font-semibold text-finder-muted">{sub}</p>}
+        </div>
+      </div>
+      {action && <span className="shrink-0 text-md font-bold text-finder-link">{action}</span>}
+    </div>
+  )
+}
+
+/** "RECENT": the finder's section label. */
+export function SectionLabel({ id, children, className = '' }: { id?: string | undefined; children: ReactNode; className?: string }) {
+  return (
+    <h2 id={id} className={`text-base font-bold uppercase text-finder-muted ${className}`}>
+      {children}
+    </h2>
+  )
+}
+
+/** A 60 px row with the inset glow: a label on the left, a value or an action on the right. */
+export function Row({ label, value, action, className = '' }: { label: ReactNode; value?: ReactNode; action?: ReactNode; className?: string }) {
+  return (
+    <FinderBox className={`flex min-h-[60px] items-center justify-between gap-3 px-5 py-2 ${className}`}>
+      <span className="min-w-0 text-base font-bold text-white">{label}</span>
+      {action ?? <span className="min-w-0 truncate text-right text-base font-bold text-finder-muted">{value}</span>}
+    </FinderBox>
+  )
+}
+
+/** The result card's frame: the orange edge on the left, the glow inside. */
+export function EdgeCard({ children, className = '', ...rest }: React.HTMLAttributes<HTMLElement>) {
+  return (
+    <article className={`relative rounded-panel bg-finder-link ${className}`} {...rest}>
+      <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 text-white shadow-inset-finder">{children}</div>
+    </article>
+  )
+}
+
+/** A plain panel with the glow, for a chart or a form. */
 export function Panel({ className = '', children, ...rest }: React.HTMLAttributes<HTMLElement>) {
   return (
-    <FinderBox className={`flex flex-col gap-2 px-4 py-4 ${className}`} {...rest}>
+    <FinderBox className={`flex flex-col gap-3 px-4 py-4 ${className}`} {...rest}>
       {children}
     </FinderBox>
   )
 }
 
-/** The small caps label above a panel's content. */
-export function Label({ id, children }: { id?: string | undefined; children: ReactNode }) {
+/** The finder's amount field: 60 px, "SLE" in front, the figure at 36 px. */
+export function MoneyField({ id, className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <p id={id} className="text-xs font-bold uppercase tracking-wider text-finder-muted">
-      {children}
-    </p>
+    <FinderBox className={`flex h-[60px] items-center gap-4 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
+      <span className="text-md font-bold text-finder-muted">SLE</span>
+      <input
+        id={id}
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="0"
+        className="h-full w-full min-w-0 bg-transparent text-3xl font-bold tabular-nums text-white outline-none placeholder:text-finder-muted/50"
+        {...rest}
+      />
+    </FinderBox>
   )
 }
 
-/** The screen's title row: what this screen is, in the file's 24 px. */
-export function Title({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
+/** A 60 px text field in the same frame. */
+export function TextField({ id, className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <header className="flex flex-col gap-0.5">
-      <h1 className="text-xl font-bold leading-tight text-white">{children}</h1>
-      {sub && <p className="text-sm font-semibold text-finder-muted">{sub}</p>}
-    </header>
+    <FinderBox className={`flex h-[60px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
+      <input id={id} autoComplete="off" className="h-full w-full min-w-0 bg-transparent text-base font-medium text-white outline-none placeholder:text-finder-muted/60" {...rest} />
+    </FinderBox>
   )
 }
+
+/** The 15 px label above a field. */
+export function FieldLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="text-[15px] font-medium text-white">
+      {children}
+    </label>
+  )
+}
+
+/** The finder's two states of a pill. */
+export const PILL_ON = 'bg-finder-link text-finder-on-orange'
+export const PILL_OFF = 'border-2 border-white bg-transparent text-white'
 
 /* The three tabs: one icon family, 2 px strokes, filled when active. */
 type IconProps = { active: boolean }
