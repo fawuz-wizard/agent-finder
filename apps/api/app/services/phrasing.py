@@ -239,6 +239,7 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
             sides.append(
                 {
                     "label": SIDE_LABEL[tx],
+                    "outcome": "not_set",
                     "phrase": PUBLIC_TEXT["not_set"],
                     "range_text": "no amount",
                     "above_text": None,
@@ -256,6 +257,8 @@ def customers_see(agent, now: datetime, ledger=None) -> dict:
         sides.append(
             {
                 "label": SIDE_LABEL[tx],
+                # The outcome itself, so the agent's screen draws the pill the customer gets.
+                "outcome": outcome,
                 "phrase": PUBLIC_TEXT[outcome],
                 "range_text": covers,
                 "above_text": above,

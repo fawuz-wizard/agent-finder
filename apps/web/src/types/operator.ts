@@ -143,6 +143,8 @@ export interface LoggedTransaction {
  */
 export interface CustomersSeeSide {
   label: string
+  /** The outcome behind the phrase, so the agent's screen draws the pill a customer gets. */
+  outcome: 'likely' | 'limited' | 'unknown' | 'not_set'
   phrase: string
   /** "any amount" · "up to SLE 10,000" · "up to SLE 500" · "no amount" */
   range_text: string
@@ -216,6 +218,8 @@ export interface AgentHome {
   balance: OperatorValue | null
   float_position: OperatorValue | null
   pending_float: FloatRequest | null
+  /** The most recent request in any state, so a decline or completion shows the day after. */
+  latest_float: FloatRequest | null
   today: AgentToday
   /** Short sentences, already phrased by the server. Never raw report rows. */
   attention: string[]

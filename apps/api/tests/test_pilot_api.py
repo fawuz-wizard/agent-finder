@@ -456,3 +456,28 @@ async def test_dashboard_tiles_and_agent_register_share_one_bucket_per_agent(cli
     assert over2["counts"]["limited"] == over["counts"]["limited"] + 1
     assert over2["counts"]["active"] == over["counts"]["active"] - 1
     assert Counter(r["bucket"] for r in rows2) == Counter(over2["counts"])
+
+
+async def test_home_carries_each_side_outcome_and_the_latest_float_request(client, agent):
+    """The first screen draws the customer's pill from `outcome` and names the latest float
+    request whatever its state, so a decline is visible the morning after."""
+    home = (await client.get("/api/v1/agent/home", headers=agent)).json()
+    for side in home["customers_see"]["sides"]:
+        assert side["outcome"] in {"likely", "limited", "unknown", "not_set"}
+        assert side["phrase"]
+    assert home["latest_float"] is None or home["latest_float"]["state"] in {
+        "pending",
+        "approved",
+        "completed",
+        "declined",
+        "cancelled",
+    }
+    r = await client.post(
+        "/api/v1/float-requests",
+        headers=agent,
+        json={"amount_sle": 4000, "reason": "Market day", "client_token": "t-latest-1"},
+    )
+    assert r.status_code in (200, 201), r.text
+    home = (await client.get("/api/v1/agent/home", headers=agent)).json()
+    assert home["latest_float"]["state"] == "pending"
+    assert home["pending_float"]["id"] == home["latest_float"]["id"]

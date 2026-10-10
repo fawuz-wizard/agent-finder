@@ -7,10 +7,11 @@ import { SessionProvider } from '@/features/auth/SessionProvider'
 import { RequireRole } from '@/features/auth/RequireRole'
 import SignInPage from '@/features/auth/SignInPage'
 import DashboardPage from './DashboardPage'
+import { floatRowText } from './floatRow'
 import ServicesPage from './ServicesPage'
 import HoursPage from './HoursPage'
 import { operatorApi } from '@/services/operatorApi'
-import { demoRecordVisit, demoSetOperatorFeed } from '@/services/operatorDemo'
+import { demoRecordVisit, demoSetOperatorFeed, demoSetUnlocated } from '@/services/operatorDemo'
 
 function App({ start = '/agent' }: { start?: string }) {
   return (
@@ -22,6 +23,7 @@ function App({ start = '/agent' }: { start?: string }) {
           <Route element={<RequireRole role="agent" />}>
             <Route path="/agent" element={<DashboardPage />} />
             <Route path="/agent/services" element={<ServicesPage />} />
+            <Route path="/agent/profile" element={<p>profile</p>} />
             <Route path="/agent/hours" element={<HoursPage />} />
           </Route>
         </Routes>
@@ -47,7 +49,7 @@ describe('agent app', () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
     await signIn(user)
-    expect(await screen.findByText("Fatmata's Shop")).toBeInTheDocument()
+    expect((await screen.findAllByText("Fatmata's Shop")).length).toBeGreaterThan(0)
   })
 
   it('refuses the wrong PIN without signing anyone in', async () => {
@@ -57,14 +59,14 @@ describe('agent app', () => {
     await user.type(screen.getByLabelText(/^pin$/i), '9999')
     await user.click(screen.getByRole('button', { name: /^sign in$/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/pin is not correct/i)
-    expect(screen.queryByText("Fatmata's Shop")).not.toBeInTheDocument()
+    expect(screen.queryAllByText("Fatmata's Shop")).toHaveLength(0)
   })
 
   it('never asks the agent to refresh or to pick a word: presence and hours only', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
     await signIn(user)
-    await screen.findByText("Fatmata's Shop")
+    await screen.findAllByText("Fatmata's Shop")
     expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
     expect(screen.queryByText('Refresh status')).not.toBeInTheDocument()
     expect(screen.getByText(/open · serving/i)).toBeInTheDocument()
@@ -76,7 +78,7 @@ describe('agent app', () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
     await signIn(user)
-    await screen.findByText("Fatmata's Shop")
+    await screen.findAllByText("Fatmata's Shop")
     const card = screen.getByText(/customers now see/i).closest('div')!
     expect(within(card).getAllByText(/can likely handle your request/i).length).toBe(2)
     expect(within(card).getByText(/^any amount$/)).toBeInTheDocument()
@@ -178,7 +180,7 @@ describe('operator feed (demo)', () => {
       const user = userEvent.setup()
       render(<App />)
       await signIn(user)
-      await screen.findByText("Fatmata's Shop")
+      await screen.findAllByText("Fatmata's Shop")
       expect(screen.queryByText('Refresh status')).not.toBeInTheDocument()
       expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
       expect(screen.getByText(/e-float exact/i)).toBeInTheDocument()
@@ -222,7 +224,7 @@ describe('working hours', () => {
     const user = userEvent.setup()
     render(<App />)
     await signIn(user)
-    await screen.findByText("Fatmata's Shop")
+    await screen.findAllByText("Fatmata's Shop")
     expect(await screen.findByText(/closing at 12:10 by your schedule/i)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /stay open 1 more hour/i }))
     await screen.findByText(/staying open until 13:10/)
@@ -248,5 +250,49 @@ describe('transaction log', () => {
     const acts = await operatorApi.activity('Agent 024')
     expect(acts.some((a) => a.text === 'You logged: Cash out · SLE 500 to 2,000')).toBe(true)
     expect(acts.every((a) => !/SLE 1,250|SLE 1250/.test(a.text))).toBe(true)
+  })
+})
+
+describe('the listing on the dashboard', () => {
+  it('greys the listing and shows the headline when the agent steps away, and comes back on Open', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await signIn(user)
+    await screen.findAllByText("Fatmata's Shop")
+    const card = () => screen.getByRole('article', { name: /your listing/i })
+    expect(card()).toHaveAttribute('data-state', 'open')
+    expect(within(card()).getAllByText(/can likely handle your request/i).length).toBe(2)
+    await user.click(screen.getByRole('radio', { name: 'Away' }))
+    await waitFor(() => expect(card()).toHaveAttribute('data-state', 'hidden'))
+    expect(within(card()).getByText('Availability hidden')).toBeInTheDocument()
+    expect(within(card()).queryByText(/can likely handle your request/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Open' }))
+    await waitFor(() => expect(card()).toHaveAttribute('data-state', 'open'))
+  })
+
+  it('tells an agent who is not on the map yet, with the way to pin the shop', async () => {
+    demoSetUnlocated('Agent 024', true)
+    try {
+      const user = userEvent.setup()
+      render(<App />)
+      await signIn(user)
+      await screen.findByText('Not on the map yet')
+      expect(screen.getByRole('article', { name: /your listing/i })).toHaveAttribute('data-state', 'unlocated')
+      expect(screen.getByRole('link', { name: 'Pin my shop' })).toHaveAttribute('href', '/agent/profile')
+    } finally {
+      demoSetUnlocated('Agent 024', false)
+    }
+  })
+
+  it('names the float request by its latest state, for a day', () => {
+    const base = { id: 'f', agent_ref: 'Agent 024', agent_name: 'x', amount_sle: 1, reason: '', requested_at: new Date().toISOString(), waiting_text: '', decided_at: null, decided_by: null, decision_reason: null, ageing: false }
+    const now = Date.now()
+    expect(floatRowText(null)).toBe('Request float')
+    expect(floatRowText({ ...base, state: 'pending' })).toBe('Pending')
+    expect(floatRowText({ ...base, state: 'approved', decided_at: new Date(now - 3 * 86_400_000).toISOString() })).toBe('Approved')
+    expect(floatRowText({ ...base, state: 'declined', decided_at: new Date(now - 3_600_000).toISOString() }, now)).toBe('Declined')
+    expect(floatRowText({ ...base, state: 'completed', decided_at: new Date(now - 3_600_000).toISOString() }, now)).toBe('Completed')
+    expect(floatRowText({ ...base, state: 'declined', decided_at: new Date(now - 2 * 86_400_000).toISOString() }, now)).toBe('Request float')
+    expect(floatRowText({ ...base, state: 'cancelled', decided_at: new Date(now - 60_000).toISOString() }, now)).toBe('Request float')
   })
 })

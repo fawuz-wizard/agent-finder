@@ -15,6 +15,7 @@ const SignIn = lazy(() => import('@/features/auth/SignInPage'))
 const HostHome = lazy(() => import('@/features/host/HostHomePage'))
 const AgentDashboard = lazy(() => import('@/features/agent/DashboardPage'))
 const AgentServices = lazy(() => import('@/features/agent/ServicesPage'))
+const AgentActivity = lazy(() => import('@/features/agent/ActivityPage'))
 const AgentProfile = lazy(() => import('@/features/agent/ProfilePage'))
 const AgentHours = lazy(() => import('@/features/agent/HoursPage'))
 const DealerDashboard = lazy(() => import('@/features/dealer/DashboardPage'))
@@ -72,7 +73,7 @@ const router = createBrowserRouter([
           // The five old modules fold into three tabs; old links still land somewhere right.
           { path: 'availability', element: <Navigate to="/agent" replace /> },
           { path: 'dashboard', element: <Navigate to="/agent" replace /> },
-          { path: 'activity', element: <Navigate to="/agent" replace /> },
+          { path: 'activity', element: withSuspense(<AgentActivity />) },
           { path: 'float', element: <Navigate to="/agent/services" replace /> },
           { path: 'profile', element: withSuspense(<AgentProfile />) },
           { path: 'hours', element: withSuspense(<AgentHours />) },

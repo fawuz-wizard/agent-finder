@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { SessionProvider } from '@/features/auth/SessionProvider'
 import { SESSION_KEY } from '@/features/auth/session'
-import DashboardPage from './DashboardPage'
+import ActivityPage from './ActivityPage'
 
 function renderSignedIn() {
   sessionStorage.setItem(
@@ -13,14 +13,14 @@ function renderSignedIn() {
   )
   return render(
     <SessionProvider>
-      <MemoryRouter initialEntries={['/agent/dashboard']}>
-        <DashboardPage />
+      <MemoryRouter initialEntries={['/agent/activity']}>
+        <ActivityPage />
       </MemoryRouter>
     </SessionProvider>,
   )
 }
 
-describe('agent dashboard', () => {
+describe('agent activity', () => {
   it('shows the two figures, one chart with three named lines, and labels operator data', async () => {
     renderSignedIn()
     expect(await screen.findByText(/of your open hours/i)).toBeInTheDocument()

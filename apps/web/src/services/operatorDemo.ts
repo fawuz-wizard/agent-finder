@@ -462,6 +462,12 @@ let feedOn = config.operatorFeed
 export function demoSetOperatorFeed(on: boolean): void {
   feedOn = on
 }
+/** Demo control: treat an agent as not yet on the map, as the live API does for a new import. */
+const unlocated = new Set<string>()
+export function demoSetUnlocated(ref: string, on: boolean): void {
+  if (on) unlocated.add(ref)
+  else unlocated.delete(ref)
+}
 export function demoOperatorFeedOn(): boolean {
   return feedOn
 }
@@ -570,6 +576,14 @@ function customersSee(a: AgentState): CustomersSee {
         : !ledgerFor(a).live && freshnessOf(ageMin(a)) === 'expired'
           ? 'expired'
           : 'open'
+  if (unlocated.has(a.ref)) {
+    return {
+      state: 'unlocated',
+      headline: 'Not on the map yet',
+      explanation: 'Customers cannot find your shop until it has a point on the map. Pin it from inside the shop, or ask your aggregator.',
+      sides: [],
+    }
+  }
   if (state !== 'open') {
     const why = {
       hidden: 'You are hidden, so customers are not shown your shop at all.',
@@ -581,9 +595,11 @@ function customersSee(a: AgentState): CustomersSee {
   const { cash, float, live, feedAgeMin } = ledgerFor(a)
   const side = (s: SideLedger) => {
     const ceiling = ceilingOf(s)
+    const outcome: 'limited' | 'likely' = ceiling !== null && ceiling <= 0 ? 'limited' : 'likely'
     return {
       label: s.label,
-      phrase: ceiling !== null && ceiling <= 0 ? PUBLIC_TEXT.limited : PUBLIC_TEXT.likely,
+      outcome,
+      phrase: PUBLIC_TEXT[outcome],
       range_text: ceiling === null ? 'any amount' : ceiling <= 0 ? 'nothing right now' : `up to ${sle(ceiling)}`,
       above_text: ceiling === null || ceiling <= 0 ? null : PUBLIC_TEXT.limited,
       estimate_text: live ? null : (estimateText(s) ?? (s.evidenceText || null)),
@@ -815,6 +831,7 @@ export function demoResetPin(ref: string, pin: string): { ref: string; pin_set: 
 export function demoAgentHome(ref: string): AgentHome {
   const a = find(ref)
   const pending = floatRequests.find((r) => r.agent_ref === ref && r.state === 'pending')
+  const latest = [...floatRequests].filter((r) => r.agent_ref === ref).sort((x, y) => y.requested_at.localeCompare(x.requested_at))[0]
   const attention: string[] = []
   if (a.problems > 0) {
     attention.push(
@@ -834,6 +851,7 @@ export function demoAgentHome(ref: string): AgentHome {
     balance: operatorValue(ref, 'balance'),
     float_position: operatorValue(ref, 'float'),
     pending_float: pending ? decorate(pending) : null,
+    latest_float: latest ? decorate(latest) : null,
     today: {
       found_you: a.found_you,
       transactions: a.transactions,

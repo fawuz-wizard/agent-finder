@@ -61,10 +61,10 @@ export function Row({ label, value, action, className = '' }: { label: ReactNode
   )
 }
 
-/** The result card's frame: the orange edge on the left, the glow inside. */
-export function EdgeCard({ children, className = '', ...rest }: React.HTMLAttributes<HTMLElement>) {
+/** The result card's frame: the orange edge on the left, the glow inside. `muted` greys the edge. */
+export function EdgeCard({ children, className = '', muted = false, ...rest }: React.HTMLAttributes<HTMLElement> & { muted?: boolean }) {
   return (
-    <article className={`relative rounded-panel bg-finder-link ${className}`} {...rest}>
+    <article className={`relative rounded-panel ${muted ? 'bg-finder-muted' : 'bg-finder-link'} ${className}`} {...rest}>
       <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 text-white shadow-inset-finder">{children}</div>
     </article>
   )
@@ -140,6 +140,15 @@ function ServicesIcon({ active }: IconProps) {
     </svg>
   )
 }
+function ActivityIcon({ active }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="12" width="4" height="8" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
+      <rect x="10" y="6" width="4" height="14" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
+      <rect x="17" y="9" width="4" height="11" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
+    </svg>
+  )
+}
 function ProfileIcon({ active }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -151,11 +160,12 @@ function ProfileIcon({ active }: IconProps) {
 
 const TABS = [
   { to: '/agent', label: 'Dashboard', end: true, Icon: DashboardIcon },
+  { to: '/agent/activity', label: 'Activity', end: false, Icon: ActivityIcon },
   { to: '/agent/services', label: 'Services', end: false, Icon: ServicesIcon },
   { to: '/agent/profile', label: 'Profile', end: false, Icon: ProfileIcon },
 ]
 
-/** Dashboard, Services, Profile. The active one is orange; the bar never leaves the screen. */
+/** Dashboard, Activity, Services, Profile. The active one is orange; the bar never leaves the screen. */
 export function AgentTabBar() {
   return (
     <nav aria-label="Agent sections" className="sticky bottom-0 mt-auto flex bg-finder-bg pb-[env(safe-area-inset-bottom)] shadow-inset-finder">

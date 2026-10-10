@@ -231,6 +231,19 @@ async def home(
         .scalars()
         .first()
     )
+    # The most recent request in any state, so the first screen can say "Declined" or
+    # "Completed" for a day after it happened, not only "Pending".
+    latest = (
+        (
+            await db.execute(
+                select(FloatRequest)
+                .where(FloatRequest.agent_ref == a.ref)
+                .order_by(FloatRequest.requested_at.desc())
+            )
+        )
+        .scalars()
+        .first()
+    )
     attention = []
     if counts["reported_problems"]:
         n = counts["reported_problems"]
@@ -254,6 +267,7 @@ async def home(
         "balance": bal.model_dump() if bal else None,
         "float_position": fl.model_dump() if fl else None,
         "pending_float": float_out(pending, a.shop_name, now).model_dump() if pending else None,
+        "latest_float": float_out(latest, a.shop_name, now).model_dump() if latest else None,
         "today": {
             "found_you": counts["found_you"],
             # The operator's count when connected; otherwise what the agent logged themselves.
