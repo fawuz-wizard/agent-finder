@@ -126,24 +126,27 @@ jobs:
       # One stable download link per app, so a printed QR code keeps working build after
       # build: the "pilot-latest" release is replaced every time main changes. Mock builds
       # carry the demo network inside, so a phone needs no server to show every screen.
+      # A build pointed at an API (a dispatch with api_base_url) goes to "dev-latest" instead,
+      # so a test phone can fetch it without disturbing the demo link.
       - name: Publish to the pilot release
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mode=$([ -n "$API_BASE_URL" ] && echo live || echo mock)
+          if [ "$mode" = live ]; then tag=dev-latest; title="Development build (live, against $API_BASE_URL)"; else tag=pilot-latest; title="Pilot build (latest)"; fi
           cp agent-finder-*.apk agent-finder.apk
           cp agent-app-*.apk agent-app.apk
           {
-            echo "Built from \`${GITHUB_SHA::7}\` on $(date -u +'%Y-%m-%d %H:%M UTC') in **${mode}** mode."
+            echo "Built from \`${GITHUB_SHA::7}\` on $(date -u +'%Y-%m-%d %H:%M UTC') in **${mode}** mode${API_BASE_URL:+ against \`$API_BASE_URL\`}."
             echo
             cat ../../docs/demo/release-notes.md
           } > notes.md
-          if gh release view pilot-latest >/dev/null 2>&1; then
-            gh release edit pilot-latest --title "Pilot build (latest)" --notes-file notes.md --latest
-            gh release upload pilot-latest agent-finder.apk agent-app.apk --clobber
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$title" --notes-file notes.md $([ "$tag" = pilot-latest ] && echo --latest || echo --prerelease)
+            gh release upload "$tag" agent-finder.apk agent-app.apk --clobber
           else
-            gh release create pilot-latest agent-finder.apk agent-app.apk --title "Pilot build (latest)" --notes-file notes.md --latest
+            gh release create "$tag" agent-finder.apk agent-app.apk --title "$title" --notes-file notes.md $([ "$tag" = pilot-latest ] && echo --latest || echo --prerelease)
           fi
-          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/pilot-latest/agent-finder.apk"
-          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/pilot-latest/agent-app.apk"
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/$tag/agent-finder.apk"
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/$tag/agent-app.apk"
