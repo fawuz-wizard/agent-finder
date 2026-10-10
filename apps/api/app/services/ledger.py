@@ -94,11 +94,18 @@ class SideLedger:
     usual_sle: int | None = None
     evidence_source: str = "none"
     evidence_text: str = ""
+    # The agent's own word for today: "low" caps the side at the small band, "none" at zero.
+    low: str | None = None
 
     @property
     def known(self) -> bool:
         """Is anything at all known about this side? If not, the answer is "no record"."""
-        return self.declared_sle is not None or self.usual_sle is not None or self.word is not None
+        return (
+            self.declared_sle is not None
+            or self.usual_sle is not None
+            or self.word is not None
+            or self.low is not None
+        )
 
     def ceiling(self, ranges: SideThresholds) -> int | None:
         """Largest amount that reads as likely right now. None means no upper bound."""
@@ -117,6 +124,10 @@ class SideLedger:
         if self.cap_sle is not None:
             capped = max(0, self.cap_sle - 1)
             base = capped if base is None else min(base, capped)
+        if self.low == "none":
+            return 0
+        if self.low == "low":
+            base = ranges.small_max_sle if base is None else min(base, ranges.small_max_sle)
         return base
 
     def outcome(self, amount_sle: int | None, ranges: SideThresholds) -> str:
@@ -144,6 +155,13 @@ class SideLedger:
 
     def why_text(self) -> str | None:
         """For the agent only: the event that lowered the ceiling, so they can dispute it."""
+        if self.low is not None:
+            what = "cash" if self.side == "cash" else "float"
+            return (
+                f"You said you have no {what} today; customers read that side as unavailable until midnight."  # noqa: E501
+                if self.low == "none"
+                else f"You said you are low on {what} today; only small amounts read as likely until midnight."  # noqa: E501
+            )
         if self.cap_sle is None or self.cap_at is None or self.cap_band is None:
             return None
         label = SIDE_LABEL[self.side].lower()
@@ -209,17 +227,26 @@ class Ledger:
         return None
 
 
-def empty_ledger(a: Agent) -> Ledger:
-    return Ledger(
-        cash=SideLedger("cash", a.cash_out, a.cash_out_sle),
-        float=SideLedger("float", a.deposit, a.deposit_sle),
-    )
+def low_today(a: Agent, now: datetime) -> tuple[str | None, str | None]:
+    """The agent's own correction, while it lasts (until midnight of the day it was said)."""
+    until = _aware(getattr(a, "low_until", None))
+    if until is None or until <= now:
+        return None, None
+    return a.low_cash_out, a.low_deposit
+
+
+def empty_ledger(a: Agent, now: datetime | None = None) -> Ledger:
+    cash = SideLedger("cash", a.cash_out, a.cash_out_sle)
+    float_ = SideLedger("float", a.deposit, a.deposit_sle)
+    if now is not None:
+        cash.low, float_.low = low_today(a, now)
+    return Ledger(cash=cash, float=float_)
 
 
 async def ledgers_for(db: AsyncSession, agents: list[Agent], now: datetime) -> dict[str, Ledger]:
     """One ledger per agent from the visits confirmed since each agent's current declaration.
     One query for the whole list, so the search pays for it once."""
-    out = {a.ref: empty_ledger(a) for a in agents}
+    out = {a.ref: empty_ledger(a, now) for a in agents}
     declared = {a.ref: _aware(a.declared_at) for a in agents}
     since = [d for d in declared.values() if d is not None]
     rows = (

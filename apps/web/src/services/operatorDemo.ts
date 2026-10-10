@@ -52,6 +52,7 @@ import type {
   AgentTransactions,
   TransactionRow,
   LogTransactionBody,
+  LowToday,
 } from '@/types/operator'
 import { config } from '@/lib/config'
 import { TARIFF_NOTE, commissionFor, commissionForBand } from '@/features/agent/commission'
@@ -86,6 +87,8 @@ interface AgentState {
   weekly: WeeklyHours
   overrides: Record<string, DayHours>
   extendedUntil: number | null
+  /** The agent's own correction for today, per side, until midnight. */
+  low?: { cash_out: 'low' | 'none' | null; deposit: 'low' | 'none' | null; until: number } | undefined
   /** The dealer's note at registration. PRIVATE. */
   usual: UsualNote
   /** Demo only: a PIN the dealer set at registration; seeded agents use the demo PIN. */
@@ -398,10 +401,12 @@ interface SideLedger {
   cap: number | null
   capAt: number | null
   capText: string | null
+  /** The agent's own word for today: 'low' caps the side at the small band, 'none' at zero. */
+  low: 'low' | 'none' | null
 }
 
 function sideLedger(label: string, word: CapacityWord, declared: number | null): SideLedger {
-  return { label, word, declared, usual: null, evidenceSource: 'none', evidenceText: '', netOut: 0, visits: 0, cap: null, capAt: null, capText: null }
+  return { label, word, declared, usual: null, evidenceSource: 'none', evidenceText: '', netOut: 0, visits: 0, cap: null, capAt: null, capText: null, low: null }
 }
 
 /** Evidence by amount from this session's confirmed and failed visits, by band. */
@@ -456,7 +461,27 @@ function ceilingOf(s: SideLedger): number | null {
     const capped = Math.max(0, s.cap - 1)
     base = base === null ? capped : Math.min(base, capped)
   }
+  if (s.low === 'none') return 0
+  if (s.low === 'low') base = base === null ? NETWORK.small : Math.min(base, NETWORK.small)
   return base
+}
+
+function lowToday(a: AgentState): { cash_out: 'low' | 'none' | null; deposit: 'low' | 'none' | null } {
+  if (!a.low || a.low.until <= Date.now()) return { cash_out: null, deposit: null }
+  return { cash_out: a.low.cash_out, deposit: a.low.deposit }
+}
+
+/** Low on cash or float today: lowers one side until midnight; "ok" clears it. */
+export function demoSetLow(ref: string, side: 'cash_out' | 'deposit', level: 'ok' | 'low' | 'none'): { low: LowToday; customers_see: CustomersSee } {
+  const a = find(ref)
+  const current = lowToday(a)
+  const next = { ...current, [side]: level === 'ok' ? null : level }
+  const midnight = new Date()
+  midnight.setHours(23, 59, 59, 0)
+  a.low = next.cash_out === null && next.deposit === null ? undefined : { ...next, until: midnight.getTime() }
+  const what = side === 'cash_out' ? 'cash' : 'float'
+  record(level === 'ok' ? `You said: ${what} back to normal` : level === 'none' ? `You said: no ${what} today` : `You said: low on ${what} today`, 'agent_finder', level === 'ok' ? 'neutral' : 'warning')
+  return { low: { ...lowToday(a), until_text: 'until midnight' }, customers_see: customersSee(a) }
 }
 
 /* ---------- the operator's activity feed, simulated: a day that moves, from the clock ---------- */
@@ -498,15 +523,18 @@ interface LedgerState {
 function ledgerFor(a: AgentState): LedgerState {
   const feed = feedFor(a)
   if (feed) {
-    return {
-      cash: sideLedger('Cash out', wordForFigure(feed.cash), feed.cash),
-      float: sideLedger('Deposit', wordForFigure(feed.float), feed.float),
-      live: true,
-      feedAgeMin: feed.ageMin,
-    }
+    const cash = sideLedger('Cash out', wordForFigure(feed.cash), feed.cash)
+    const float = sideLedger('Deposit', wordForFigure(feed.float), feed.float)
+    const low = lowToday(a)
+    cash.low = low.cash_out
+    float.low = low.deposit
+    return { cash, float, live: true, feedAgeMin: feed.ageMin }
   }
   const cash = sideLedger('Cash out', a.cash_out, a.cash_out_sle)
   const float = sideLedger('Deposit', a.deposit, a.deposit_sle)
+  const low = lowToday(a)
+  cash.low = low.cash_out
+  float.low = low.deposit
   attachEvidence(a, cash, 'cash_out')
   attachEvidence(a, float, 'deposit')
   for (const v of visits) {
@@ -535,6 +563,12 @@ function estimateText(s: SideLedger): string | null {
 }
 
 function whyText(s: SideLedger): string | null {
+  if (s.low !== null) {
+    const what = s.label === 'Cash out' ? 'cash' : 'float'
+    return s.low === 'none'
+      ? `You said you have no ${what} today; customers read that side as unavailable until midnight.`
+      : `You said you are low on ${what} today; only small amounts read as likely until midnight.`
+  }
   if (s.cap === null || s.capAt === null || !s.capText) return null
   const at = new Date(s.capAt)
   const hhmm = `${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`
@@ -852,6 +886,7 @@ export function demoAgentHome(ref: string): AgentHome {
     declaration: declarationOf(a),
     schedule: scheduleState(a),
     customers_see: customersSee(a),
+    low: { ...lowToday(a), until_text: 'until midnight' },
     balance: operatorValue(ref, 'balance'),
     float_position: operatorValue(ref, 'float'),
     pending_float: pending ? decorate(pending) : null,

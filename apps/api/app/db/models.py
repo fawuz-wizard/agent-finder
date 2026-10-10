@@ -97,6 +97,11 @@ class Agent(Base, TimestampMixin):
     cash_out_sle: Mapped[int | None] = mapped_column(Integer)
     deposit_sle: Mapped[int | None] = mapped_column(Integer)
     night_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # The agent's own correction for today: "low" or "none" per side, until midnight. It can
+    # only lower what customers read, never raise it.
+    low_cash_out: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    low_deposit: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    low_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     declared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     dealer: Mapped[Dealer] = relationship()

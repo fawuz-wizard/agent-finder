@@ -265,6 +265,7 @@ async def home(
         "declaration": d.model_dump(),
         "schedule": sched,
         "customers_see": customers_see(a, now, ledger),
+        "low": _low_out(a, now),
         "balance": bal.model_dump() if bal else None,
         "float_position": fl.model_dump() if fl else None,
         "pending_float": float_out(pending, a.shop_name, now).model_dump() if pending else None,
@@ -390,6 +391,54 @@ async def log_transaction(
         row = await db.get(AgentTransaction, body.client_token)
     counts = await today_counts(db, p.subject, now)
     return _transaction_out(row, counts["logged"])
+
+
+class LowBody(BaseModel):
+    side: Literal["cash_out", "deposit"]
+    level: Literal["ok", "low", "none"]
+
+
+def _low_out(a, now: datetime) -> dict:
+    from app.services.ledger import low_today
+
+    cash, dep = low_today(a, now)
+    return {"cash_out": cash, "deposit": dep, "until_text": "until midnight"}
+
+
+@router.post(
+    "/availability/low",
+    summary="Low on cash or float today: lower what customers read for one side, until midnight",
+)
+async def set_low(
+    body: LowBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    now = now_utc()
+    a = await load_agent(db, p.subject)
+    level = None if body.level == "ok" else body.level
+    if body.side == "cash_out":
+        a.low_cash_out = level
+    else:
+        a.low_deposit = level
+    if a.low_cash_out is None and a.low_deposit is None:
+        a.low_until = None
+    else:
+        a.low_until = now.replace(hour=23, minute=59, second=59, microsecond=0)
+    db.add(
+        AvailabilityEvent(
+            agent_ref=a.ref,
+            kind=f"low:{body.side}:{body.level}",
+            presence=a.presence,
+            cash_out=a.cash_out,
+            deposit=a.deposit,
+        )
+    )
+    await usage.record(db, "declare", "agent", a.ref, a.ref)
+    await db.commit()
+    await db.refresh(a)
+    ledger = (await ledgers_for(db, [a], now))[a.ref]
+    return {"low": _low_out(a, now), "customers_see": customers_see(a, now, ledger)}
 
 
 class DeclareBody(BaseModel):
@@ -575,13 +624,24 @@ async def activity(
     )
     for e in ev:
         words = f"{CAPACITY_LABEL.get(e.cash_out or '', '—')} · {CAPACITY_LABEL.get(e.deposit or '', '—')}"  # noqa: E501
-        text = (
-            "You confirmed your status was still correct"
-            if e.kind == "confirm"
-            else "You went hidden"
-            if e.kind == "hide"
-            else f"You declared {e.presence.capitalize()} · {words}"
-        )
+        if e.kind.startswith("low:"):
+            _, side, level = e.kind.split(":")
+            what = "cash" if side == "cash_out" else "float"
+            text = (
+                f"You said: {what} back to normal"
+                if level == "ok"
+                else f"You said: no {what} today"
+                if level == "none"
+                else f"You said: low on {what} today"
+            )
+        else:
+            text = (
+                "You confirmed your status was still correct"
+                if e.kind == "confirm"
+                else "You went hidden"
+                if e.kind == "hide"
+                else f"You declared {e.presence.capitalize()} · {words}"
+            )
         out.append(
             {
                 "id": f"av-{e.id}",

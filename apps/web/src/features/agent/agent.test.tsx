@@ -321,3 +321,31 @@ describe("today's commission on the dashboard", () => {
     expect(link).toHaveAttribute('href', '/agent/activity')
   })
 })
+
+describe('low on cash or float today', () => {
+  it('lowers one side for customers, says why to the agent, and clears on Fine', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await signIn(user)
+    await screen.findAllByText("Fatmata's Shop")
+    await user.click(screen.getByRole('button', { name: /low on cash or float today/i }))
+    const cash = screen.getByRole('radiogroup', { name: 'Cash today' })
+    await user.click(within(cash).getByRole('radio', { name: 'Low' }))
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash today' })).getByRole('radio', { name: 'Low' })).toHaveAttribute('aria-checked', 'true'))
+    const see = (await operatorApi.home('Agent 024')).customers_see
+    const cashSide = see.sides.find((s) => s.label === 'Cash out')!
+    expect(cashSide.range_text).toMatch(/^up to SLE/)
+    expect(cashSide.why).toMatch(/low on cash today/)
+    const float = see.sides.find((s) => s.label === 'Deposit')!
+    expect(float.why).toBeNull()
+    const floatGroup = screen.getByRole('radiogroup', { name: 'Float today' })
+    await user.click(within(floatGroup).getByRole('radio', { name: 'None' }))
+    await waitFor(async () => expect((await operatorApi.home('Agent 024')).customers_see.sides.find((s) => s.label === 'Deposit')!.outcome).toBe('limited'))
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Cash today' })).getByRole('radio', { name: 'Fine' }))
+    // One save at a time: the pills are disabled while a change is being written.
+    await waitFor(async () => expect((await operatorApi.home('Agent 024')).low.cash_out).toBeNull())
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Float today' })).getByRole('radio', { name: 'Fine' })).toBeEnabled())
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Float today' })).getByRole('radio', { name: 'Fine' }))
+    await waitFor(async () => expect((await operatorApi.home('Agent 024')).low).toMatchObject({ cash_out: null, deposit: null }))
+  })
+})

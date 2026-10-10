@@ -201,6 +201,13 @@ export interface CustomersSeeSide {
   why: string | null
 }
 
+export type LowLevel = 'low' | 'none'
+export interface LowToday {
+  cash_out: LowLevel | null
+  deposit: LowLevel | null
+  until_text: string
+}
+
 export interface CustomersSee {
   /** unlocated: no point on the map yet (or inactive at Orange) — customers cannot find the shop. */
   state: 'open' | 'hidden' | 'closed' | 'expired' | 'unlocated'
@@ -260,6 +267,8 @@ export interface AgentHome {
   declaration: Declaration
   schedule: ScheduleState
   customers_see: CustomersSee
+  /** The agent's own correction for today, per side: "low", "none", or null. */
+  low: LowToday
   balance: OperatorValue | null
   float_position: OperatorValue | null
   pending_float: FloatRequest | null

@@ -557,3 +557,46 @@ async def test_recording_a_cash_in_keeps_the_amount_and_masks_the_customers_numb
         json={"transaction": "cash_out", "client_token": "t-cashin-3"},
     )
     assert none.status_code == 422
+
+
+async def test_low_today_lowers_one_side_until_midnight_and_never_raises(client, agent):
+    """The agent's one correction: low on cash or float today. Customers read that side as
+    limited (small amounts only) or unavailable; the other side is untouched; it clears at
+    midnight or on "ok"."""
+    home = (await client.get("/api/v1/agent/home", headers=agent)).json()
+    assert home["low"] == {"cash_out": None, "deposit": None, "until_text": "until midnight"}
+    r = await client.post(
+        "/api/v1/agent/availability/low", headers=agent, json={"side": "cash_out", "level": "low"}
+    )
+    assert r.status_code == 200, r.text
+    sides = {s["label"]: s for s in r.json()["customers_see"]["sides"]}
+    assert sides["Cash out"]["outcome"] == "likely"
+    assert sides["Cash out"]["range_text"] in ("up to SLE 200", "up to SLE 500")  # the small band
+    assert "low on cash today" in sides["Cash out"]["why"]
+    assert r.json()["low"]["cash_out"] == "low" and r.json()["low"]["deposit"] is None
+    # A customer asking for more than the small band now reads "limited".
+    search = await client.post(
+        "/api/v1/search",
+        json={"transaction": "cash_out", "amount_sle": 2000, "area": "Lumley", "radius_m": 500},
+    )
+    assert search.status_code == 200
+    r = await client.post(
+        "/api/v1/agent/availability/low", headers=agent, json={"side": "deposit", "level": "none"}
+    )
+    sides = {s["label"]: s for s in r.json()["customers_see"]["sides"]}
+    assert (
+        sides["Deposit"]["range_text"] == "nothing right now"
+        and sides["Deposit"]["outcome"] == "limited"
+    )
+    assert "no float today" in sides["Deposit"]["why"]
+    acts = (await client.get("/api/v1/agent/activity", headers=agent)).json()
+    assert any(x["text"] == "You said: low on cash today" for x in acts)
+    assert any(x["text"] == "You said: no float today" for x in acts)
+    r = await client.post(
+        "/api/v1/agent/availability/low", headers=agent, json={"side": "cash_out", "level": "ok"}
+    )
+    assert r.json()["low"]["cash_out"] is None and r.json()["low"]["deposit"] == "none"
+    r = await client.post(
+        "/api/v1/agent/availability/low", headers=agent, json={"side": "deposit", "level": "ok"}
+    )
+    assert r.json()["low"] == {"cash_out": None, "deposit": None, "until_text": "until midnight"}

@@ -4,7 +4,7 @@ import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
 import { PRESENCE_LABELS } from '@/types/operator'
-import type { AgentHome, AgentTransactions, Presence } from '@/types/operator'
+import type { AgentHome, AgentTransactions, LowLevel, Presence } from '@/types/operator'
 import { FinderBox, FinderCta, FinderHeader } from '@/features/end-user/components/finder'
 import { EdgeCard, PILL_OFF, PILL_ON, PlaceRow, SectionLabel } from './components/agentChrome'
 import { ListingCard } from './components/ListingCard'
@@ -39,6 +39,23 @@ export default function DashboardPage() {
   const tx = useAsync<AgentTransactions>((s) => operatorApi.transactions(ref, s), [ref])
   const [saving, setSaving] = useState<Presence | 'extend' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The agent's one correction: low on cash or float today. Only ever lowers what customers read.
+  const [lowOpen, setLowOpen] = useState(false)
+  const [lowSaving, setLowSaving] = useState<string | null>(null)
+
+  async function setLow(side: 'cash_out' | 'deposit', level: 'ok' | LowLevel) {
+    if (lowSaving) return
+    setLowSaving(`${side}:${level}`)
+    setError(null)
+    try {
+      await operatorApi.setLow(ref, side, level)
+      home.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save.')
+    } finally {
+      setLowSaving(null)
+    }
+  }
 
   // The closing beep: fifteen minutes before today's close, so an agent still serving can
   // tap "stay open" instead of vanishing from the map mid-queue. Re-scheduled whenever the
@@ -132,6 +149,55 @@ export default function DashboardPage() {
       <div className="mt-6 flex flex-col gap-3">
         <SectionLabel id="customers-see">Customers now see</SectionLabel>
         <ListingCard name={data.name} street={data.area} see={data.customers_see} compact />
+        <button type="button" onClick={() => setLowOpen((v) => !v)} aria-expanded={lowOpen} className="flex h-control items-center self-start text-base font-bold text-finder-link">
+          {data.low.cash_out || data.low.deposit ? 'Low today · change ›' : 'Low on cash or float today? ›'}
+        </button>
+        {lowOpen && (
+          <FinderBox className="flex flex-col gap-4 px-4 py-4" aria-label="Low today">
+            {(
+              [
+                ['cash_out', 'Cash', 'for cash out'],
+                ['deposit', 'Float', 'for cash in'],
+              ] as const
+            ).map(([side, label, hint]) => {
+              const current = data.low[side]
+              return (
+                <div key={side} className="flex flex-col gap-2">
+                  <p className="text-sm font-bold">
+                    {label} <span className="font-medium text-finder-muted">{hint}</span>
+                  </p>
+                  <div role="radiogroup" aria-label={`${label} today`} className="flex gap-2">
+                    {(
+                      [
+                        ['ok', 'Fine'],
+                        ['low', 'Low'],
+                        ['none', 'None'],
+                      ] as const
+                    ).map(([level, text]) => {
+                      const on = level === 'ok' ? current === null : current === level
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          disabled={lowSaving !== null}
+                          onClick={() => void setLow(side, level)}
+                          className={`h-chip flex-1 rounded-pill text-sm font-bold ${on ? PILL_ON : PILL_OFF}`}
+                        >
+                          {lowSaving === `${side}:${level}` ? '…' : text}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+            <p className="text-xs font-medium text-finder-muted">
+              Low: only small amounts read as likely. None: that side reads as unavailable. Both last {data.low.until_text}; you can only lower what customers read, never raise it.
+            </p>
+          </FinderBox>
+        )}
       </div>
 
       <h1 className="mt-6 text-xl font-bold leading-tight">Are you open?</h1>

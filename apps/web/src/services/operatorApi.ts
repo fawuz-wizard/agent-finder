@@ -32,6 +32,8 @@ import type {
   FloatForecast,
   LoggedTransaction,
   LogTransactionBody,
+  LowToday,
+  CustomersSee,
   RecordKind,
   RegisterAgentBody,
   RegisteredAgent,
@@ -124,6 +126,12 @@ export const operatorApi = {
   confirmDeclaration(ref: string): Promise<Declaration> {
     if (config.useLiveApi) return api.post<Declaration>('/api/v1/agent/availability/confirm', {})
     return delay(demo.demoConfirmDeclaration(ref))
+  },
+
+  /** Low on cash or float today: lowers what customers read for one side, until midnight. */
+  setLow(ref: string, side: 'cash_out' | 'deposit', level: 'ok' | 'low' | 'none'): Promise<{ low: LowToday; customers_see: CustomersSee }> {
+    if (config.useLiveApi) return api.post('/api/v1/agent/availability/low', { side, level })
+    return delay(demo.demoSetLow(ref, side, level))
   },
 
   declare(ref: string, body: DeclareBody): Promise<Declaration> {
