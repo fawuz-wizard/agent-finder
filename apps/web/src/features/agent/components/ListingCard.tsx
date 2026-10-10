@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { CustomersSee } from '@/types/operator'
 import { ServiceStatus } from '@/features/end-user/components/ServiceStatus'
@@ -10,13 +11,27 @@ import { EdgeCard, PILL_ON } from './agentChrome'
  * not on the map). The ranges line and the explanation are the agent's own; a customer sees
  * neither.
  */
-export function ListingCard({ name, street, see }: { name: string; street: string; see: CustomersSee }) {
+export function ListingCard({ name, street, see, compact = false }: { name: string; street: string; see: CustomersSee; compact?: boolean }) {
   const open = see.state === 'open' && see.sides.length > 0
+  // Compact: the name and one short pill per side; the whole card on request.
+  const [expanded, setExpanded] = useState(!compact)
+  const short = (label: string) => label.replace(/^(Cash out|Deposit).*$/, '$1')
   return (
     <EdgeCard muted={!open} data-state={see.state} aria-label={`Your listing: ${open ? 'customers can find you' : see.headline}`}>
       <p className={`text-md font-bold leading-tight ${open ? 'text-white' : 'text-finder-muted'}`}>{name}</p>
       <p className="-mt-1 text-sm font-bold text-finder-muted">{street}</p>
-      {open ? (
+      {open && !expanded ? (
+        <>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {see.sides.map((side) => (
+              <ServiceStatus key={side.label} outcome={side.outcome} text={short(side.label)} />
+            ))}
+          </div>
+          <button type="button" onClick={() => setExpanded(true)} aria-expanded={false} className="h-control self-start text-base font-bold text-finder-link">
+            What they read ›
+          </button>
+        </>
+      ) : open ? (
         <>
           {see.sides.map((side) => (
             <div key={side.label} className="mt-1">
@@ -36,6 +51,11 @@ export function ListingCard({ name, street, see }: { name: string; street: strin
             ))}
           </p>
           <p className="text-xs font-medium text-finder-muted">{see.explanation}</p>
+          {compact && (
+            <button type="button" onClick={() => setExpanded(false)} aria-expanded={true} className="h-control self-start text-base font-bold text-finder-link">
+              Show less
+            </button>
+          )}
         </>
       ) : (
         <>

@@ -1,5 +1,6 @@
 import { Outlet, Link } from 'react-router-dom'
 import { AgentStrip, AgentTabBar } from '@/features/agent/components/agentChrome'
+import { ShopPresenceWatch } from '@/features/agent/components/ShopPresence'
 import { DealerTabBar } from '@/features/dealer/components/DealerTabBar'
 import { LogoMark, Wordmark } from '@/design'
 import { HostStrip } from '@/features/end-user/components/finder'
@@ -60,6 +61,7 @@ export function AgentLayout() {
     <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
       <DemoRibbon />
       <AgentStrip />
+      <ShopPresenceWatch />
       <Outlet />
       <AgentTabBar />
     </div>

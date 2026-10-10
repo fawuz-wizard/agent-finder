@@ -80,6 +80,9 @@ describe('agent app', () => {
     await signIn(user)
     await screen.findAllByText("Fatmata's Shop")
     const card = screen.getByText(/customers now see/i).closest('div')!
+    // Compact by default: one short pill per side; the full wording on request.
+    expect(within(card).getByText('Cash out')).toBeInTheDocument()
+    await user.click(within(card).getByRole('button', { name: /what they read/i }))
     expect(within(card).getAllByText(/can likely handle your request/i).length).toBe(2)
     expect(within(card).getByText(/^any amount$/)).toBeInTheDocument()
     expect(within(card).getByText(/^up to SLE 10,000$/)).toBeInTheDocument()
@@ -272,11 +275,11 @@ describe('the listing on the dashboard', () => {
     await screen.findAllByText("Fatmata's Shop")
     const card = () => screen.getByRole('article', { name: /your listing/i })
     expect(card()).toHaveAttribute('data-state', 'open')
-    expect(within(card()).getAllByText(/can likely handle your request/i).length).toBe(2)
+    expect(within(card()).getByText('Cash out')).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: 'Away' }))
     await waitFor(() => expect(card()).toHaveAttribute('data-state', 'hidden'))
     expect(within(card()).getByText('Availability hidden')).toBeInTheDocument()
-    expect(within(card()).queryByText(/can likely handle your request/i)).not.toBeInTheDocument()
+    expect(within(card()).queryByText('Cash out')).not.toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: 'Open' }))
     await waitFor(() => expect(card()).toHaveAttribute('data-state', 'open'))
   })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
@@ -10,6 +10,7 @@ import { EdgeCard, PILL_OFF, PILL_ON, PlaceRow, SectionLabel } from './component
 import { ListingCard } from './components/ListingCard'
 import { floatRowText } from './floatRow'
 import { formatSle } from './money'
+import { BEEP_CLOSING, askToBeep, beep, cancelBeep } from '@/lib/notify'
 
 const PRESENCE: { value: Presence; label: string }[] = [
   { value: 'open', label: 'Open' },
@@ -38,6 +39,25 @@ export default function DashboardPage() {
   const tx = useAsync<AgentTransactions>((s) => operatorApi.transactions(ref, s), [ref])
   const [saving, setSaving] = useState<Presence | 'extend' | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // The closing beep: fifteen minutes before today's close, so an agent still serving can
+  // tap "stay open" instead of vanishing from the map mid-queue. Re-scheduled whenever the
+  // day's hours change; one id, so it never stacks.
+  const closesAt = home.data?.schedule.closes_at ?? null
+  const openNow = home.data?.schedule.open_now ?? false
+  useEffect(() => {
+    if (!closesAt || !openNow) {
+      void cancelBeep(BEEP_CLOSING)
+      return
+    }
+    const [h, m] = closesAt.split(':').map(Number)
+    const at = new Date()
+    at.setHours(h ?? 0, (m ?? 0) - 15, 0, 0)
+    if (at.getTime() <= Date.now()) return
+    void askToBeep().then((ok) => {
+      if (ok) void beep({ id: BEEP_CLOSING, title: `Closing at ${closesAt}`, body: 'Still serving? Open the app and tap "Stay open 1 more hour", or customers stop being sent to you.', at })
+    })
+  }, [closesAt, openNow])
 
   async function setPresence(presence: Presence) {
     if (!home.data || saving) return
@@ -111,7 +131,7 @@ export default function DashboardPage() {
 
       <div className="mt-6 flex flex-col gap-3">
         <SectionLabel id="customers-see">Customers now see</SectionLabel>
-        <ListingCard name={data.name} street={data.area} see={data.customers_see} />
+        <ListingCard name={data.name} street={data.area} see={data.customers_see} compact />
       </div>
 
       <h1 className="mt-6 text-xl font-bold leading-tight">Are you open?</h1>
