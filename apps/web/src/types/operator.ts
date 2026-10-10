@@ -126,6 +126,34 @@ export const TRANSACTION_BANDS: { band: TransactionBand; label: string }[] = [
   { band: '>50k', label: 'over 50,000' },
 ]
 
+/** One transaction today and what it earned. Operator rows carry the amount; the agent's own
+ * logs carry a band, so their commission is an estimate. */
+export interface TransactionRow {
+  id: string
+  at: string
+  time_text: string
+  transaction: 'cash_out' | 'deposit'
+  label: string
+  amount_sle: number | null
+  amount_band: TransactionBand | null
+  amount_text: string
+  successful: boolean
+  commission_sle: number
+  estimated: boolean
+  source: 'operator' | 'agent'
+}
+
+export interface AgentTransactions {
+  date_text: string
+  source: string | null
+  count: number
+  successful: number
+  commission_total_sle: number
+  estimated_any: boolean
+  commission_note: string
+  rows: TransactionRow[]
+}
+
 export interface LoggedTransaction {
   id: string
   at: string

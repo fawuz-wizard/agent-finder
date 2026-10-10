@@ -11,6 +11,7 @@ import type {
   AgentHome,
   AgentInsights,
   AgentProfile,
+  AgentTransactions,
   DealerAgentRow,
   DealerOverview,
   Declaration,
@@ -140,6 +141,11 @@ export const operatorApi = {
   insights(ref: string, range: InsightRange, signal?: AbortSignal): Promise<AgentInsights> {
     if (config.useLiveApi) return api.get<AgentInsights>(`/api/v1/agent/insights?range=${range}`, signal)
     return delay(demo.demoAgentInsights(ref, range), signal)
+  },
+
+  transactions(ref: string, signal?: AbortSignal): Promise<AgentTransactions> {
+    if (config.useLiveApi) return api.get<AgentTransactions>('/api/v1/agent/transactions', signal)
+    return delay(demo.demoAgentTransactions(ref), signal)
   },
 
   activity(ref: string, signal?: AbortSignal): Promise<ActivityEvent[]> {

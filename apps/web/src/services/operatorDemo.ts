@@ -49,8 +49,11 @@ import type {
   TodayChange,
   UsualNote,
   WeeklyHours,
+  AgentTransactions,
+  TransactionRow,
 } from '@/types/operator'
 import { config } from '@/lib/config'
+import { TARIFF_NOTE, commissionFor, commissionForBand } from '@/features/agent/commission'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, WEEKDAYS, wordForFigure } from '@/types/operator'
 
 const FRESHNESS = { fresh: 90, aging: 120, may_have_changed: 240 } as const
@@ -953,6 +956,75 @@ export function demoAgentActivity(ref: string): ActivityEvent[] {
     { id: 's6', at: '', time_text: '07:40', text: `You set yourself Open`, source: 'agent_finder', tone: 'neutral' },
   ]
   return a.ref === 'Agent 024' ? [...activity, ...seeded] : [...activity]
+}
+
+/** Seeded operator transactions for the demo's main agent, today, with exact amounts. */
+const SEEDED_TRANSACTIONS: { time: string; tx: 'cash_out' | 'deposit'; amount: number; ok: boolean }[] = [
+  { time: '10:58', tx: 'cash_out', amount: 2_000, ok: true },
+  { time: '10:31', tx: 'deposit', amount: 500, ok: true },
+  { time: '09:45', tx: 'cash_out', amount: 5_000, ok: true },
+  { time: '09:10', tx: 'deposit', amount: 1_500, ok: true },
+  { time: '08:30', tx: 'cash_out', amount: 800, ok: false },
+]
+
+export function demoAgentTransactions(ref: string): AgentTransactions {
+  const a = find(ref)
+  const todayAt = (hhmm: string) => {
+    const d = new Date()
+    const [h, m] = hhmm.split(':').map(Number)
+    d.setHours(h ?? 0, m ?? 0, 0, 0)
+    return d
+  }
+  const rows: TransactionRow[] = []
+  if (a.ref === 'Agent 024') {
+    SEEDED_TRANSACTIONS.forEach((t, i) => {
+      rows.push({
+        id: `op-${i}`,
+        at: todayAt(t.time).toISOString(),
+        time_text: t.time,
+        transaction: t.tx,
+        label: t.tx === 'cash_out' ? 'Cash out' : 'Deposit',
+        amount_sle: t.amount,
+        amount_band: null,
+        amount_text: sle(t.amount),
+        successful: t.ok,
+        commission_sle: t.ok ? commissionFor(t.tx, t.amount) : 0,
+        estimated: false,
+        source: 'operator',
+      })
+    })
+  }
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  for (const t of a.txLog ?? []) {
+    if (t.at < start.getTime()) continue
+    const d = new Date(t.at)
+    rows.push({
+      id: `log-${t.at}`,
+      at: d.toISOString(),
+      time_text: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      transaction: t.tx,
+      label: t.tx === 'cash_out' ? 'Cash out' : 'Deposit',
+      amount_sle: null,
+      amount_band: t.band,
+      amount_text: BAND_TEXT[t.band],
+      successful: true,
+      commission_sle: commissionForBand(t.tx, t.band),
+      estimated: true,
+      source: 'agent',
+    })
+  }
+  rows.sort((x, y) => y.at.localeCompare(x.at))
+  return {
+    date_text: new Date().toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }),
+    source: FEED_SOURCE,
+    count: rows.length,
+    successful: rows.filter((r) => r.successful).length,
+    commission_total_sle: rows.filter((r) => r.successful).reduce((s, r) => s + r.commission_sle, 0),
+    estimated_any: rows.some((r) => r.estimated),
+    commission_note: TARIFF_NOTE,
+    rows,
+  }
 }
 
 export function demoAgentProfile(ref: string): AgentProfile {

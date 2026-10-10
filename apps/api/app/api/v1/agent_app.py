@@ -26,6 +26,7 @@ from app.db.models import (
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import schedule, usage
+from app.services.commission import TARIFF_NOTE, commission_for, commission_for_band
 from app.services.ledger import BAND_TEXT, Ledger, ledgers_for, word_for_figure
 from app.services.phrasing import (
     CAPACITY_LABEL,
@@ -648,6 +649,83 @@ async def activity(
         out.append({**row, "source": "operator"})
     out.sort(key=lambda e: e["at"], reverse=True)
     return out
+
+
+@router.get(
+    "/transactions",
+    summary="Today's transactions and what each earned: the operator's with exact amounts, "
+    "the agent's own logs as estimates by band",
+)
+async def transactions_today(
+    p: Principal = Depends(require_role("agent")), db: AsyncSession = Depends(get_session)
+) -> dict:
+    now = now_utc()
+    a = await load_agent(db, p.subject)
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    op = get_operator()
+    rows: list[dict] = []
+    for t in await op.transactions_list(a.ref):
+        if "transaction" not in t:
+            continue
+        ok = bool(t.get("successful", True))
+        amount = t.get("amount_sle")
+        rows.append(
+            {
+                "id": t["id"],
+                "at": t["at"],
+                "time_text": t["time_text"],
+                "transaction": t["transaction"],
+                "label": TRANSACTION_LABELS[t["transaction"]],
+                "amount_sle": amount,
+                "amount_band": None,
+                "amount_text": f"SLE {amount:,}" if amount is not None else "",
+                "successful": ok,
+                "commission_sle": commission_for(t["transaction"], amount)
+                if ok and amount is not None
+                else 0,  # noqa: E501
+                "estimated": False,
+                "source": "operator",
+            }
+        )
+    logged = (
+        (
+            await db.execute(
+                select(AgentTransaction).where(
+                    AgentTransaction.agent_ref == a.ref, AgentTransaction.at >= start
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for t in logged:
+        rows.append(
+            {
+                "id": f"log-{t.id[:12]}",
+                "at": t.at.isoformat(),
+                "time_text": t.at.strftime("%H:%M"),
+                "transaction": t.transaction,
+                "label": TRANSACTION_LABELS[t.transaction],
+                "amount_sle": None,
+                "amount_band": t.amount_band,
+                "amount_text": BAND_TEXT[t.amount_band],
+                "successful": True,
+                "commission_sle": commission_for_band(t.transaction, t.amount_band),
+                "estimated": True,
+                "source": "agent",
+            }
+        )
+    rows.sort(key=lambda r: r["at"], reverse=True)
+    return {
+        "date_text": now.strftime("%a %d %b"),
+        "source": op.source_name() or None,
+        "count": len(rows),
+        "successful": sum(1 for r in rows if r["successful"]),
+        "commission_total_sle": sum(r["commission_sle"] for r in rows if r["successful"]),
+        "estimated_any": any(r["estimated"] for r in rows),
+        "commission_note": TARIFF_NOTE,
+        "rows": rows,
+    }
 
 
 @router.get("/profile", summary="Business, dealer, phone visibility, devices")

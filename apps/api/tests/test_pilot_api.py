@@ -481,3 +481,31 @@ async def test_home_carries_each_side_outcome_and_the_latest_float_request(clien
     home = (await client.get("/api/v1/agent/home", headers=agent)).json()
     assert home["latest_float"]["state"] == "pending"
     assert home["pending_float"]["id"] == home["latest_float"]["id"]
+
+
+async def test_todays_transactions_carry_a_commission_each_and_a_total(client, agent):
+    """The Activity screen shows what each transaction earned: exact for the operator's rows,
+    an estimate by band for the agent's own logs, and one total for the day."""
+    before = (await client.get("/api/v1/agent/transactions", headers=agent)).json()
+    assert before["commission_note"]
+    r = await client.post(
+        "/api/v1/agent/transactions",
+        headers=agent,
+        json={"transaction": "cash_out", "amount_band": "≤2k", "client_token": "t-comm-1"},
+    )
+    assert r.status_code in (200, 201), r.text
+    after = (await client.get("/api/v1/agent/transactions", headers=agent)).json()
+    mine = [
+        x for x in after["rows"] if x["source"] == "agent" and x["id"].startswith("log-t-comm-1")
+    ]
+    assert len(mine) == 1
+    assert mine[0]["estimated"] is True
+    assert mine[0]["amount_sle"] is None
+    assert mine[0]["amount_text"] == "SLE 500 to 2,000"
+    assert mine[0]["commission_sle"] == 25
+    assert after["commission_total_sle"] == before["commission_total_sle"] + 25
+    assert after["count"] == before["count"] + 1
+    for row in after["rows"]:
+        if row["source"] == "operator":
+            assert row["estimated"] is False
+            assert row["amount_sle"] is not None

@@ -42,4 +42,19 @@ describe('agent activity', () => {
     await screen.findByText(/Your numbers for so far today, by hour/i)
     expect(table).toHaveTextContent(/07:00/)
   })
+  it("shows the day's commission, exact for the operator's rows and an estimate for the agent's own log", async () => {
+    const { operatorApi } = await import('@/services/operatorApi')
+    await operatorApi.logTransaction('Agent 024', 'deposit', '≤500', `tok-${Date.now()}`)
+    renderSignedIn()
+    // The box is on screen while loading; wait for the figures to land in it.
+    await screen.findByText(/Indicative tariff/)
+    const hero = screen.getByLabelText("Today's commission")
+    expect(hero).toHaveTextContent(/SLE/)
+    // Seeded operator rows: cash out 2,000 earns 25, exact; the failed one earns nothing.
+    expect(await screen.findByText('+SLE 25')).toBeInTheDocument()
+    expect(screen.getByText('Could not complete')).toBeInTheDocument()
+    // The agent's own log, by band: an estimate, marked as such.
+    expect(screen.getByText('≈ SLE 6')).toBeInTheDocument()
+    expect(screen.getByText(/Logged by you · estimate/)).toBeInTheDocument()
+  })
 })

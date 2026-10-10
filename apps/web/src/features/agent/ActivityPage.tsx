@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
-import type { ActivityEvent, AgentInsights, InsightRange } from '@/types/operator'
+import type { ActivityEvent, AgentInsights, AgentTransactions, InsightRange } from '@/types/operator'
 import { FinderBox, FinderHeader } from '@/features/end-user/components/finder'
 import { ThreeLines } from './components/charts'
 import { Panel, PILL_ON, SectionLabel } from './components/agentChrome'
+import { formatSle } from './money'
 
 const RANGES: { key: InsightRange; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -28,23 +29,70 @@ const TONE: Record<ActivityEvent['tone'], string> = {
   danger: 'text-danger',
 }
 
+/** Operator transaction lines already appear in the transactions list; the timeline keeps the rest. */
+const isTransactionEvent = (e: ActivityEvent) => e.source === 'operator' && /^(Cash out|Deposit) SLE/.test(e.text)
+
 /**
- * Activity: how it is going. The range switch, the one line of figures, the chart with its
- * three lines, and today's timeline. The evidence Orange asked for, one tap from anywhere.
+ * Activity: how it is going, and what it earned. The day's commission first, each
+ * transaction with what it earned, then the chart over a range, then the rest of the day.
+ * Commission is exact for the operator's rows and an estimate for the agent's own logs.
  */
 export default function ActivityPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
   const [range, setRange] = useState<InsightRange>('week')
+  const tx = useAsync<AgentTransactions>((s) => operatorApi.transactions(ref, s), [ref])
   const insights = useAsync<AgentInsights>((s) => operatorApi.insights(ref, range, s), [ref, range])
   const events = useAsync<ActivityEvent[]>((s) => operatorApi.activity(ref, s), [ref])
   const i = insights.data
+  const t = tx.data
+  const rest = (events.data ?? []).filter((e) => !isTransactionEvent(e))
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-white">
       <FinderHeader title="Activity" />
 
-      <Panel className="mt-6" aria-labelledby="chart">
+      <SectionLabel className="mt-6">Today's commission</SectionLabel>
+      <FinderBox className="mt-3 flex flex-col gap-1 px-5 py-5" aria-label="Today's commission">
+        {t ? (
+          <>
+            <p className="text-3xl font-bold leading-none">
+              {t.estimated_any && <span className="text-finder-muted">≈ </span>}
+              {formatSle(t.commission_total_sle)}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-finder-muted">
+              {t.successful} of {t.count} transaction{t.count === 1 ? '' : 's'} successful · {t.date_text}
+            </p>
+            <p className="text-xs font-medium text-finder-muted">{t.commission_note}</p>
+          </>
+        ) : (
+          <p className="text-sm font-medium text-finder-muted">{tx.state === 'error' ? tx.error : 'Loading…'}</p>
+        )}
+      </FinderBox>
+
+      <SectionLabel className="mt-6">Transactions today</SectionLabel>
+      <div className="mt-3 flex flex-col gap-2">
+        {t && t.rows.length === 0 && <p className="text-sm font-medium text-finder-muted">Nothing yet today.</p>}
+        {(t?.rows ?? []).map((r) => (
+          <FinderBox key={r.id} className="flex min-h-[60px] items-center gap-4 px-5 py-3">
+            <span className="w-12 shrink-0 text-sm font-bold text-finder-muted">{r.time_text}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-base font-bold">
+                {r.label} <span className="font-semibold text-finder-muted">· {r.amount_text}</span>
+              </span>
+              <span className={`block text-xs font-semibold ${r.successful ? 'text-finder-muted' : 'text-danger'}`}>
+                {r.successful ? (r.estimated ? 'Logged by you · estimate' : 'Successful') : 'Could not complete'}
+              </span>
+            </span>
+            <span className={`shrink-0 text-right text-base font-bold ${r.successful ? 'text-finder-likely' : 'text-finder-muted'}`}>
+              {r.successful ? `${r.estimated ? '≈ ' : '+'}${formatSle(r.commission_sle)}` : '—'}
+            </span>
+          </FinderBox>
+        ))}
+      </div>
+
+      <SectionLabel className="mt-6">Your numbers</SectionLabel>
+      <Panel className="mt-3" aria-labelledby="chart">
         <div role="tablist" aria-label="Range" className="flex h-[44px] rounded-field bg-finder-line">
           {RANGES.map((r) => (
             <button
@@ -93,11 +141,11 @@ export default function ActivityPage() {
         </p>
       </Panel>
 
-      <SectionLabel className="mt-6">Today's timeline</SectionLabel>
+      <SectionLabel className="mt-6">The rest of today</SectionLabel>
       <div className="mt-3 flex flex-col gap-2">
         {events.state === 'loading' && <p className="text-sm font-medium text-finder-muted">Loading…</p>}
-        {(events.data ?? []).length === 0 && events.state !== 'loading' && <p className="text-sm font-medium text-finder-muted">Nothing yet today.</p>}
-        {(events.data ?? []).map((e) => (
+        {rest.length === 0 && events.state !== 'loading' && <p className="text-sm font-medium text-finder-muted">Nothing else yet today.</p>}
+        {rest.map((e) => (
           <FinderBox key={e.id} className="flex min-h-[60px] items-center gap-4 px-5 py-3">
             <span className="w-12 shrink-0 text-sm font-bold text-finder-muted">{e.time_text}</span>
             <span className="min-w-0 text-sm font-semibold leading-snug">

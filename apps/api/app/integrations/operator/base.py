@@ -184,6 +184,9 @@ class FakeOperator:
                 "time_text": (now - timedelta(hours=1)).strftime("%H:%M"),
                 "text": "Cash out SLE 2,000 — successful",
                 "tone": "neutral",
+                "transaction": "cash_out",
+                "amount_sle": 2_000,
+                "successful": True,
             },
             {
                 "id": "op-2",
@@ -191,6 +194,9 @@ class FakeOperator:
                 "time_text": (now - timedelta(hours=2)).strftime("%H:%M"),
                 "text": "Deposit SLE 500 — successful",
                 "tone": "neutral",
+                "transaction": "deposit",
+                "amount_sle": 500,
+                "successful": True,
             },
         ]
 
