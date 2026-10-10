@@ -1,6 +1,8 @@
 import { useId } from 'react'
 import { FinderBox } from './finder'
 
+const QUICK = [100, 200, 500, 1000, 2000, 5000]
+
 /**
  * Amount in new Leones: a 60 px field with "SLE" in front and the figure at 36 px, the
  * old-Leone equivalent underneath — the single most common real-world error since
@@ -46,6 +48,22 @@ export function AmountInput({
       <p id={`${id}-help`} className={`-mt-1 text-[15px] font-medium ${error ? 'text-danger' : 'text-finder-muted'}`}>
         {helper}
       </p>
+      {/* The usual amounts, one tap each: the same pills as the transaction choice, smaller. */}
+      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Quick amounts">
+        {QUICK.map((q) => (
+          <button
+            key={q}
+            type="button"
+            aria-pressed={value === String(q)}
+            onClick={() => onChange(String(q))}
+            className={`h-chip shrink-0 rounded-pill px-4 text-base font-bold text-white transition-colors ${
+              value === String(q) ? 'bg-finder-link' : 'border-2 border-white/60'
+            }`}
+          >
+            {q.toLocaleString('en-US')}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

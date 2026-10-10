@@ -87,4 +87,13 @@ describe('U1 — Home', () => {
     expect(within(recent).getByText('Aberdeen · yesterday')).toBeInTheDocument()
     localStorage.clear()
   })
+  it('fills the amount from a quick pill', async () => {
+    const user = userEvent.setup()
+    renderHome()
+    await user.click(screen.getByRole('button', { name: '2,000' }))
+    expect(screen.getByRole('button', { name: '2,000' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('= Le 2,000,000 old Leones')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    expect(screen.getByTestId('loc')).toHaveTextContent('amount=2000')
+  })
 })
