@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FinderBox, FinderCta, FinderHeader } from '@/features/end-user/components/finder'
-import { PILL_OFF, SectionLabel } from './components/agentChrome'
+import { PILL_OFF, PILL_ON, SectionLabel } from './components/agentChrome'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -61,6 +61,14 @@ export default function HoursPage() {
       </div>
     )
   const t = data.today
+  // Which of today's four choices is in force, so it shows orange.
+  const mode: 'normal' | 'half' | 'off' | 'extended' = t.extended_until
+    ? 'extended'
+    : !t.today_only
+      ? 'normal'
+      : t.today === null
+        ? 'off'
+        : 'half'
   const timeClass = 'h-10 w-[118px] rounded-field bg-finder-line px-2 text-center text-sm font-bold text-white outline-none focus:outline focus:outline-2 focus:outline-finder-link'
 
   return (
@@ -71,16 +79,23 @@ export default function HoursPage() {
 
       <SectionLabel className="mt-6">Today only</SectionLabel>
       <p className="mt-1 text-sm font-medium text-finder-muted">Changes today and nothing else. Tomorrow follows your weekly hours.</p>
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <div role="radiogroup" aria-label="Today" className="mt-3 grid grid-cols-2 gap-3">
         {(
           [
-            ['Half day', () => today({ hours: [t.today?.[0] ?? '07:00', '13:00'] }), false],
-            ['Day off', () => today({ day_off: true }), false],
-            ['Open 1 more hour', () => today({ extend_minutes: 60 }), false],
-            ['Back to normal', () => today({ clear: true }), !t.today_only && !t.extended_until],
+            ['Normal day', 'normal', () => today({ clear: true })],
+            ['Half day', 'half', () => today({ hours: [t.today?.[0] ?? '07:00', '13:00'] })],
+            ['Day off', 'off', () => today({ day_off: true })],
+            ['Open 1 more hour', 'extended', () => today({ extend_minutes: 60 })],
           ] as const
-        ).map(([label, act, off]) => (
-          <button key={label} type="button" onClick={act} disabled={off} className={`h-[50px] rounded-pill px-3 text-[15px] font-bold leading-tight disabled:opacity-40 ${PILL_OFF}`}>
+        ).map(([label, key, act]) => (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={mode === key}
+            onClick={act}
+            className={`h-[50px] rounded-pill px-3 text-[15px] font-bold leading-tight ${mode === key ? PILL_ON : PILL_OFF}`}
+          >
             {label}
           </button>
         ))}
