@@ -117,8 +117,8 @@ export default function DashboardPage() {
           name={data.name}
           sub={<>{data.ref} · {data.area}</>}
           action={
-            <Link to="/agent/hours" className="flex h-control items-center">
-              Working hours
+            <Link to="/agent/hours" aria-label="Working hours" className="flex h-control items-center">
+              Hours
             </Link>
           }
         />

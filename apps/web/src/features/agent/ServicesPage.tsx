@@ -153,11 +153,10 @@ export default function ServicesPage() {
         </EdgeCard>
       )}
 
-      <div className="mt-6 flex items-baseline justify-between gap-3">
-        <h1 className="text-xl font-bold leading-tight">What did you just do?</h1>
-        <span className="shrink-0 text-sm font-bold text-finder-muted">Logged today: {home.data?.today.logged ?? 0}</span>
-      </div>
-      <p className="mt-1 text-sm font-medium text-finder-muted">Two taps after you serve someone. The amount is never sent, only a band.</p>
+      <h1 className="mt-6 text-xl font-bold leading-tight">What did you just do?</h1>
+      <p className="mt-1 text-sm font-medium text-finder-muted">
+        Two taps after you serve someone. The amount is never sent, only a band. <span className="font-bold text-white">Logged today: {home.data?.today.logged ?? 0}</span>
+      </p>
       <div role="radiogroup" aria-label="What did you just do?" className="mt-5 flex gap-10">
         {(
           [
@@ -218,12 +217,10 @@ export default function ServicesPage() {
 
       {pending && (
         <EdgeCard className="mt-3">
-          <div className="flex items-baseline gap-3">
-            <p className="min-w-0 text-md font-bold leading-tight">{formatSle(pending.amount_sle)}</p>
-            <span className="ml-auto shrink-0 rounded-tag bg-finder-limited-tint px-3 py-1 text-xs font-bold text-finder-limited">
-              {STATE_TEXT[pending.state]} · waiting {pending.waiting_text}
-            </span>
-          </div>
+          <span className="w-fit rounded-tag bg-finder-limited-tint px-3 py-1 text-xs font-bold text-finder-limited">
+            {STATE_TEXT[pending.state]} · waiting {pending.waiting_text}
+          </span>
+          <p className="text-md font-bold leading-tight">{formatSle(pending.amount_sle)}</p>
           <Progress request={pending} />
           <p className="text-sm font-medium text-finder-muted">Reason you gave: “{pending.reason}”</p>
           {pending.state === 'pending' && (

@@ -56,7 +56,7 @@ export function Row({ label, value, action, className = '' }: { label: ReactNode
   return (
     <FinderBox className={`flex min-h-[60px] items-center justify-between gap-3 px-5 py-2 ${className}`}>
       <span className="min-w-0 text-base font-bold text-white">{label}</span>
-      {action ?? <span className="min-w-0 truncate text-right text-base font-bold text-finder-muted">{value}</span>}
+      {action ?? <span className="min-w-0 text-right text-base font-bold text-finder-muted">{value}</span>}
     </FinderBox>
   )
 }

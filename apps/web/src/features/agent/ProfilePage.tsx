@@ -79,8 +79,8 @@ export default function ProfilePage() {
           name={data.shop_name}
           sub={<>{data.street || data.area}{data.city ? `, ${data.city}` : ''}</>}
           action={
-            <Link to="/agent/hours" className="flex h-control items-center">
-              Working hours
+            <Link to="/agent/hours" aria-label="Working hours" className="flex h-control items-center">
+              Hours
             </Link>
           }
         />
