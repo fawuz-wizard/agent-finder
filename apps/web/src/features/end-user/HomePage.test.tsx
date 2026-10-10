@@ -150,7 +150,7 @@ describe('U1 — Home asks for the live location first', () => {
     await screen.findByText('Finding your location…')
     await user.click(screen.getByRole('button', { name: 'Find agent' }))
     expect(screen.queryByTestId('loc')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Finding your location…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Waiting for your location…' })).toBeDisabled()
     answer!({ coords: { latitude: 8.4701, longitude: -13.2609 } })
     expect(await screen.findByTestId('loc')).toHaveTextContent('lat=8.47&lng=-13.261')
   })

@@ -46,7 +46,9 @@ export default function HomePage() {
   const liveLabel = place.name ?? 'Your location'
   // The named area: chosen by hand, or the first one as the fallback with no position.
   const area = manualArea ?? AREAS[0]
-  const shownLabel = live ? liveLabel : area
+  // While the phone is still answering there is no place to name yet: say so, not an area.
+  const waiting = manualArea === null && (location.state === 'idle' || location.state === 'locating')
+  const shownLabel = live ? liveLabel : waiting ? 'Finding your location…' : area
 
   function go(withPoint: boolean) {
     if (!transaction) return
@@ -140,7 +142,7 @@ export default function HomePage() {
       ) : location.state === 'ready' || location.state === 'locating' || location.state === 'idle' ? (
         <p className="text-sm font-medium text-finder-muted" role="status">
           {location.state !== 'ready'
-            ? 'Finding your location…'
+            ? 'Allow location when the phone asks'
             : place.state === 'finding'
               ? 'Searching around your location · finding the place name…'
               : 'Searching around your location'}
@@ -177,7 +179,7 @@ export default function HomePage() {
         <AmountInput value={amount} onChange={setAmount} error={error} />
       </div>
       <FinderCta className="mt-5" onClick={submit} disabled={pending}>
-        {pending ? 'Finding your location…' : 'Find agent'}
+        {pending ? 'Waiting for your location…' : 'Find agent'}
       </FinderCta>
       <LocationPromptSheet
         open={askLocation}
@@ -200,11 +202,11 @@ export default function HomePage() {
             Recent
           </h2>
           {recent.map((r) => (
-            <FinderBox key={r.id} className="flex min-h-[60px] items-center justify-between gap-3 px-5 py-2 text-base font-bold">
-              <Link to={`/agents/${r.id}?area=${encodeURIComponent(r.area)}`} className="min-w-[45%] flex-1 truncate">
+            <FinderBox key={r.id} className="flex min-h-[60px] flex-col justify-center gap-0.5 px-5 py-2">
+              <Link to={`/agents/${r.id}?area=${encodeURIComponent(r.area)}`} className="truncate text-base font-bold">
                 {r.name}
               </Link>
-              <span className="min-w-0 truncate text-finder-muted">
+              <span className="truncate text-sm font-semibold text-finder-muted">
                 {r.area} · {whenLabel(r.at)}
               </span>
             </FinderBox>
