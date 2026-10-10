@@ -13,10 +13,8 @@ const HowAvailabilityWorks = lazy(() => import('@/features/end-user/HowAvailabil
 const ReportVisit = lazy(() => import('@/features/end-user/ReportVisitPage'))
 const SignIn = lazy(() => import('@/features/auth/SignInPage'))
 const HostHome = lazy(() => import('@/features/host/HostHomePage'))
-const AgentHome = lazy(() => import('@/features/agent/AgentHomePage'))
-const AgentAvailability = lazy(() => import('@/features/agent/AvailabilityPage'))
-const AgentFloat = lazy(() => import('@/features/agent/FloatPage'))
 const AgentDashboard = lazy(() => import('@/features/agent/DashboardPage'))
+const AgentServices = lazy(() => import('@/features/agent/ServicesPage'))
 const AgentProfile = lazy(() => import('@/features/agent/ProfilePage'))
 const AgentHours = lazy(() => import('@/features/agent/HoursPage'))
 const DealerDashboard = lazy(() => import('@/features/dealer/DashboardPage'))
@@ -69,11 +67,13 @@ const router = createBrowserRouter([
       {
         element: <AgentLayout />,
         children: [
-          { index: true, element: withSuspense(<AgentHome />) },
-          { path: 'availability', element: withSuspense(<AgentAvailability />) },
-          { path: 'float', element: withSuspense(<AgentFloat />) },
-          { path: 'dashboard', element: withSuspense(<AgentDashboard />) },
-          { path: 'activity', element: <Navigate to="/agent/dashboard" replace /> },
+          { index: true, element: withSuspense(<AgentDashboard />) },
+          { path: 'services', element: withSuspense(<AgentServices />) },
+          // The five old modules fold into three tabs; old links still land somewhere right.
+          { path: 'availability', element: <Navigate to="/agent" replace /> },
+          { path: 'dashboard', element: <Navigate to="/agent" replace /> },
+          { path: 'activity', element: <Navigate to="/agent" replace /> },
+          { path: 'float', element: <Navigate to="/agent/services" replace /> },
           { path: 'profile', element: withSuspense(<AgentProfile />) },
           { path: 'hours', element: withSuspense(<AgentHours />) },
         ],

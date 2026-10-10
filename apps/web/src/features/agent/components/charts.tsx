@@ -75,7 +75,8 @@ export function ThreeLines({ labels, series, title }: { labels: string[]; series
           </g>
         ))}
         {labels.map((l, i) =>
-          i === n - 1 || (i % step === 0 && n - 1 - i >= step) ? (
+          // The last label is bold and right-aligned, so its neighbour makes room for it.
+          i === n - 1 || (i % step === 0 && n - 1 - i >= Math.max(step, 2)) ? (
             <text
               key={l + i}
               x={x(i)}

@@ -1,5 +1,5 @@
 import { Outlet, Link } from 'react-router-dom'
-import { AgentTabBar } from '@/features/agent/components/AgentTabBar'
+import { AgentStrip, AgentTabBar } from '@/features/agent/components/agentChrome'
 import { DealerTabBar } from '@/features/dealer/components/DealerTabBar'
 import { LogoMark, Wordmark } from '@/design'
 import { HostStrip } from '@/features/end-user/components/finder'
@@ -52,12 +52,12 @@ function RoleStrip({ role }: { role: 'Agent' | 'Aggregator' }) {
 
 const shell = 'mx-auto flex min-h-dvh w-full max-w-[480px] flex-col overflow-x-hidden bg-canvas md:min-h-0 md:my-8 md:border-2 md:border-line'
 
-/** Agent shell: the five modules sit in a tab bar that never leaves the screen. */
+/** Agent shell: the customer module's dark surface and three tabs that never leave the screen. */
 export function AgentLayout() {
   return (
-    <div className={shell}>
+    <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col overflow-x-hidden bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
       <DemoRibbon />
-      <RoleStrip role="Agent" />
+      <AgentStrip />
       <Outlet />
       <AgentTabBar />
     </div>

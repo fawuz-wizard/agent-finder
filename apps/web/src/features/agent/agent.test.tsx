@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -6,9 +6,8 @@ import { ToastProvider } from '@/design'
 import { SessionProvider } from '@/features/auth/SessionProvider'
 import { RequireRole } from '@/features/auth/RequireRole'
 import SignInPage from '@/features/auth/SignInPage'
-import AgentHomePage from './AgentHomePage'
-import AvailabilityPage from './AvailabilityPage'
-import FloatPage from './FloatPage'
+import DashboardPage from './DashboardPage'
+import ServicesPage from './ServicesPage'
 import HoursPage from './HoursPage'
 import { operatorApi } from '@/services/operatorApi'
 import { demoRecordVisit, demoSetOperatorFeed } from '@/services/operatorDemo'
@@ -21,10 +20,9 @@ function App({ start = '/agent' }: { start?: string }) {
         <Routes>
           <Route path="/sign-in" element={<SignInPage />} />
           <Route element={<RequireRole role="agent" />}>
-            <Route path="/agent" element={<AgentHomePage />} />
-            <Route path="/agent/availability" element={<AvailabilityPage />} />
-            <Route path="/agent/float" element={<FloatPage />} />
-          <Route path="/agent/hours" element={<HoursPage />} />
+            <Route path="/agent" element={<DashboardPage />} />
+            <Route path="/agent/services" element={<ServicesPage />} />
+            <Route path="/agent/hours" element={<HoursPage />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -121,7 +119,7 @@ describe('float workflow', () => {
 
   it('shows the agent the dealer\'s reason for a decline', async () => {
     const user = userEvent.setup()
-    render(<App start="/agent/float" />)
+    render(<App start="/agent/services" />)
     await signIn(user)
     // The list loads after the card frame, so wait for the reason itself.
     expect(await screen.findByText(/too close to your last top-up/i)).toBeInTheDocument()
@@ -228,17 +226,17 @@ describe('working hours', () => {
     expect(await screen.findByText(/closing at 12:10 by your schedule/i)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /stay open 1 more hour/i }))
     await screen.findByText(/staying open until 13:10/)
-    expect(screen.queryByText(/closing at 12:10 by your schedule/i)).not.toBeInTheDocument()
+    // The timeline may log the extension before the day's card has re-read; wait for the card.
+    await waitFor(() => expect(screen.queryByText(/closing at 12:10 by your schedule/i)).not.toBeInTheDocument())
     await operatorApi.setToday('Agent 024', { clear: true })
   })
 })
 
 describe('transaction log', () => {
-  it('two taps log a transaction: it counts on the home screen and lands on the timeline, never with an amount', async () => {
+  it('two taps log a transaction: it counts on Services and lands on the timeline, never with an amount', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    render(<App start="/agent/services" />)
     await signIn(user)
-    await screen.findByText("Fatmata's Shop")
     const counter = await screen.findByText(/Logged today: \d+/)
     const before = Number(counter.textContent!.match(/\d+/)![0])
     await user.click(screen.getByRole('radio', { name: 'Cash out' }))

@@ -932,7 +932,7 @@ export function demoAgentActivity(ref: string): ActivityEvent[] {
     { id: 's3', at: '', time_text: '10:58', text: 'Cash out SLE 2,000 — successful', source: 'operator', tone: 'neutral' },
     { id: 's4', at: '', time_text: '10:31', text: 'Deposit SLE 500 — successful', source: 'operator', tone: 'neutral' },
     { id: 's5', at: '', time_text: '09:12', text: 'You requested float SLE 5,000', source: 'agent_finder', tone: 'neutral' },
-    { id: 's6', at: '', time_text: '07:40', text: `You declared Open · Most · Some`, source: 'agent_finder', tone: 'neutral' },
+    { id: 's6', at: '', time_text: '07:40', text: `You set yourself Open`, source: 'agent_finder', tone: 'neutral' },
   ]
   return a.ref === 'Agent 024' ? [...activity, ...seeded] : [...activity]
 }
