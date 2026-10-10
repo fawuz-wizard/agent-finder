@@ -14,7 +14,7 @@ describe('the name of where the customer is', () => {
   })
 
   it('asks OpenStreetMap once per point and remembers the answer', async () => {
-    const fetchMock = vi.fn(async (_url: string) => ({ ok: true, json: async () => ({ address: { suburb: 'Lumley' } }) }))
+    const fetchMock = vi.fn<(url: string) => Promise<{ ok: boolean; json: () => Promise<unknown> }>>(async () => ({ ok: true, json: async () => ({ address: { suburb: 'Lumley' } }) }))
     vi.stubGlobal('fetch', fetchMock)
     expect(await reverseGeocode({ lat: 8.47, lng: -13.261 })).toBe('Lumley')
     expect(await reverseGeocode({ lat: 8.47, lng: -13.261 })).toBe('Lumley')
