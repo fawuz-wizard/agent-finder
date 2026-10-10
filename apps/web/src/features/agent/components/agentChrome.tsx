@@ -54,7 +54,7 @@ export function SectionLabel({ id, children, className = '' }: { id?: string | u
 /** A 60 px row with the inset glow: a label on the left, a value or an action on the right. */
 export function Row({ label, value, action, className = '' }: { label: ReactNode; value?: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <FinderBox className={`flex min-h-[52px] items-center justify-between gap-3 px-5 py-2 ${className}`}>
+    <FinderBox className={`flex min-h-[3.5rem] items-center justify-between gap-3 px-5 py-2 ${className}`}>
       <span className="min-w-0 text-base font-bold text-white">{label}</span>
       {action ?? <span className="min-w-0 text-right text-base font-bold text-finder-muted">{value}</span>}
     </FinderBox>
@@ -82,7 +82,7 @@ export function Panel({ className = '', children, ...rest }: React.HTMLAttribute
 /** The finder's amount field: 60 px, "SLE" in front, the figure at 36 px. */
 export function MoneyField({ id, className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <FinderBox className={`flex h-[52px] items-center gap-4 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
+    <FinderBox className={`flex h-[3.5rem] items-center gap-4 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
       <span className="text-md font-bold text-finder-muted">SLE</span>
       <input
         id={id}
@@ -99,7 +99,7 @@ export function MoneyField({ id, className = '', ...rest }: InputHTMLAttributes<
 /** A 60 px text field in the same frame. */
 export function TextField({ id, className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <FinderBox className={`flex h-[52px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
+    <FinderBox className={`flex h-[3.5rem] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
       <input id={id} autoComplete="off" className="h-full w-full min-w-0 bg-transparent text-base font-medium text-white outline-none placeholder:text-finder-muted/60" {...rest} />
     </FinderBox>
   )
@@ -108,7 +108,7 @@ export function TextField({ id, className = '', ...rest }: InputHTMLAttributes<H
 /** The 15 px label above a field. */
 export function FieldLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
   return (
-    <label htmlFor={htmlFor} className="text-[15px] font-medium text-white">
+    <label htmlFor={htmlFor} className="text-[0.95rem] font-medium text-white">
       {children}
     </label>
   )

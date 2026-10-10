@@ -137,10 +137,10 @@ export default function SignInPage() {
         </div>
 
         <p className="mt-6 text-base font-bold uppercase text-finder-muted">Your details</p>
-        <label htmlFor="sign-in-ref" className="mt-3 text-[15px] font-medium">
+        <label htmlFor="sign-in-ref" className="mt-3 text-[0.95rem] font-medium">
           {isAgent ? 'Agent code' : 'Orange Money number'}
         </label>
-        <FinderBox className="mt-2 flex h-[52px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+        <FinderBox className="mt-2 flex h-[3.5rem] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
           <input
             id="sign-in-ref"
             value={ref}
@@ -156,14 +156,14 @@ export default function SignInPage() {
         </p>
 
         <div className="mt-4 flex items-center justify-between">
-          <label htmlFor="sign-in-pin" className="text-[15px] font-medium">
+          <label htmlFor="sign-in-pin" className="text-[0.95rem] font-medium">
             PIN
           </label>
           <button type="button" onClick={() => setShowPin((v) => !v)} className="text-sm font-bold text-finder-link" aria-pressed={showPin}>
             {showPin ? 'Hide PIN' : 'Show PIN'}
           </button>
         </div>
-        <FinderBox className="mt-2 flex h-[52px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+        <FinderBox className="mt-2 flex h-[3.5rem] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
           <input
             id="sign-in-pin"
             value={pin}

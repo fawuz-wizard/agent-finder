@@ -70,7 +70,7 @@
   /* Type: Boosted stack (HelvNeueOrange is licence-restricted; Helvetica Neue is the
      documented fallback). Sizes follow the Boosted mobile scale: h1 24, h2/h3 18, body 16. */
   --font-sans: 'Helvetica Neue', Helvetica, 'Noto Sans', 'Liberation Sans', Arial, system-ui, sans-serif;
-  --text-xs: 0.75rem;   /* 12 — SMS hints only */
+  --text-xs: 0.8rem;    /* ~11 on the smallest phones, 12.8 at full size — never smaller */
   --text-sm: 0.875rem;  /* 14 — labels, freshness, helper ($font-size-sm) */
   --text-base: 1rem;    /* 16 — body, controls ($font-size-base) */
   --text-lg: 1.125rem;  /* 18 — card titles, primary buttons ($font-size-lg, mobile h2) */
@@ -174,9 +174,11 @@
 @layer base {
   html {
     font-family: var(--font-sans);
-    /* The scale the team chose on the phone (2026-10-10): 15% smaller than the Figma file's
-       440 px frame, which reads large on a 390–402 px screen. Every rem size follows. */
-    font-size: 85%;
+    /* One layout for every phone. The root size follows the screen width, so a 360 px
+       Android (itel, Tecno) and a 440 px frame get the same proportions: 13.6 px at 360,
+       14.7 at 390, 16 from 424 up, never below 13. Every rem size follows, and the fixed
+       pieces (rows, pills, fields, icons) are in rem too. Chosen on the itel, 2026-10-10. */
+    font-size: clamp(13px, 3.78vw, 16px);
     -webkit-text-size-adjust: 100%;
     /* Clip sideways overflow at the root, never on a shell: a clipping shell would become
        the box that sticky tab bars stick to, and they would scroll away with the page. */

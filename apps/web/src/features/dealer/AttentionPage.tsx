@@ -69,7 +69,7 @@ export default function DealerAttentionPage() {
         </header>
         <div className="flex flex-col gap-3 p-4 pb-6">
           <Card className={sev.card}>
-            <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${sev.pill}`}>{open.title}</span>
+            <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[0.75rem] font-bold ${sev.pill}`}>{open.title}</span>
             <p className="mt-1 text-base font-bold leading-tight">{open.agent_name}</p>
             <p className="text-sm text-muted">{open.agent_ref.replace(/^Agent /, 'Code ')}</p>
             <p className="text-sm leading-snug">{open.sentence}</p>
@@ -82,7 +82,7 @@ export default function DealerAttentionPage() {
                 <span className="text-sm text-muted">
                   {e.at_text} · {e.text}
                 </span>
-                <span className="shrink-0 rounded-pill bg-danger-tint px-2 py-0.5 text-[11px] font-bold text-danger">{e.tag}</span>
+                <span className="shrink-0 rounded-pill bg-danger-tint px-2 py-0.5 text-[0.75rem] font-bold text-danger">{e.tag}</span>
               </div>
             ))}
             <p className="pt-2 text-xs text-muted">Reports are anonymous. No customer identity is stored against them.</p>
@@ -138,7 +138,7 @@ export default function DealerAttentionPage() {
         {signals.map((s) => (
           <Card key={s.id} className={SEV[s.severity].card}>
             <Link to={`/dealer/attention/${s.id}`} className="flex flex-col gap-1.5">
-              <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${SEV[s.severity].pill}`}>{s.title}</span>
+              <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[0.75rem] font-bold ${SEV[s.severity].pill}`}>{s.title}</span>
               <p className="mt-1 text-base font-bold leading-tight">{s.agent_name}</p>
               <p className="text-sm text-muted">{s.agent_ref.replace(/^Agent /, 'Code ')}</p>
               <p className="text-sm text-muted">{s.sentence}</p>

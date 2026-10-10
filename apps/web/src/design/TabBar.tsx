@@ -21,7 +21,7 @@ export function TabBar({ items, label }: { items: TabItem[]; label: string }) {
           to={to}
           end={end ?? false}
           className={({ isActive }) =>
-            `relative flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-bold ${
+            `relative flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[0.75rem] font-bold ${
               isActive ? 'text-ink' : 'text-muted'
             }`
           }

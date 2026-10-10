@@ -69,7 +69,7 @@ export function ThreeLines({ labels, series, title }: { labels: string[]; series
         {[0, 50, 100].map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} className="stroke-line" strokeWidth="1" />
-            <text x={PAD.left - 6} y={y(t) + 3.5} textAnchor="end" className="fill-muted text-[11px]">
+            <text x={PAD.left - 6} y={y(t) + 3.5} textAnchor="end" className="fill-muted text-[0.75rem]">
               {t}%
             </text>
           </g>
@@ -82,7 +82,7 @@ export function ThreeLines({ labels, series, title }: { labels: string[]; series
               x={x(i)}
               y={H - 7}
               textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
-              className={`text-[11px] ${i === n - 1 ? 'fill-ink font-bold' : 'fill-muted'}`}
+              className={`text-[0.75rem] ${i === n - 1 ? 'fill-ink font-bold' : 'fill-muted'}`}
             >
               {l}
             </text>
@@ -127,7 +127,7 @@ export function ThreeLines({ labels, series, title }: { labels: string[]; series
                 <g>
                   <rect x={left} y={PAD.top} width={w} height={h} rx="5" className="fill-ink" />
                   {lines.map((l, li) => (
-                    <text key={li} x={left + 8} y={PAD.top + 13 + li * 12} className={`fill-paper text-[9px] ${li === 0 ? 'font-bold' : ''}`}>
+                    <text key={li} x={left + 8} y={PAD.top + 13 + li * 12} className={`fill-paper text-[0.65rem] ${li === 0 ? 'font-bold' : ''}`}>
                       {l}
                     </text>
                   ))}

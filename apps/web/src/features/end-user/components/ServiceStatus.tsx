@@ -30,7 +30,7 @@ export function ServiceStatus({
   return (
     <p
       className={`inline-flex max-w-full items-center gap-2 rounded-tag px-3 font-semibold ${
-        size === 'lg' ? 'min-h-[38px] py-2 text-base' : 'min-h-[33px] py-1 text-sm'
+        size === 'lg' ? 'min-h-[2.5rem] py-2 text-base' : 'min-h-[2.2rem] py-1 text-sm'
       } ${likely ? 'bg-finder-likely-tint text-finder-likely' : 'bg-finder-limited-tint text-finder-limited'}`}
     >
       {likely ? <TickIcon size={size === 'lg' ? 18 : 16} /> : <StatusDot kind={DOT[outcome]} size={size === 'lg' ? 16 : 14} />}

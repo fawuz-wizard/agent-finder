@@ -78,7 +78,7 @@ export default function ActivityPage() {
       <div className="mt-3 flex flex-col gap-2">
         {t && t.rows.length === 0 && <p className="text-sm font-medium text-finder-muted">Nothing yet today.</p>}
         {shown.map((r) => (
-          <FinderBox key={r.id} className="flex min-h-[52px] items-center gap-4 px-5 py-3">
+          <FinderBox key={r.id} className="flex min-h-[3.5rem] items-center gap-4 px-5 py-3">
             <span className="w-12 shrink-0 text-sm font-bold text-finder-muted">{r.time_text}</span>
             <span className="min-w-0 flex-1">
               <span className="block text-base font-bold">{r.label}</span>
@@ -100,7 +100,7 @@ export default function ActivityPage() {
 
       <SectionLabel className="mt-6">Your numbers</SectionLabel>
       <Panel className="mt-3" aria-labelledby="chart">
-        <div role="tablist" aria-label="Range" className="flex h-[38px] rounded-field bg-finder-line">
+        <div role="tablist" aria-label="Range" className="flex h-[2.5rem] rounded-field bg-finder-line">
           {RANGES.map((r) => (
             <button
               key={r.key}
@@ -153,11 +153,11 @@ export default function ActivityPage() {
         {events.state === 'loading' && <p className="text-sm font-medium text-finder-muted">Loading…</p>}
         {rest.length === 0 && events.state !== 'loading' && <p className="text-sm font-medium text-finder-muted">Nothing else yet today.</p>}
         {rest.map((e) => (
-          <FinderBox key={e.id} className="flex min-h-[52px] items-center gap-4 px-5 py-3">
+          <FinderBox key={e.id} className="flex min-h-[3.5rem] items-center gap-4 px-5 py-3">
             <span className="w-12 shrink-0 text-sm font-bold text-finder-muted">{e.time_text}</span>
             <span className="min-w-0 text-sm font-semibold leading-snug">
               <span className={TONE[e.tone]}>{e.text}</span>
-              <span className={`mt-1 block w-fit rounded-tag px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${e.source === 'operator' ? 'bg-finder-line text-finder-muted' : PILL_ON}`}>
+              <span className={`mt-1 block w-fit rounded-tag px-2 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide ${e.source === 'operator' ? 'bg-finder-line text-finder-muted' : PILL_ON}`}>
                 {e.source === 'operator' ? 'Orange' : 'Agent app'}
               </span>
             </span>

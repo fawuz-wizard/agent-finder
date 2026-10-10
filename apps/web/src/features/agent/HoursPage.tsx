@@ -69,7 +69,7 @@ export default function HoursPage() {
       : t.today === null
         ? 'off'
         : 'half'
-  const timeClass = 'h-10 w-[118px] rounded-field bg-finder-line px-2 text-center text-sm font-bold text-white outline-none focus:outline focus:outline-2 focus:outline-finder-link'
+  const timeClass = 'h-10 w-[7.5rem] rounded-field bg-finder-line px-2 text-center text-sm font-bold text-white outline-none focus:outline focus:outline-2 focus:outline-finder-link'
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-white">
@@ -94,7 +94,7 @@ export default function HoursPage() {
             role="radio"
             aria-checked={mode === key}
             onClick={act}
-            className={`h-[44px] rounded-pill px-3 text-[15px] font-bold leading-tight ${mode === key ? PILL_ON : PILL_OFF}`}
+            className={`h-[2.9rem] rounded-pill px-3 text-[0.95rem] font-bold leading-tight ${mode === key ? PILL_ON : PILL_OFF}`}
           >
             {label}
           </button>
@@ -107,7 +107,7 @@ export default function HoursPage() {
           const h = weekly[day]
           return (
             <li key={day}>
-              <FinderBox className="flex min-h-[52px] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-2">
+              <FinderBox className="flex min-h-[3.5rem] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-2">
                 <span className="text-base font-bold">{WEEKDAY_NAMES[day]}</span>
                 <label className="flex items-center gap-2 text-sm font-semibold text-finder-muted">
                   <input

@@ -29,7 +29,7 @@ function phoneText(callUrl: string): string {
 
 function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <p className="flex items-center gap-3 text-[15px] font-medium text-finder-muted">
+    <p className="flex items-center gap-3 text-[0.95rem] font-medium text-finder-muted">
       <span aria-hidden="true" className="flex w-5 shrink-0 justify-center text-finder-muted">
         {icon}
       </span>
@@ -158,12 +158,12 @@ export default function AgentDetailPage() {
 
   const services = ['Orange Money', ...(Object.keys(TRANSACTION_LABELS) as TransactionType[]).map((k) => TRANSACTION_LABELS[k])]
   const actionClass =
-    'flex h-[38px] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
+    'flex h-[2.5rem] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
 
   return (
     <div className="flex flex-1 flex-col bg-finder-bg text-white">
       {/* The shop's picture. Until agents add one, the sheet opens on the network's own mark. */}
-      <div className="relative flex h-[200px] items-end justify-center bg-finder-line text-white">
+      <div className="relative flex h-[13rem] items-end justify-center bg-finder-line text-white">
         <button
           type="button"
           onClick={() => history.back()}
@@ -209,7 +209,7 @@ export default function AgentDetailPage() {
         <h2 className="mt-6 text-xl font-bold">Services</h2>
         <ul className="mt-3 flex flex-wrap gap-3">
           {services.map((s) => (
-            <li key={s} className="flex h-10 items-center rounded-field bg-finder-line px-4 text-[15px] font-semibold text-white">
+            <li key={s} className="flex h-10 items-center rounded-field bg-finder-line px-4 text-[0.95rem] font-semibold text-white">
               {s}
             </li>
           ))}
@@ -259,7 +259,7 @@ export default function AgentDetailPage() {
                 type="button"
                 onClick={() => void submitRating()}
                 disabled={!rating || ratingState === 'sending'}
-                className="mt-3 h-[38px] w-full rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-opacity disabled:opacity-40"
+                className="mt-3 h-[2.5rem] w-full rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-opacity disabled:opacity-40"
               >
                 {ratingState === 'sending' ? 'Submitting…' : 'Submit rating'}
               </button>

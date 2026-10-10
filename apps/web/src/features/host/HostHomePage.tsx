@@ -49,7 +49,7 @@ export default function HostHomePage() {
 
   return (
     <div className="host-frame mx-auto flex min-h-dvh w-full max-w-[440px] flex-col bg-[#1E1E1E] text-white">
-      <p className="bg-night px-4 py-1.5 text-center text-[11px] font-semibold text-night-text" role="note">
+      <p className="bg-night px-4 py-1.5 text-center text-[0.75rem] font-semibold text-night-text" role="note">
         Demo — simulated host app · placeholder data · not a live service
       </p>
 

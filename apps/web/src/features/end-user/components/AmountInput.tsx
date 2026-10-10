@@ -27,10 +27,10 @@ export function AmountInput({
 
   return (
     <div className="flex flex-col gap-3">
-      <label htmlFor={id} className="text-[15px] font-medium text-white">
+      <label htmlFor={id} className="text-[0.95rem] font-medium text-white">
         Amount (SLE)
       </label>
-      <FinderBox className={`flex h-[52px] items-center gap-4 px-4 ${error ? 'outline outline-2 outline-danger' : 'focus-within:outline focus-within:outline-2 focus-within:outline-finder-link'}`}>
+      <FinderBox className={`flex h-[3.5rem] items-center gap-4 px-4 ${error ? 'outline outline-2 outline-danger' : 'focus-within:outline focus-within:outline-2 focus-within:outline-finder-link'}`}>
         <span className="text-md font-bold text-finder-muted">SLE</span>
         <input
           id={id}
@@ -45,7 +45,7 @@ export function AmountInput({
           className="h-full w-full min-w-0 bg-transparent text-3xl font-bold tabular-nums text-white outline-none placeholder:text-finder-muted/50"
         />
       </FinderBox>
-      <p id={`${id}-help`} className={`-mt-1 text-[15px] font-medium ${error ? 'text-danger' : 'text-finder-muted'}`}>
+      <p id={`${id}-help`} className={`-mt-1 text-[0.95rem] font-medium ${error ? 'text-danger' : 'text-finder-muted'}`}>
         {helper}
       </p>
       {/* The usual amounts, one tap each: the same pills as the transaction choice, smaller. */}

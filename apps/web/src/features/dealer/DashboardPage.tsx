@@ -10,7 +10,7 @@ function Tile({ bucket, label, value, sub, tone }: { bucket: DealerBucket; label
   return (
     <Link to={`/dealer/agents?filter=${bucket}`} className="flex flex-1" aria-label={`${label}: ${value} — see these agents`}>
       <Card interactive className="flex-1 gap-0.5 px-3 py-3">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</p>
+        <p className="text-[0.75rem] font-bold uppercase tracking-wider text-muted">{label}</p>
         <p className={`text-3xl font-bold leading-none ${tone}`}>{value}</p>
         <p className="text-xs text-muted">{sub}</p>
       </Card>
@@ -65,7 +65,7 @@ export default function DealerDashboardPage() {
                 <span className="block text-xs font-semibold text-muted">{r.agent_ref.replace(/^Agent /, 'Code ')}</span>
                 <span className="text-xs text-muted">
                   waiting {r.waiting_text}
-                  {r.ageing && <span className="ml-2 rounded-pill bg-warning-tint px-2 py-0.5 text-[10px] font-bold text-warning">ageing</span>}
+                  {r.ageing && <span className="ml-2 rounded-pill bg-warning-tint px-2 py-0.5 text-[0.7rem] font-bold text-warning">ageing</span>}
                 </span>
               </span>
               <span className="text-sm font-bold">{formatSle(r.amount_sle)}</span>

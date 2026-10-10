@@ -10,7 +10,7 @@ import { cn } from '@/design'
 /** The Orange Money app's own top strip. Decorative here: the module is embedded under it. */
 export function HostStrip() {
   return (
-    <div aria-hidden="true" className="flex h-11 items-center gap-4 px-[18px] pt-2 text-base font-semibold text-white">
+    <div aria-hidden="true" className="flex h-11 items-center gap-4 px-[1.1rem] pt-2 text-base font-semibold text-white">
       <svg width="24" height="18" viewBox="0 0 24 18" className="shrink-0">
         <path d="M1 2h22M1 9h22M1 16h22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
@@ -52,7 +52,7 @@ export function FinderCta({ className, ...rest }: React.ButtonHTMLAttributes<HTM
     <button
       type="button"
       className={cn(
-        'flex h-[52px] w-full items-center justify-center rounded-action bg-finder-cta text-md font-bold text-finder-on-orange',
+        'flex h-[3.5rem] w-full items-center justify-center rounded-action bg-finder-cta text-md font-bold text-finder-on-orange',
         'transition-[filter] hover:brightness-95 active:brightness-90 disabled:opacity-45',
         className,
       )}
@@ -66,9 +66,12 @@ export function FinderBox({ className, ...rest }: React.HTMLAttributes<HTMLDivEl
   return <div className={cn('rounded-field bg-finder-bg shadow-inset-finder', className)} {...rest} />
 }
 
+/** Icon sizes are given in px for a 16 px root and rendered in rem, so they follow the scale. */
+const rem = (px: number) => `${px / 16}rem`
+
 export function PinIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+    <svg style={{ width: rem(size), height: rem(size) }} viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
       <path d="M12 22s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z" fill="currentColor" />
       <circle cx="12" cy="10" r="2.6" fill="var(--color-finder-bg)" />
     </svg>
@@ -85,7 +88,7 @@ export function CaretIcon() {
 
 export function TickIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" className="shrink-0">
+    <svg style={{ width: rem(size), height: rem(size) }} viewBox="0 0 16 16" aria-hidden="true" className="shrink-0">
       <path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
@@ -93,7 +96,7 @@ export function TickIcon({ size = 16 }: { size?: number }) {
 
 export function ChevronIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true" className="shrink-0">
+    <svg style={{ width: rem(size), height: rem(size) }} viewBox="0 0 20 20" aria-hidden="true" className="shrink-0">
       <path d="M7.5 4.5L13 10l-5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )

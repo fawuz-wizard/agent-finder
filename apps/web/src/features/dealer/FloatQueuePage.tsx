@@ -67,7 +67,7 @@ export default function DealerFloatQueuePage() {
           <span className="text-xs text-muted">
             {r.state === 'pending' ? `waiting ${r.waiting_text}` : new Date(r.requested_at).toLocaleDateString([], { day: 'numeric', month: 'short' })}
           </span>
-          <span className={`rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${r.ageing ? 'bg-warning-tint text-warning' : STATE[r.state]}`}>
+          <span className={`rounded-pill px-2.5 py-0.5 text-[0.75rem] font-bold ${r.ageing ? 'bg-warning-tint text-warning' : STATE[r.state]}`}>
             {r.ageing ? 'ageing' : r.state}
           </span>
         </div>
