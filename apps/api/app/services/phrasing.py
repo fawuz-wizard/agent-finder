@@ -13,7 +13,7 @@ from app.services.points import on_map
 
 NETWORK_RANGES = SideThresholds(some_max_sle=10_000, small_max_sle=500)
 
-TRANSACTION_LABELS = {"cash_out": "Cash out", "deposit": "Deposit", "send": "Send"}
+TRANSACTION_LABELS = {"cash_out": "Cash out", "deposit": "Cash in", "send": "Send"}
 PUBLIC_TEXT = {
     "likely": "Can likely handle your request",
     "limited": "Availability uncertain for this request",
@@ -176,7 +176,7 @@ AREA_POINTS = {
 
 # ---- "Customers now see": the agent's own words, restated as the public phrases ----
 
-SIDE_LABEL = {"cash_out": "Cash out", "deposit": "Deposit"}
+SIDE_LABEL = {"cash_out": "Cash out", "deposit": "Cash in"}
 
 
 def _range_text(ceiling: int | None) -> tuple[str, str | None]:

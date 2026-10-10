@@ -44,7 +44,7 @@ async def test_two_taps_log_a_transaction_and_it_shows_on_the_agents_day(client,
     acts = (await client.get("/api/v1/agent/activity", headers=agent)).json()
     texts = [x["text"] for x in acts if x["text"].startswith("You recorded")]
     assert "You recorded: Cash out · SLE 500 to 2,000" in texts
-    assert "You recorded: Deposit · under SLE 500" in texts
+    assert "You recorded: Cash in · under SLE 500" in texts
     # Never an amount in the log, and nothing of it in the customer payload.
     assert all("SLE 1," not in t for t in texts)
     # Validation and roles: an unknown band is refused, a dealer gets the 404 shape.

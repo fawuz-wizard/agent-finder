@@ -126,10 +126,10 @@ export interface SearchRequest {
 
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {
   cash_out: 'Cash out',
-  deposit: 'Deposit',
+  deposit: 'Cash in',
 }
 
 export const TRANSACTION_HINTS: Record<TransactionType, string> = {
   cash_out: 'Take cash out',
-  deposit: 'Put cash in',
+  deposit: 'Put cash into a wallet',
 }

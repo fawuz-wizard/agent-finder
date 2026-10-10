@@ -18,13 +18,13 @@ async def test_presence_alone_is_a_valid_declaration(client, agent):
 async def test_dealer_sees_capacity_from_evidence_not_words(client, dealer):
     rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
     fat = [x for x in rows if x["ref"] == "Agent 024"][0]
-    assert fat["capacity_text"] == "Cash: any amount · Deposit up to ~SLE 10,000"
+    assert fat["capacity_text"] == "Cash out: any amount · Cash in up to ~SLE 10,000"
     r = await client.put(
         "/api/v1/dealer/agents/Agent 024/usual", json={"usual_max_sle": 5_000}, headers=dealer
     )
     assert r.status_code == 200
     rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
     fat = [x for x in rows if x["ref"] == "Agent 024"][0]
-    assert fat["capacity_text"] == "Cash up to ~SLE 5,000 · Deposit up to ~SLE 10,000"
+    assert fat["capacity_text"] == "Cash out up to ~SLE 5,000 · Cash in up to ~SLE 10,000"
     detail = (await client.get("/api/v1/dealer/agents/Agent 024", headers=dealer)).json()
     assert detail["capacity_text"] == fat["capacity_text"]

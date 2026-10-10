@@ -50,7 +50,7 @@ describe('U1 — Home', () => {
     renderHome()
 
     expect(screen.getByRole('heading', { name: 'What do you need?' })).toBeInTheDocument()
-    await user.click(screen.getByRole('radio', { name: 'Deposit' }))
+    await user.click(screen.getByRole('radio', { name: 'Cash in' }))
     await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
     await user.click(screen.getByRole('button', { name: 'Find agent' }))
 

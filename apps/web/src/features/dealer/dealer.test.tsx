@@ -278,7 +278,7 @@ describe('registration', () => {
     const rows = await operatorApi.dealerAgents()
     const mine = rows.find((r) => r.name === "Mariama's Corner")
     expect(mine).toBeDefined()
-    expect(mine!.capacity_text).toMatch(/Cash up to ~SLE 5,000/)
+    expect(mine!.capacity_text).toMatch(/Cash out up to ~SLE 5,000/)
     const acts = await operatorApi.actions(mine!.ref)
     expect(acts.some((a) => /registered Mariama's Corner/.test(a.note) && /Orange's record/.test(a.note))).toBe(true)
     // The agent can sign in with the PIN the dealer set.

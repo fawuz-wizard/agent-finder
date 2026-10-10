@@ -2,7 +2,7 @@ Two apps, one codebase. Install both on an Android phone; nothing else is needed
 
 | App | What it shows | Download |
 |---|---|---|
-| **Agent Finder** | The customer's side, inside the Orange Money app: find a nearby agent who can likely handle a cash out or deposit right now | `agent-finder.apk` below |
+| **Agent Finder** | The customer's side, inside the Orange Money app: find a nearby agent who can likely handle a cash out or cash in right now | `agent-finder.apk` below |
 | **Agent App** | The agent's and the aggregator's side: availability, float, hours, the agent register, the attention list | `agent-app.apk` below |
 
 **Install.** Tap the `.apk`, then *Download*, then *Open*. The first time, Android asks to allow installs from this source: allow it, then tap *Install*.

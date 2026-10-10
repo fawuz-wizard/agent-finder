@@ -219,7 +219,7 @@ def capacity_text(ledger) -> str:
     if ledger is None:
         return "No record yet"
     parts = []
-    for label, side in (("Cash", ledger.cash), ("Deposit", ledger.float)):
+    for label, side in (("Cash out", ledger.cash), ("Cash in", ledger.float)):
         if not side.known:
             parts.append(f"{label}: no record")
             continue

@@ -68,7 +68,7 @@ describe('U3 — Results', () => {
 
   it('is deep-link addressable: a direct results URL renders that exact search', async () => {
     renderResults('?tx=deposit&amount=500&area=Aberdeen')
-    expect(await screen.findByText(/Deposit · SLE 500 · Aberdeen/)).toBeInTheDocument()
+    expect(await screen.findByText(/Cash in · SLE 500 · Aberdeen/)).toBeInTheDocument()
   })
 
   it('sends the customer back to the form with the query intact when editing', async () => {

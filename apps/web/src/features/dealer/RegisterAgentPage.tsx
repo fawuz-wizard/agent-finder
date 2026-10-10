@@ -192,7 +192,7 @@ export default function RegisterAgentPage() {
             <input id="reg-cash" value={form.usual_max_sle} inputMode="numeric" onChange={(e) => set('usual_max_sle', e.target.value.replace(/\D/g, ''))} className={`mt-1 ${field}`} />
           </label>
           <label className="mt-2 text-sm font-semibold" htmlFor="reg-float">
-            Deposit, up to about (SLE)
+            Cash in, up to about (SLE)
             <input id="reg-float" value={form.usual_float_max_sle} inputMode="numeric" onChange={(e) => set('usual_float_max_sle', e.target.value.replace(/\D/g, ''))} className={`mt-1 ${field}`} />
           </label>
           <label className="mt-2 text-sm font-semibold" htmlFor="reg-daily">

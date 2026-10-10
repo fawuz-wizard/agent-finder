@@ -150,14 +150,14 @@ export default function DashboardPage() {
         <SectionLabel id="customers-see">Customers now see</SectionLabel>
         <ListingCard name={data.name} street={data.area} see={data.customers_see} compact />
         <button type="button" onClick={() => setLowOpen((v) => !v)} aria-expanded={lowOpen} className="flex h-control items-center self-start text-base font-bold text-finder-link">
-          {data.low.cash_out || data.low.deposit ? 'Low today · change ›' : 'Low on cash or float today? ›'}
+          {data.low.cash_out || data.low.deposit ? 'Low today · change ›' : 'Low on cash out or cash in today? ›'}
         </button>
         {lowOpen && (
           <FinderBox className="flex flex-col gap-4 px-4 py-4" aria-label="Low today">
             {(
               [
-                ['cash_out', 'Cash', 'for cash out'],
-                ['deposit', 'Float', 'for cash in'],
+                ['cash_out', 'Cash out', 'the cash you hand over'],
+                ['deposit', 'Cash in', 'the float you credit'],
               ] as const
             ).map(([side, label, hint]) => {
               const current = data.low[side]

@@ -4,7 +4,7 @@ happened since the agent last spoke.
 
 Rules on real events, nothing more. The ledger never changes what the agent declared; it
 lowers the ceiling the search compares against, and tells the agent why. A cash-out takes
-cash out and puts e-float in; a deposit does the reverse. Only visits after the current
+cash out and puts e-float in; a cash in does the reverse. Only visits after the current
 declaration count, so a refresh by the agent starts the ledger again from their own words.
 Once Orange Money sends real transactions the same ledger stops estimating and becomes exact.
 """
@@ -46,7 +46,7 @@ BAND_TEXT = {
 # fee complaint or a closed shop, which say nothing about capacity.
 CAPACITY_FAILURES = ("could_not_complete", "less_than_requested")
 
-SIDE_LABEL = {"cash": "Cash out", "float": "Deposit"}
+SIDE_LABEL = {"cash": "Cash out", "float": "Cash in"}
 
 
 def _aware(dt: datetime | None) -> datetime | None:

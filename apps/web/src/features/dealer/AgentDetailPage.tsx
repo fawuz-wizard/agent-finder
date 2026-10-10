@@ -314,7 +314,7 @@ function UsualCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
             <input id="usual-cash" type="number" inputMode="numeric" min={0} value={cash} onChange={(e) => setCash(e.target.value)} className="mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal" />
           </label>
           <label className="text-sm font-semibold" htmlFor="usual-float">
-            Deposit, up to about (SLE)
+            Cash in, up to about (SLE)
             <input id="usual-float" type="number" inputMode="numeric" min={0} value={float} onChange={(e) => setFloat(e.target.value)} className="mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal" />
           </label>
           <label className="text-sm font-semibold" htmlFor="usual-daily">

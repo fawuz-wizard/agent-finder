@@ -13,7 +13,7 @@ protected.
 
 | Piece | State | Where |
 |---|---|---|
-| Customer module: find a nearby agent who can likely handle a cash out or deposit, directions, visit report, ratings | Built, in the Figma design, on phones | `apps/web/src/features/end-user` |
+| Customer module: find a nearby agent who can likely handle a cash out or cash in, directions, visit report, ratings | Built, in the Figma design, on phones | `apps/web/src/features/end-user` |
 | Agent App: sign-in by agent code or Orange Money line, availability, float requests, hours, dashboard, pin the shop | Built; agent screens being redesigned next | `apps/web/src/features/agent` |
 | Aggregator side: agent register, confirm a shop's pin, float approvals, attention list, Global Report, CSV exports | Built | `apps/web/src/features/dealer` |
 | Orange's agent file imported: 95 agents, 2 aggregators, cleaned with the team; addresses kept exactly as given | Done; shops appear to customers only once their aggregator confirms the pin | `apps/api/scripts/import_orange.py` |

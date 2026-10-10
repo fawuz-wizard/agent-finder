@@ -228,7 +228,7 @@ async def test_agent_home_shows_exactly_what_customers_see(client, agent):
     customer search uses, so the two can never disagree."""
     home = (await client.get("/api/v1/agent/home", headers=agent)).json()
     see = home["customers_see"]
-    assert see["state"] == "open" and [s["label"] for s in see["sides"]] == ["Cash out", "Deposit"]
+    assert see["state"] == "open" and [s["label"] for s in see["sides"]] == ["Cash out", "Cash in"]
     cash, dep = see["sides"]
     # Fatmata declared Most / Some: cash has no ceiling, deposit is capped by the network range.
     assert cash["range_text"] == "any amount" and cash["above_text"] is None
@@ -532,12 +532,12 @@ async def test_recording_a_cash_in_keeps_the_amount_and_masks_the_customers_numb
     assert out["estimated"] is False
     assert out["customer_last3"] == "456"
     assert "076" not in r.text.replace("076 123 456", "")  # the number itself never comes back
-    assert out["text"] == "Deposit · SLE 2,000"
+    assert out["text"] == "Cash in · SLE 2,000"
     rows = (await client.get("/api/v1/agent/transactions", headers=agent)).json()["rows"]
     mine = next(x for x in rows if x["id"] == "log-t-cashin-1")
     assert mine["amount_text"] == "SLE 2,000" and mine["estimated"] is False
     acts = await client.get("/api/v1/agent/activity", headers=agent)
-    assert any(a["text"] == "You recorded: Deposit · SLE 2,000" for a in acts.json())
+    assert any(a["text"] == "You recorded: Cash in · SLE 2,000" for a in acts.json())
     # A number too short to be a line is refused; nothing is stored.
     bad = await client.post(
         "/api/v1/agent/transactions",
@@ -585,10 +585,10 @@ async def test_low_today_lowers_one_side_until_midnight_and_never_raises(client,
     )
     sides = {s["label"]: s for s in r.json()["customers_see"]["sides"]}
     assert (
-        sides["Deposit"]["range_text"] == "nothing right now"
-        and sides["Deposit"]["outcome"] == "limited"
+        sides["Cash in"]["range_text"] == "nothing right now"
+        and sides["Cash in"]["outcome"] == "limited"
     )
-    assert "no float today" in sides["Deposit"]["why"]
+    assert "no float today" in sides["Cash in"]["why"]
     acts = (await client.get("/api/v1/agent/activity", headers=agent)).json()
     assert any(x["text"] == "You said: low on cash today" for x in acts)
     assert any(x["text"] == "You said: no float today" for x in acts)

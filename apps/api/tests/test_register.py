@@ -80,7 +80,7 @@ async def test_registered_agent_is_found_by_a_customer_standing_nearby(client, d
     # The dealer's register lists the new agent, and the action log says who registered them.
     rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
     mine = [x for x in rows if x["ref"] == "Agent 101"][0]
-    assert mine["name"] == "Mariama's Corner" and mine["capacity_text"].startswith("Cash up to")
+    assert mine["name"] == "Mariama's Corner" and mine["capacity_text"].startswith("Cash out up to")
     acts = (await client.get("/api/v1/actions?agent=Agent 101", headers=dealer)).json()
     assert any("registered Mariama's Corner as Agent 101" in a["note"] for a in acts)
     assert any("Orange's record" in a["note"] for a in acts)

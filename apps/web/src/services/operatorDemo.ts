@@ -524,14 +524,14 @@ function ledgerFor(a: AgentState): LedgerState {
   const feed = feedFor(a)
   if (feed) {
     const cash = sideLedger('Cash out', wordForFigure(feed.cash), feed.cash)
-    const float = sideLedger('Deposit', wordForFigure(feed.float), feed.float)
+    const float = sideLedger('Cash in', wordForFigure(feed.float), feed.float)
     const low = lowToday(a)
     cash.low = low.cash_out
     float.low = low.deposit
     return { cash, float, live: true, feedAgeMin: feed.ageMin }
   }
   const cash = sideLedger('Cash out', a.cash_out, a.cash_out_sle)
-  const float = sideLedger('Deposit', a.deposit, a.deposit_sle)
+  const float = sideLedger('Cash in', a.deposit, a.deposit_sle)
   const low = lowToday(a)
   cash.low = low.cash_out
   float.low = low.deposit
@@ -1000,7 +1000,7 @@ export function demoAgentActivity(ref: string): ActivityEvent[] {
     { id: 's1', at: '', time_text: '11:45', text: 'Customer reported: could not complete — cash out SLE 6,000', source: 'agent_finder', tone: 'danger' },
     { id: 's2', at: '', time_text: '11:20', text: 'You went hidden — back after 25 minutes', source: 'agent_finder', tone: 'warning' },
     { id: 's3', at: '', time_text: '10:58', text: 'Cash out SLE 2,000 — successful', source: 'operator', tone: 'neutral' },
-    { id: 's4', at: '', time_text: '10:31', text: 'Deposit SLE 500 — successful', source: 'operator', tone: 'neutral' },
+    { id: 's4', at: '', time_text: '10:31', text: 'Cash in SLE 500 — successful', source: 'operator', tone: 'neutral' },
     { id: 's5', at: '', time_text: '09:12', text: 'You requested float SLE 5,000', source: 'agent_finder', tone: 'neutral' },
     { id: 's6', at: '', time_text: '07:40', text: `You set yourself Open`, source: 'agent_finder', tone: 'neutral' },
   ]
@@ -1032,7 +1032,7 @@ export function demoAgentTransactions(ref: string): AgentTransactions {
         at: todayAt(t.time).toISOString(),
         time_text: t.time,
         transaction: t.tx,
-        label: t.tx === 'cash_out' ? 'Cash out' : 'Deposit',
+        label: t.tx === 'cash_out' ? 'Cash out' : 'Cash in',
         amount_sle: t.amount,
         amount_band: null,
         amount_text: sle(t.amount),
@@ -1053,7 +1053,7 @@ export function demoAgentTransactions(ref: string): AgentTransactions {
       at: d.toISOString(),
       time_text: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
       transaction: t.tx,
-      label: t.tx === 'cash_out' ? 'Cash out' : 'Deposit',
+      label: t.tx === 'cash_out' ? 'Cash out' : 'Cash in',
       amount_sle: t.amount,
       amount_band: t.band,
       amount_text: t.amount !== null ? sle(t.amount) : BAND_TEXT[t.band],
@@ -1309,7 +1309,7 @@ export function demoFloatForecast(): FloatForecast[] {
 /** What the evidence says an agent usually covers, per side. Dealer-facing; replaces the words. */
 function capacityText(ledger: LedgerState): string {
   const parts: string[] = []
-  for (const [label, side] of [['Cash', ledger.cash], ['Deposit', ledger.float]] as const) {
+  for (const [label, side] of [['Cash out', ledger.cash], ['Cash in', ledger.float]] as const) {
     const c = ceilingOf(side)
     parts.push(c === null ? `${label}: any amount` : `${label} up to ~${sle(c)}`)
   }

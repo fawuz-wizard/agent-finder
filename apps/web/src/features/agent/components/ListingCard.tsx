@@ -15,7 +15,7 @@ export function ListingCard({ name, street, see, compact = false }: { name: stri
   const open = see.state === 'open' && see.sides.length > 0
   // Compact: the name and one short pill per side; the whole card on request.
   const [expanded, setExpanded] = useState(!compact)
-  const short = (label: string) => label.replace(/^(Cash out|Deposit).*$/, '$1')
+  const short = (label: string) => label.replace(/^(Cash out|Cash in).*$/, '$1')
   return (
     <EdgeCard muted={!open} data-state={see.state} aria-label={`Your listing: ${open ? 'customers can find you' : see.headline}`}>
       <p className={`text-md font-bold leading-tight ${open ? 'text-white' : 'text-finder-muted'}`}>{name}</p>

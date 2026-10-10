@@ -60,7 +60,7 @@ the permission is granted later in settings, the page asks the phone again by it
 
 `Agent 024` is the one to demo: a stale declaration so "Still correct?" appears, a pending float request, and two customer-reported problems.
 
-**Log a transaction** (agent home): two taps after serving a customer — Cash out or Deposit, then an
+**Log a transaction** (agent home): two taps after serving a customer — Cash in or Cash out, then the amount (and the customer's number for a cash in); an
 amount band. The amount is never sent. Each logged transaction counts as activity for the ranking,
 keeps the agent current for customers (a served customer is better evidence than a refresh tap),
 shows on the day's timeline, and is what "Transactions today" counts until Orange Money's records

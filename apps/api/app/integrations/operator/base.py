@@ -192,7 +192,7 @@ class FakeOperator:
                 "id": "op-2",
                 "at": (now - timedelta(hours=2)).isoformat() + "Z",
                 "time_text": (now - timedelta(hours=2)).strftime("%H:%M"),
-                "text": "Deposit SLE 500 — successful",
+                "text": "Cash in SLE 500 — successful",
                 "tone": "neutral",
                 "transaction": "deposit",
                 "amount_sle": 500,

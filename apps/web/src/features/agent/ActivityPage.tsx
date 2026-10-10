@@ -30,7 +30,7 @@ const TONE: Record<ActivityEvent['tone'], string> = {
 }
 
 /** Operator transaction lines already appear in the transactions list; the timeline keeps the rest. */
-const isTransactionEvent = (e: ActivityEvent) => e.source === 'operator' && /^(Cash out|Deposit) SLE/.test(e.text)
+const isTransactionEvent = (e: ActivityEvent) => e.source === 'operator' && /^(Cash out|Cash in) SLE/.test(e.text)
 
 /**
  * Activity: how it is going, and what it earned. The day's commission first, each
