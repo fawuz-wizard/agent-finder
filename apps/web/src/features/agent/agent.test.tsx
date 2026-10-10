@@ -307,3 +307,14 @@ describe('the listing on the dashboard', () => {
     expect(floatRowText({ ...base, state: 'cancelled', decided_at: new Date(now - 60_000).toISOString() }, now)).toBe('Request float')
   })
 })
+
+describe("today's commission on the dashboard", () => {
+  it('shows what the day earned, as one tap to Activity', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await signIn(user)
+    const link = await screen.findByRole('link', { name: /today's commission/i })
+    await waitFor(() => expect(link).toHaveTextContent(/SLE \d/))
+    expect(link).toHaveAttribute('href', '/agent/activity')
+  })
+})

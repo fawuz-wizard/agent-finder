@@ -4,11 +4,12 @@ import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
 import { PRESENCE_LABELS } from '@/types/operator'
-import type { AgentHome, Presence } from '@/types/operator'
+import type { AgentHome, AgentTransactions, Presence } from '@/types/operator'
 import { FinderBox, FinderCta, FinderHeader } from '@/features/end-user/components/finder'
 import { EdgeCard, PILL_OFF, PILL_ON, PlaceRow, SectionLabel } from './components/agentChrome'
 import { ListingCard } from './components/ListingCard'
 import { floatRowText } from './floatRow'
+import { formatSle } from './money'
 
 const PRESENCE: { value: Presence; label: string }[] = [
   { value: 'open', label: 'Open' },
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
   const home = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
+  const tx = useAsync<AgentTransactions>((s) => operatorApi.transactions(ref, s), [ref])
   const [saving, setSaving] = useState<Presence | 'extend' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -143,10 +145,18 @@ export default function DashboardPage() {
       ))}
 
       <SectionLabel className="mt-6">Today</SectionLabel>
-      <FinderBox className="mt-3 flex min-h-[60px] items-center divide-x divide-finder-line px-2 py-4">
-        <Figure label="Found you" value={String(data.today.found_you)} />
-        <Figure label={data.today.transactions === null ? 'Logged by you' : 'Transactions'} value={String(data.today.transactions ?? data.today.logged)} />
-        <Figure label="Reported a problem" value={String(data.today.reported_problems)} />
+      <FinderBox className="mt-3 flex flex-col gap-4 px-2 py-4">
+        <Link to="/agent/activity" className="flex flex-col items-center gap-0.5" aria-label="Today's commission, see Activity">
+          <span className="text-3xl font-bold leading-none text-finder-likely">
+            {tx.data ? `${tx.data.estimated_any ? '≈ ' : ''}${formatSle(tx.data.commission_total_sle)}` : '—'}
+          </span>
+          <span className="text-sm font-semibold text-finder-muted">Commission earned today ›</span>
+        </Link>
+        <div className="flex items-center divide-x divide-finder-line">
+          <Figure label="Found you" value={String(data.today.found_you)} />
+          <Figure label={data.today.transactions === null ? 'Logged by you' : 'Transactions'} value={String(data.today.transactions ?? data.today.logged)} />
+          <Figure label="Reported a problem" value={String(data.today.reported_problems)} />
+        </div>
       </FinderBox>
 
       <SectionLabel className="mt-6">Float</SectionLabel>
