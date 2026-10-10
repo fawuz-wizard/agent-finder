@@ -104,9 +104,6 @@
   --color-finder-likely-tint: #dff5e7;
   --color-finder-limited: #8a6a1b;     /* file has #d9b26f; darkened to read on the tint */
   --color-finder-limited-tint: #f4e7b5;
-  --color-finder-sheet: #ffffff;       /* agent detail sheet */
-  --color-finder-ink: #1e1e1e;
-  --color-finder-chip: #daeafa;        /* service chips on the detail sheet */
   --color-finder-open: #03ca55;
   --color-finder-star: #ffb84a;
   --font-finder: 'Poppins', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;

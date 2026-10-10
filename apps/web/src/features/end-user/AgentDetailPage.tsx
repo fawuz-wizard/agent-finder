@@ -63,7 +63,7 @@ const DirectionsIcon = (
 
 /**
  * Agent detail, as the "Agent details page" frames draw it: a picture of the shop, then a
- * white sheet with the name, how far and whether it is open, rating, where, phone, the
+ * sheet, dark like the rest of the module, with the name, how far and whether it is open, rating, where, phone, the
  * services, the hours, and Call / Get Directions at the foot. Our own answer to the
  * customer's request sits right under the name, because that is what they came for.
  */
@@ -161,7 +161,7 @@ export default function AgentDetailPage() {
     'flex h-[44px] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-white transition-[filter] hover:brightness-95 active:brightness-90'
 
   return (
-    <div className="flex flex-1 flex-col bg-finder-sheet text-finder-ink">
+    <div className="flex flex-1 flex-col bg-finder-bg text-white">
       {/* The shop's picture. Until agents add one, the sheet opens on the network's own mark. */}
       <div className="relative flex h-[200px] items-end justify-center bg-finder-line text-white">
         <button
@@ -179,7 +179,7 @@ export default function AgentDetailPage() {
         </span>
       </div>
 
-      <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-sheet px-5 pb-28 pt-6">
+      <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-bg px-5 pb-28 pt-6 shadow-inset-finder">
         <h1 className="text-xl font-bold leading-tight">{agent.name}</h1>
         <div className="mt-3 flex flex-col gap-2">
           <Row icon={ClockIcon}>
@@ -188,7 +188,7 @@ export default function AgentDetailPage() {
             <span className={`font-semibold ${agent.open_now ? 'text-finder-open' : 'text-finder-muted'}`}>
               {agent.open_now ? 'Open now' : 'Hours vary'}
             </span>
-            {agent.verified_label && <span className="rounded-pill bg-finder-chip px-2 py-0.5 text-xs font-semibold text-finder-ink">{agent.verified_label}</span>}
+            {agent.verified_label && <span className="rounded-pill bg-finder-line px-2 py-0.5 text-xs font-semibold text-white">{agent.verified_label}</span>}
           </Row>
           {agent.rating_count != null && agent.rating_count >= 3 && agent.rating_average != null && (
             <Row icon={StarIcon}>
@@ -200,7 +200,7 @@ export default function AgentDetailPage() {
           {agent.call_url && <Row icon={PhoneIcon}>{phoneText(agent.call_url)}</Row>}
         </div>
 
-        <section className="mt-5 flex flex-col gap-2 rounded-field bg-finder-chip/40 p-4" aria-label="Your request">
+        <section className="mt-5 flex flex-col gap-2 rounded-field bg-finder-bg p-4 shadow-inset-finder" aria-label="Your request">
           <p className="text-xs font-bold uppercase tracking-wider text-finder-muted">{agent.request_label}</p>
           <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} size="lg" />
           <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
@@ -209,7 +209,7 @@ export default function AgentDetailPage() {
         <h2 className="mt-6 text-xl font-bold">Services</h2>
         <ul className="mt-3 flex flex-wrap gap-3">
           {services.map((s) => (
-            <li key={s} className="flex h-10 items-center rounded-field bg-finder-chip px-4 text-[15px] font-semibold text-finder-ink">
+            <li key={s} className="flex h-10 items-center rounded-field bg-finder-line px-4 text-[15px] font-semibold text-white">
               {s}
             </li>
           ))}
@@ -232,7 +232,7 @@ export default function AgentDetailPage() {
           )}
         </div>
 
-        <section className="mt-6 rounded-field bg-finder-chip/40 p-4">
+        <section className="mt-6 rounded-field bg-finder-bg p-4 shadow-inset-finder">
           <h2 className="text-base font-bold">Rate this agent</h2>
           <p className="mt-1 text-sm font-medium text-finder-muted">Any Max it user can rate. You do not need a completed transaction.</p>
           {ratingState === 'sent' ? (
@@ -248,7 +248,7 @@ export default function AgentDetailPage() {
                     aria-checked={rating === n}
                     aria-label={`${n} out of 5`}
                     onClick={() => setRating((current) => (current === n ? (n === 1 ? null : n - 1) : n))}
-                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-white' : 'bg-finder-sheet text-finder-muted'}`}
+                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-white' : 'bg-finder-line text-finder-muted'}`}
                   >
                     ★
                   </button>
@@ -280,7 +280,7 @@ export default function AgentDetailPage() {
         </Link>
       </div>
 
-      <div className="sticky bottom-0 mx-auto flex w-full max-w-[480px] gap-5 bg-finder-sheet px-5 pb-6 pt-3">
+      <div className="sticky bottom-0 mx-auto flex w-full max-w-[480px] gap-5 bg-finder-bg px-5 pb-6 pt-3">
         {agent.call_url && (
           <a href={agent.call_url} className={actionClass}>
             {PhoneIcon}
