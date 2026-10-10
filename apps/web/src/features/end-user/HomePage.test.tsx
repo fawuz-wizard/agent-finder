@@ -33,10 +33,11 @@ describe('U1 — Home', () => {
       },
     })
     renderHome()
-    expect(await screen.findByText('Searching around your location')).toBeInTheDocument()
+    expect(await screen.findByText(/Searching around your location/)).toBeInTheDocument()
     await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
     await user.click(screen.getByRole('button', { name: 'Find agent' }))
-    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Lumley&amount=2000&lat=8.47&lng=-13.261')
+    // No one could name the place (no network in tests), so the label is honest and plain.
+    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Your+location&amount=2000&lat=8.47&lng=-13.261')
   })
 
   it('falls back to the chosen area, and says so, when location is off', async () => {
@@ -136,7 +137,7 @@ describe('U1 — Home asks for the live location first', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Turn on your location' })
     on = true
     await user.click(within(sheet).getByRole('button', { name: 'Turn on location' }))
-    expect(await screen.findByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Lumley&lat=8.47&lng=-13.261')
+    expect(await screen.findByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Your+location&lat=8.47&lng=-13.261')
   })
 
   it('waits for a slow fix rather than searching around the area', async () => {
@@ -152,5 +153,52 @@ describe('U1 — Home asks for the live location first', () => {
     expect(screen.getByRole('button', { name: 'Finding your location…' })).toBeDisabled()
     answer!({ coords: { latitude: 8.4701, longitude: -13.2609 } })
     expect(await screen.findByTestId('loc')).toHaveTextContent('lat=8.47&lng=-13.261')
+  })
+})
+
+describe('U1 — Home names where the customer is', () => {
+  function phoneAt(lat: number, lng: number) {
+    vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition: (ok: (p: unknown) => void) => ok({ coords: { latitude: lat, longitude: lng } }) } })
+  }
+
+  it('shows the live place instead of a fixed area and carries it into the search', async () => {
+    const user = userEvent.setup()
+    phoneAt(8.4701, -13.2609)
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ address: { neighbourhood: 'Lumley Beach', city: 'Freetown' } }) })))
+    renderHome()
+    expect(await screen.findByText('Lumley Beach')).toBeInTheDocument()
+    expect(screen.queryByText('Lumley')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Lumley+Beach&lat=8.47&lng=-13.261')
+    sessionStorage.clear()
+  })
+
+  it('lets the customer pick an area by hand, then come back to the live place', async () => {
+    const user = userEvent.setup()
+    phoneAt(8.4701, -13.2609)
+    renderHome()
+    await screen.findByText(/Searching around your location/)
+    await user.click(screen.getByRole('button', { name: 'Change' }))
+    await user.click(screen.getByRole('radio', { name: 'Aberdeen' }))
+    expect(screen.getByText(/Searching around Aberdeen/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen')
+    expect(screen.getByTestId('loc')).not.toHaveTextContent('lat=')
+  })
+
+  it('treats a search that came back from Edit without a point as a hand-picked area', async () => {
+    const user = userEvent.setup()
+    phoneAt(8.4701, -13.2609)
+    render(
+      <MemoryRouter initialEntries={['/find?tx=deposit&area=Aberdeen&amount=500']}>
+        <Routes>
+          <Route path="/find" element={<HomePage />} />
+          <Route path="/search" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText(/Searching around Aberdeen/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Use my location' }))
+    expect(await screen.findByText(/Searching around your location/)).toBeInTheDocument()
   })
 })

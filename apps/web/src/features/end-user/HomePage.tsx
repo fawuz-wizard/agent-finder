@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AREAS } from '@/lib/reference'
 import { readRecent, whenLabel } from '@/lib/recent'
 import { useCoarseLocation } from '@/hooks/useCoarseLocation'
+import { usePlaceName } from '@/hooks/usePlaceName'
 import type { TransactionType } from '@/types/public'
 import { TransactionTypeSelector } from './components/TransactionTypeSelector'
 import { AmountInput } from './components/AmountInput'
@@ -25,7 +26,11 @@ export default function HomePage() {
     initialTx === 'cash_out' || initialTx === 'deposit' ? initialTx : 'cash_out',
   )
   const [amount, setAmount] = useState(() => params.get('amount') ?? '')
-  const [area, setArea] = useState<string>(() => params.get('area') ?? AREAS[0])
+  // An area the customer chose by hand. Coming back from Edit, a search without a point was
+  // a hand-picked area; one with a point was the live location, whatever label it carried.
+  const [manualArea, setManualArea] = useState<string | null>(() =>
+    params.has('area') && !params.has('lat') ? params.get('area') : null,
+  )
   const [pickArea, setPickArea] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [recent] = useState(readRecent)
@@ -35,12 +40,19 @@ export default function HomePage() {
   // The phone's own position, blunted to ~110 m, so "agents around you" means around you. The
   // area stays as the label and as the fallback when the position is denied or unavailable.
   const location = useCoarseLocation(true)
+  // Live when the phone gave a position and the customer did not pick an area instead.
+  const live = location.state === 'ready' && location.point !== null && manualArea === null
+  const place = usePlaceName(live ? location.point : null)
+  const liveLabel = place.name ?? 'Your location'
+  // The named area: chosen by hand, or the first one as the fallback with no position.
+  const area = manualArea ?? AREAS[0]
+  const shownLabel = live ? liveLabel : area
 
   function go(withPoint: boolean) {
     if (!transaction) return
-    const q = new URLSearchParams({ tx: transaction, area })
+    const q = new URLSearchParams({ tx: transaction, area: withPoint && live ? liveLabel : area })
     if (amount) q.set('amount', amount)
-    if (withPoint && location.point) {
+    if (withPoint && live && location.point) {
       q.set('lat', String(location.point.lat))
       q.set('lng', String(location.point.lng))
     }
@@ -58,7 +70,8 @@ export default function HomePage() {
       return
     }
     setError(null)
-    if (location.state === 'ready') return go(true)
+    if (live) return go(true)
+    if (manualArea !== null) return go(false)
     if (location.state === 'locating') return setPending(true)
     if (location.state === 'idle') {
       setPending(true)
@@ -100,7 +113,7 @@ export default function HomePage() {
           className="-ml-1 flex h-control min-w-0 items-center gap-3 px-1 text-md font-bold"
         >
           <PinIcon />
-          <span className="truncate">{area}</span>
+          <span className="truncate">{shownLabel}</span>
         </button>
         <button
           type="button"
@@ -112,9 +125,25 @@ export default function HomePage() {
         </button>
       </div>
 
-      {location.state === 'ready' || location.state === 'locating' || location.state === 'idle' ? (
+      {manualArea !== null ? (
         <p className="text-sm font-medium text-finder-muted" role="status">
-          {location.state === 'ready' ? 'Searching around your location' : 'Finding your location…'}
+          Searching around {manualArea}
+          {location.state === 'ready' && (
+            <>
+              {' · '}
+              <button type="button" onClick={() => setManualArea(null)} className="font-bold text-finder-link">
+                Use my location
+              </button>
+            </>
+          )}
+        </p>
+      ) : location.state === 'ready' || location.state === 'locating' || location.state === 'idle' ? (
+        <p className="text-sm font-medium text-finder-muted" role="status">
+          {location.state !== 'ready'
+            ? 'Finding your location…'
+            : place.state === 'finding'
+              ? 'Searching around your location · finding the place name…'
+              : 'Searching around your location'}
         </p>
       ) : (
         location.problem && <LocationPromptCard problem={location.problem} area={area} onRetry={retryLocation} />
@@ -127,12 +156,12 @@ export default function HomePage() {
               key={a}
               type="button"
               role="radio"
-              aria-checked={a === area}
+              aria-checked={a === manualArea}
               onClick={() => {
-                setArea(a)
+                setManualArea(a)
                 setPickArea(false)
               }}
-              className={`h-chip rounded-pill px-4 text-base font-bold ${a === area ? 'bg-finder-link text-finder-on-orange' : 'border-2 border-white text-white'}`}
+              className={`h-chip rounded-pill px-4 text-base font-bold ${a === manualArea ? 'bg-finder-link text-finder-on-orange' : 'border-2 border-white text-white'}`}
             >
               {a}
             </button>
