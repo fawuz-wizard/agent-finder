@@ -99,6 +99,9 @@ interface AgentState {
   lat?: number
   lng?: number
   verified?: boolean
+  /** The shopfront the agent photographed in this session, as a data URL. */
+  photo?: string | undefined
+  photoAt?: string | undefined
   /** Transactions the agent logged themselves (POST /agent/transactions). */
   txLog?: { id: string; at: number; tx: 'cash_out' | 'deposit'; band: TransactionBand; amount: number | null; last3: string | null }[]
 }
@@ -915,6 +918,7 @@ export function demoAgentHome(ref: string): AgentHome {
     declaration: declarationOf(a),
     schedule: scheduleState(a),
     customers_see: customersSee(a),
+    photo_url: customersSee(a).state === 'unlocated' ? null : (a.photo ?? null),
     low: { ...lowToday(a), until_text: 'until midnight' },
     balance: operatorValue(ref, 'balance'),
     float_position: operatorValue(ref, 'float'),
@@ -1126,6 +1130,8 @@ export function demoAgentProfile(ref: string): AgentProfile {
     lat: a.lat ?? null,
     lng: a.lng ?? null,
     street: a.area,
+    photo: a.photo ?? null,
+    photo_at: a.photoAt ?? null,
     devices: a.otherDevicesSignedOut
       ? [{ id: 'd1', label: 'This phone', last_seen_text: 'Active now', current: true }]
       : [
@@ -1141,6 +1147,38 @@ export function demoSetLocation(ref: string, lat: number, lng: number, street?: 
   a.lng = lng
   if (street) a.area = street
   return demoAgentProfile(ref)
+}
+
+export function demoSetPhoto(ref: string, image: string): AgentProfile {
+  const a = find(ref)
+  if (!/^data:image\/(jpeg|png|webp);base64,/.test(image)) throw new Error('That is not a picture the app can read.')
+  const had = a.photo !== undefined
+  a.photo = image
+  a.photoAt = new Date().toISOString()
+  record(had ? 'You changed the photo of your shop' : 'You added a photo of your shop', 'agent_finder')
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'photo', agent_ref: a.ref, at: a.photoAt, note: `${a.name} ${had ? 'changed' : 'added'} the photo of ${a.shop}` })
+  return demoAgentProfile(ref)
+}
+
+export function demoRemovePhoto(ref: string): AgentProfile {
+  const a = find(ref)
+  if (a.photo !== undefined) {
+    a.photo = undefined
+    a.photoAt = undefined
+    record('You removed the photo of your shop', 'agent_finder')
+    actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'photo', agent_ref: a.ref, at: new Date().toISOString(), note: `${a.name} removed the photo of ${a.shop}` })
+  }
+  return demoAgentProfile(ref)
+}
+
+export function demoRemoveAgentPhoto(ref: string): { ref: string; photo: null } {
+  const a = find(ref)
+  if (a.photo !== undefined) {
+    a.photo = undefined
+    a.photoAt = undefined
+    actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'photo', agent_ref: a.ref, at: new Date().toISOString(), note: `Kissy Distribution removed the photo of ${a.shop}` })
+  }
+  return { ref: a.ref, photo: null }
 }
 
 export function demoSetPhoneVisible(ref: string, visible: boolean): AgentProfile {
@@ -1587,6 +1625,7 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
     city: 'Freetown',
     agent_code: null,
     source: 'manual',
+    photo: a.photo ?? null,
   }
 }
 

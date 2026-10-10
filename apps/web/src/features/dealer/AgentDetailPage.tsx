@@ -104,6 +104,8 @@ export default function DealerAgentDetailPage() {
           </div>
         </Card>
 
+        {data.photo && <PhotoCard detail={data} onSaved={refresh} />}
+
         <UsualCard detail={data} onSaved={refresh} />
 
         <Card>
@@ -160,6 +162,41 @@ export default function DealerAgentDetailPage() {
         <p className="text-center text-xs text-muted">Every action is recorded with your name. None of them changes the agent's status.</p>
       </div>
     </div>
+  )
+}
+
+/** The picture the agent put on the shop's page. Customers see it already; take it down if it is wrong. */
+function PhotoCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
+  async function remove() {
+    setBusy(true)
+    setError(null)
+    try {
+      await operatorApi.removeAgentPhoto(detail.ref)
+      toast.show(`The photo of ${detail.shop_name} is down`)
+      onSaved()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not remove it.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Card aria-labelledby="shop-photo">
+      <p id="shop-photo" className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Shop photo</p>
+      <img src={detail.photo ?? ''} alt={`${detail.shop_name}, photographed by the agent`} className="aspect-[4/3] w-full rounded-lg object-cover" />
+      <p className="mt-2 text-sm text-muted">Customers see this on the shop's page. If it is not the shop, take it down; the agent can take a new one.</p>
+      {error && (
+        <p role="alert" className="text-sm font-semibold text-danger">
+          {error}
+        </p>
+      )}
+      <Button size="control" variant="secondary" className="mt-2" onClick={remove} disabled={busy}>
+        {busy ? 'Removing…' : 'Remove photo'}
+      </Button>
+    </Card>
   )
 }
 

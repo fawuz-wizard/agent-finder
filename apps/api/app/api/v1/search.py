@@ -17,6 +17,7 @@ from app.db.session import get_session
 from app.schemas.public.common import PublicModel
 from app.services import usage
 from app.services.ledger import ledgers_for
+from app.services.photo import public_photo_url
 from app.services.phrasing import (
     AREA_POINTS,
     NETWORK_RANGES,
@@ -90,6 +91,8 @@ class AgentResult(PublicModel):
     can_call: bool
     rating_average: float | None = None
     rating_count: int = 0
+    # The shopfront, when the agent has taken one; fetched by the app, never inlined.
+    photo_url: str | None = None
 
 
 class QueryEcho(PublicModel):
@@ -131,6 +134,7 @@ def to_result(a: Agent, tx: str, amount: int | None, dist: int, now, ledger=None
         freshness_text=freshness_text(updated, now, source),
         directions_url=f"https://www.google.com/maps/dir/?api=1&destination={round(a.lat, 3)},{round(a.lng, 3)}",  # noqa: E501
         can_call=bool(a.phone_visible and a.phone),
+        photo_url=public_photo_url(a),
     )
 
 

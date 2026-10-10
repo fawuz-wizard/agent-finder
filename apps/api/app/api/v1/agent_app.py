@@ -29,6 +29,7 @@ from app.integrations.operator.base import get_operator
 from app.services import schedule, usage
 from app.services.commission import TARIFF_NOTE, commission_for, commission_for_band
 from app.services.ledger import BAND_TEXT, Ledger, ledgers_for, word_for_figure
+from app.services.photo import decode_photo, public_photo_url, to_data_url
 from app.services.phrasing import (
     CAPACITY_LABEL,
     NETWORK_RANGES,
@@ -40,7 +41,7 @@ from app.services.phrasing import (
     freshness_of,
     now_utc,
 )
-from app.services.points import check_point
+from app.services.points import check_point, on_map
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 CONFIRM_AFTER_MIN = 90
@@ -266,6 +267,8 @@ async def home(
         "declaration": d.model_dump(),
         "schedule": sched,
         "customers_see": customers_see(a, now, ledger),
+        # The shopfront in the listing, once customers can be sent here.
+        "photo_url": public_photo_url(a) if on_map(a) else None,
         "low": _low_out(a, now),
         "balance": bal.model_dump() if bal else None,
         "float_position": fl.model_dump() if fl else None,
@@ -942,6 +945,9 @@ async def profile(
         "lat": a.lat,
         "lng": a.lng,
         "street": a.street,
+        # The shopfront, as customers see it. Live at once; the aggregator can remove it.
+        "photo": to_data_url(a.photo),
+        "photo_at": a.photo_at.isoformat() if a.photo_at else None,
         "devices": [
             {"id": "this", "label": "This phone", "last_seen_text": "Active now", "current": True}
         ],
@@ -984,6 +990,57 @@ async def set_location(
         )
     )
     await db.commit()
+    return await profile(p, db)
+
+
+class PhotoBody(BaseModel):
+    image: str = Field(min_length=16, max_length=600_000)
+
+
+@router.post("/profile/photo", summary="A picture of my shop, taken on the phone")
+async def set_photo(
+    body: PhotoBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Shown to customers at once, on the shop's page and in the results, so they recognise
+    the shop from the street. One picture per shop; a new one replaces it. Recorded in the
+    agent's name; the aggregator can take it down."""
+    a = await load_agent(db, p.subject)
+    had = a.photo is not None
+    a.photo = decode_photo(body.image)
+    a.photo_at = now_utc()
+    db.add(
+        Action(
+            at=a.photo_at,
+            actor=a.person_name,
+            agent_ref=a.ref,
+            action="photo",
+            note=f"{a.person_name} {'changed' if had else 'added'} the photo of {a.shop_name}",
+        )
+    )
+    await db.commit()
+    return await profile(p, db)
+
+
+@router.delete("/profile/photo", summary="Take my shop's picture down")
+async def remove_photo(
+    p: Principal = Depends(require_role("agent")), db: AsyncSession = Depends(get_session)
+) -> dict:
+    a = await load_agent(db, p.subject)
+    if a.photo is not None:
+        a.photo = None
+        a.photo_at = None
+        db.add(
+            Action(
+                at=now_utc(),
+                actor=a.person_name,
+                agent_ref=a.ref,
+                action="photo",
+                note=f"{a.person_name} removed the photo of {a.shop_name}",
+            )
+        )
+        await db.commit()
     return await profile(p, db)
 
 

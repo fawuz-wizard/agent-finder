@@ -1,12 +1,15 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '@/design'
 import { SessionProvider } from '@/features/auth/SessionProvider'
 import { SESSION_KEY } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import ProfilePage from './ProfilePage'
+
+const PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
+vi.mock('@/lib/photo', async (orig) => ({ ...(await orig<typeof import('@/lib/photo')>()), shrinkPhoto: vi.fn(async () => PHOTO) }))
 
 function renderProfile() {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', role: 'agent', name: "Fatmata's Shop", ref: 'Agent 024', permissions: [] }))
@@ -29,6 +32,28 @@ afterEach(() => {
 })
 
 describe('agent profile', () => {
+  it('photographs the shop, shows it, and can take it down again', async () => {
+    const user = userEvent.setup()
+    renderProfile()
+    await screen.findByText('Add a photo of your shop')
+    expect(screen.queryByRole('img', { name: /photographed by you/i })).not.toBeInTheDocument()
+    const input = screen.getByLabelText('Photo of your shop') as HTMLInputElement
+    expect(input).toHaveAttribute('capture', 'environment')
+    expect(input).toHaveAttribute('accept', 'image/*')
+    await user.upload(input, new File([new Uint8Array([1, 2, 3])], 'shop.jpg', { type: 'image/jpeg' }))
+    const img = await screen.findByRole('img', { name: "Fatmata's Shop, photographed by you" })
+    expect(img).toHaveAttribute('src', PHOTO)
+    expect(screen.getByText('Your shop, as customers see it')).toBeInTheDocument()
+    // Live at once: the customers' listing and the aggregator's view carry it.
+    expect((await operatorApi.home('Agent 024')).photo_url).toBe(PHOTO)
+    expect((await operatorApi.dealerAgent('Agent 024')).photo).toBe(PHOTO)
+    expect((await operatorApi.actions('Agent 024')).some((a) => a.action === 'photo' && /added the photo of Fatmata's Shop/.test(a.note))).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await screen.findByText('Add a photo of your shop')
+    expect((await operatorApi.home('Agent 024')).photo_url).toBeNull()
+  })
+
+
   it('shows four rows of the Orange record, the rest on request, never editable', async () => {
     renderProfile()
     await screen.findByText('Your Orange record')

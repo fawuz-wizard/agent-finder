@@ -14,14 +14,14 @@ protected.
 | Piece | State | Where |
 |---|---|---|
 | Customer module: find a nearby agent who can likely handle a cash out or cash in, directions, visit report, ratings | Built, in the Figma design, on phones | `apps/web/src/features/end-user` |
-| Agent App: sign-in by agent code or Orange Money line, availability, float requests, hours, dashboard, pin the shop | Built; agent screens being redesigned next | `apps/web/src/features/agent` |
-| Aggregator side: agent register, confirm a shop's pin, float approvals, attention list, Global Report, CSV exports | Built | `apps/web/src/features/dealer` |
+| Agent App: sign-in by agent code or Orange Money line, four tabs (Dashboard, Activity, Services, Profile), commission per transaction, cash in / cash out recording, hours, pin the shop, photograph the shop | Built, on the finder's design | `apps/web/src/features/agent` |
+| Aggregator side: agent register, confirm a shop's pin, take down a shop's photo, float approvals, attention list, Global Report, CSV exports | Built | `apps/web/src/features/dealer` |
 | Orange's agent file imported: 95 agents, 2 aggregators, cleaned with the team; addresses kept exactly as given | Done; shops appear to customers only once their aggregator confirms the pin | `apps/api/scripts/import_orange.py` |
 | Ranking and phrasing: activity in, words out ("can likely handle"), never a balance | Built; tested | `apps/api/app/services/ranker.py`, `phrasing.py` |
 | Operator gateway: one adapter that every money or transaction figure passes through | Built as a contract; demo and "none" implementations | `apps/api/app/integrations/operator/base.py` |
 | Android apps, both flavours, signed with one pilot key, published on every build | Done; QR codes in the demo kit | `.github/workflows/android.yml`, `docs/demo` |
 | Hosting: API container, Render blueprint, Postgres/PostGIS migrations, Vercel config, deploy guide | Ready; waiting on accounts | `render.yaml`, `infra/deploy/README.md` |
-| Automated tests | 128 on the API, 103 on the web app, run on every push | `apps/api/tests`, `apps/web/src/**/*.test.*` |
+| Automated tests | 136 on the API, 122 on the web app, run on every push | `apps/api/tests`, `apps/web/src/**/*.test.*` |
 
 ## 2. The gateway
 
@@ -74,6 +74,9 @@ for Orange's eyes, so the figures are real for the pilot; it is not a feature we
 - **Locations.** A customer's position is rounded to about 110 m before it leaves the phone;
   it is never stored. A shop's pin goes live only after its aggregator confirms it, and the
   address from Orange's file is never altered by the app.
+- **Shop photos.** One picture of the shopfront per agent, shrunk on the phone to about
+  1024 px before it is sent, checked on the server to be a picture under 400 KB, served only
+  for shops on the customer map. The aggregator can take it down; every change is logged.
 - **Orange's data.** The file's personal columns (date of birth, national ID, SSN, e-mail)
   are never imported. Operator figures pass through the adapter per request, labelled with
   their source, and are not stored. The original file is kept outside the repository.

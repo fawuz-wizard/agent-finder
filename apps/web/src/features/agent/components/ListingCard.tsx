@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { CustomersSee } from '@/types/operator'
 import { ServiceStatus } from '@/features/end-user/components/ServiceStatus'
+import { photoSrc } from '@/lib/photo'
 import { EdgeCard, PILL_ON } from './agentChrome'
 
 /**
@@ -11,15 +12,20 @@ import { EdgeCard, PILL_ON } from './agentChrome'
  * not on the map). The ranges line and the explanation are the agent's own; a customer sees
  * neither.
  */
-export function ListingCard({ name, street, see, compact = false }: { name: string; street: string; see: CustomersSee; compact?: boolean }) {
+export function ListingCard({ name, street, see, compact = false, photoUrl = null }: { name: string; street: string; see: CustomersSee; compact?: boolean; photoUrl?: string | null | undefined }) {
   const open = see.state === 'open' && see.sides.length > 0
   // Compact: the name and one short pill per side; the whole card on request.
   const [expanded, setExpanded] = useState(!compact)
   const short = (label: string) => label.replace(/^(Cash out|Cash in).*$/, '$1')
   return (
     <EdgeCard muted={!open} data-state={see.state} aria-label={`Your listing: ${open ? 'customers can find you' : see.headline}`}>
-      <p className={`text-md font-bold leading-tight ${open ? 'text-white' : 'text-finder-muted'}`}>{name}</p>
-      <p className="-mt-1 text-sm font-bold text-finder-muted">{street}</p>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className={`text-md font-bold leading-tight ${open ? 'text-white' : 'text-finder-muted'}`}>{name}</p>
+          <p className="text-sm font-bold text-finder-muted">{street}</p>
+        </div>
+        {open && photoSrc(photoUrl) && <img src={photoSrc(photoUrl)!} alt="" className="h-12 w-16 shrink-0 rounded-field object-cover" />}
+      </div>
       {open && !expanded ? (
         <>
           <div className="mt-1 flex flex-wrap gap-2">

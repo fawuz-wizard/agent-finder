@@ -33,6 +33,7 @@ from app.integrations.operator.base import get_operator
 from app.services import usage
 from app.services.forecast import forecast_counts, forecasts_for
 from app.services.ledger import ledgers_for
+from app.services.photo import to_data_url
 from app.services.phrasing import (
     CAPACITY_LABEL,
     NETWORK_RANGES,
@@ -443,6 +444,8 @@ async def agent_detail(
         "city": a.city,
         "agent_code": a.agent_code,
         "source": a.source,
+        # The shopfront the agent photographed; the aggregator can take it down.
+        "photo": to_data_url(a.photo),
     }
 
 
@@ -582,7 +585,10 @@ async def actions(
         .where(
             or_(
                 Action.actor == p.name,
-                and_(Action.action.in_(("agent_note", "agent_pin")), Action.agent_ref.in_(mine)),
+                and_(
+                    Action.action.in_(("agent_note", "agent_pin", "photo")),
+                    Action.agent_ref.in_(mine),
+                ),
             )
         )
         .order_by(Action.at.desc())
@@ -922,6 +928,36 @@ async def confirm_location(
     )
     await db.commit()
     return registered_out(a, now_utc())
+
+
+@router.delete(
+    "/dealer/agents/{ref}/photo",
+    summary="Take down the picture an agent put on their shop's page",
+)
+async def remove_agent_photo(
+    ref: str,
+    p: Principal = Depends(require_permission("MANAGE_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    a = (
+        await db.execute(select(Agent).where(Agent.ref == ref, Agent.dealer_id == p.subject))
+    ).scalar_one_or_none()
+    if a is None:
+        raise NotFoundError("Not available.")
+    if a.photo is not None:
+        a.photo = None
+        a.photo_at = None
+        db.add(
+            Action(
+                at=now_utc(),
+                actor=p.name,
+                agent_ref=a.ref,
+                action="photo",
+                note=f"{p.name} removed the photo of {a.shop_name}",
+            )
+        )
+        await db.commit()
+    return {"ref": a.ref, "photo": None}
 
 
 @router.post("/dealer/agents/{ref}/pin", summary="Set a new PIN for an agent under me")

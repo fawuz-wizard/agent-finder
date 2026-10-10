@@ -13,6 +13,7 @@ import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
 import { FinderCta, FinderHeader, PinIcon } from './components/finder'
 import { pointFrom } from './searchPoint'
+import { photoSrc } from '@/lib/photo'
 
 function ratingToken(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -162,8 +163,11 @@ export default function AgentDetailPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-finder-bg text-white">
-      {/* The shop's picture. Until agents add one, the sheet opens on the network's own mark. */}
-      <div className="relative flex h-[13rem] items-end justify-center bg-finder-line text-white">
+      {/* The shop's picture, as the agent took it. Until they add one, the network's own mark. */}
+      <div className="relative flex h-[13rem] items-end justify-center overflow-hidden bg-finder-line text-white">
+        {photoSrc(agent.photo_url) && (
+          <img src={photoSrc(agent.photo_url)!} alt={`${agent.name}, photographed by the agent`} className="absolute inset-0 h-full w-full object-cover" />
+        )}
         <button
           type="button"
           onClick={() => history.back()}
@@ -174,9 +178,11 @@ export default function AgentDetailPage() {
             <path d="M12 1L3 9l9 8" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <span className="mb-10 text-finder-link">
-          <PinIcon size={56} />
-        </span>
+        {!photoSrc(agent.photo_url) && (
+          <span className="mb-10 text-finder-link">
+            <PinIcon size={56} />
+          </span>
+        )}
       </div>
 
       <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-bg px-5 pb-28 pt-6 shadow-inset-finder">

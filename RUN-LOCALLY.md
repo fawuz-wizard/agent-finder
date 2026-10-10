@@ -38,7 +38,7 @@ Open http://localhost:5174. Sign in: **Agent**, code `024`, PIN `1234`. Four tab
 | **Dashboard** | Your own listing as customers see it, Open / Away / Closed, "low on cash out or cash in today", today's commission and figures, the float request |
 | **Activity** | Today's commission, each transaction and what it earned, the chart, the rest of the day |
 | **Services** | Record a cash in (customer's number and amount) or a cash out (amount); float: your position, request, history |
-| **Profile** | Orange's record (read only, "Report a mistake"), the shop pin, working hours, the phone switch, alerts, PIN, phones signed in, sign out |
+| **Profile** | Orange's record (read only, "Report a mistake"), the shop pin, a photo of the shop (the camera on a phone, a file on a laptop; customers see it at once), working hours, the phone switch, alerts, PIN, phones signed in, sign out |
 
 Other demo agents: `031`, `009`, `017`, `038`. Aggregator: sign out, choose **Aggregator**,
 number `kissy`, PIN `1234`: Overview, Agents, Float, Attention, Profile.

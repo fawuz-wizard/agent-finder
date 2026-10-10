@@ -45,6 +45,8 @@ export interface AgentResult {
   /** Public aggregate only, hidden until at least three ratings exist. */
   rating_average?: number | null
   rating_count?: number
+  /** The shopfront, when the agent has taken one: a path on the API, or data in the demo. */
+  photo_url?: string | null
 }
 
 export interface SearchQueryEcho {

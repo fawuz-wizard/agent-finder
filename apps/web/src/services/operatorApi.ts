@@ -189,6 +189,17 @@ export const operatorApi = {
     return delay(demo.demoSetLocation(ref, lat, lng, street))
   },
 
+  /** A picture of the shop, shrunk on the phone. Live for customers at once; one per shop. */
+  setPhoto(ref: string, image: string): Promise<AgentProfile> {
+    if (config.useLiveApi) return api.post<AgentProfile>('/api/v1/agent/profile/photo', { image })
+    return delay(demo.demoSetPhoto(ref, image))
+  },
+
+  removePhoto(ref: string): Promise<AgentProfile> {
+    if (config.useLiveApi) return api.del<AgentProfile>('/api/v1/agent/profile/photo')
+    return delay(demo.demoRemovePhoto(ref))
+  },
+
   /* float */
   floatRequests(ref: string | null, signal?: AbortSignal): Promise<FloatRequest[]> {
     if (config.useLiveApi) {
@@ -273,6 +284,12 @@ export const operatorApi = {
     if (config.useLiveApi)
       return api.post<RegisteredAgent>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/confirm-location`, {})
     return delay(demo.demoConfirmLocation(ref))
+  },
+
+  /** Take down the picture an agent put on their shop's page. */
+  removeAgentPhoto(ref: string): Promise<{ ref: string; photo: null }> {
+    if (config.useLiveApi) return api.del(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/photo`)
+    return delay(demo.demoRemoveAgentPhoto(ref))
   },
 
   resetPin(ref: string, pin: string): Promise<{ ref: string; pin_set: true }> {

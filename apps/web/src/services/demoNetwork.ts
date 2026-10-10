@@ -287,6 +287,7 @@ function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): Age
     freshness_text: freshnessText(freshnessAge, feed ? FEED_SOURCE : undefined),
     directions_url: `https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lng}`,
     can_call: a.can_call,
+    photo_url: null,
     ...ratingSummary(a.id),
   }
 }

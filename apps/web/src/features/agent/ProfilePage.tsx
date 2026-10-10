@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
@@ -6,6 +6,7 @@ import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { AgentProfile } from '@/types/operator'
 import { locationErrorText } from '@/lib/location'
+import { shrinkPhoto } from '@/lib/photo'
 import { readPrefs, writePrefs, type AgentPrefs } from '@/lib/prefs'
 import { FinderBox, FinderCta, FinderHeader, FinderSheet } from '@/features/end-user/components/finder'
 import { EdgeCard, FieldLabel, PILL_OFF, PILL_ON, PlaceRow, Row, SectionLabel, TextField } from './components/agentChrome'
@@ -73,6 +74,35 @@ export default function ProfilePage() {
 
   async function togglePhone(next: boolean) {
     setData(await operatorApi.setPhoneVisible(ref, next))
+  }
+
+  // The shop's picture: the camera on a phone, the file picker on a laptop. Shrunk here first.
+  const photoInput = useRef<HTMLInputElement>(null)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  async function photoChosen(file: File | undefined) {
+    if (!file) return
+    setPhotoBusy(true)
+    setPhotoError(null)
+    try {
+      setData(await operatorApi.setPhoto(ref, await shrinkPhoto(file)))
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : 'Could not save the picture.')
+    } finally {
+      setPhotoBusy(false)
+      if (photoInput.current) photoInput.current.value = ''
+    }
+  }
+  async function removePhoto() {
+    setPhotoBusy(true)
+    setPhotoError(null)
+    try {
+      setData(await operatorApi.removePhoto(ref))
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : 'Could not remove the picture.')
+    } finally {
+      setPhotoBusy(false)
+    }
   }
 
   /** Standing at the shop: the phone's position becomes the shop's point. */
@@ -226,6 +256,38 @@ export default function ProfilePage() {
         {locError && (
           <p role="alert" className="text-sm font-semibold text-danger">
             {locError}
+          </p>
+        )}
+      </EdgeCard>
+      <EdgeCard className="mt-3" aria-labelledby="shop-photo">
+        <p id="shop-photo" className="text-base font-bold">{data.photo ? 'Your shop, as customers see it' : 'Add a photo of your shop'}</p>
+        {data.photo ? (
+          <img src={data.photo} alt={`${data.shop_name}, photographed by you`} className="aspect-[4/3] w-full rounded-field object-cover" />
+        ) : (
+          <p className="text-sm font-medium text-finder-muted">Stand across the street and snap the front. Customers recognise the shop before they ask.</p>
+        )}
+        <input
+          ref={photoInput}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          aria-label="Photo of your shop"
+          className="sr-only"
+          onChange={(e) => void photoChosen(e.target.files?.[0])}
+        />
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => photoInput.current?.click()} disabled={photoBusy} className={`inline-flex h-chip items-center rounded-pill px-5 text-base font-bold disabled:opacity-45 ${PILL_ON}`}>
+            {photoBusy ? 'Saving…' : data.photo ? 'Take it again' : 'Take a photo'}
+          </button>
+          {data.photo && (
+            <button type="button" onClick={() => void removePhoto()} disabled={photoBusy} className={`inline-flex h-chip items-center rounded-pill px-5 text-base font-bold disabled:opacity-45 ${PILL_OFF}`}>
+              Remove
+            </button>
+          )}
+        </div>
+        {photoError && (
+          <p role="alert" className="text-sm font-semibold text-danger">
+            {photoError}
           </p>
         )}
       </EdgeCard>

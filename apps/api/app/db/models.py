@@ -7,7 +7,17 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -83,6 +93,10 @@ class Agent(Base, TimestampMixin):
     usual_daily_transactions: Mapped[int | None] = mapped_column(Integer)
     phone: Mapped[str | None] = mapped_column(String(32))
     phone_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # One picture of the shopfront, taken by the agent on the phone and shrunk there (JPEG,
+    # at most PHOTO_MAX_BYTES). Live for customers at once; the aggregator can remove it.
+    photo: Mapped[bytes | None] = mapped_column(LargeBinary)
+    photo_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
 

@@ -267,6 +267,8 @@ export interface AgentHome {
   declaration: Declaration
   schedule: ScheduleState
   customers_see: CustomersSee
+  /** The shopfront in the listing, once customers can be sent here; null before that. */
+  photo_url?: string | null
   /** The agent's own correction for today, per side: "low", "none", or null. */
   low: LowToday
   balance: OperatorValue | null
@@ -301,6 +303,9 @@ export interface AgentProfile {
   lat: number | null
   lng: number | null
   street: string
+  /** The shopfront, as a data URL, when the agent has taken one. Live for customers at once. */
+  photo: string | null
+  photo_at: string | null
 }
 
 /* ---------- dealer ---------- */
@@ -479,6 +484,8 @@ export interface DealerAgentDetail {
   city: string | null
   agent_code: string | null
   source: 'manual' | 'orange_file'
+  /** The shopfront the agent photographed, as a data URL; the aggregator can take it down. */
+  photo?: string | null
 }
 
 /** What the dealer sends to bring an agent onto the platform. The PIN is never echoed back. */
@@ -552,7 +559,7 @@ export interface SignalMuted {
 
 export interface ActionLogged {
   id: string
-  action: DealerAction | SignalMuteKind | 'agent_note' | 'agent_pin'
+  action: DealerAction | SignalMuteKind | 'agent_note' | 'agent_pin' | 'photo'
   agent_ref: string
   at: string
   note: string

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from app.db.models import Agent
 from app.db.session import get_session
 from app.services import schedule
 from app.services.ledger import ledgers_for
+from app.services.photo import mime_of
 from app.services.phrasing import (
     AREA_POINTS,
     TRANSACTION_LABELS,
@@ -79,4 +80,20 @@ async def agent_detail(
         open_now=schedule.is_open_by_schedule(a, now),
         verified_label="Verified agent" if a.verified else None,
         call_url=f"tel:{a.phone}" if a.phone_visible and a.phone else None,
+    )
+
+
+@router.get("/{public_id}/photo", summary="The shop's picture, when the agent has taken one")
+async def agent_photo(public_id: str, db: AsyncSession = Depends(get_session)) -> Response:
+    """Bytes only, for the app's image tag. 404 for a shop that is not on the customer map,
+    the same answer as for one that does not exist."""
+    a = (
+        await db.execute(select(Agent).where(Agent.ref == ref_from_public_id(public_id)))
+    ).scalar_one_or_none()
+    if a is None or not on_map(a) or not a.photo:
+        raise NotFoundError("We could not find that agent.")
+    return Response(
+        content=a.photo,
+        media_type=mime_of(a.photo) or "image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
     )

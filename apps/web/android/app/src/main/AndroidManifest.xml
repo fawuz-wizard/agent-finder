@@ -43,4 +43,11 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- The closing reminder and "have you left the shop?" beeps (Android 13+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- An agent photographs the shopfront from Profile; the page's own camera input opens it. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
 </manifest>

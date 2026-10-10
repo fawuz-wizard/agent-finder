@@ -112,4 +112,5 @@ export const api = {
     request<T>(path, { method: 'POST', body: JSON.stringify(body), signal: signal ?? null, ...(headers ? { headers } : {}) }),
   put: <T>(path: string, body: unknown, signal?: AbortSignal) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body), signal: signal ?? null }),
+  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }

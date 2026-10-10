@@ -351,6 +351,19 @@ describe('report and records', () => {
     vi.restoreAllMocks()
   })
 
+  it("takes down the picture on an agent's page, and says so in the log", async () => {
+    const user = userEvent.setup()
+    signIn([...ALL, PERMISSIONS.manageAgent])
+    const real = await operatorApi.dealerAgent('Agent 024')
+    vi.spyOn(operatorApi, 'dealerAgent').mockResolvedValue({ ...real, photo: 'data:image/jpeg;base64,/9j/4AAQ' })
+    const remove = vi.spyOn(operatorApi, 'removeAgentPhoto')
+    render(<App start="/dealer/agents/Agent%20024" />)
+    expect(await screen.findByRole('img', { name: "Fatmata's Shop, photographed by the agent" })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /remove photo/i }))
+    expect(remove).toHaveBeenCalledWith('Agent 024')
+    vi.restoreAllMocks()
+  })
+
   it('a pin the agent made waits for the aggregator to confirm, then customers are sent there', async () => {
     const user = userEvent.setup()
     signIn([...ALL, PERMISSIONS.manageAgent])

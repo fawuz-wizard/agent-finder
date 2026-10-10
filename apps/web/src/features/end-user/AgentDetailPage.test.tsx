@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentDetailPage from './AgentDetailPage'
+import { customerApi } from '@/services/customerApi'
 import { AgentResultCard } from './components/AgentResultCard'
 import type { AgentResult } from '@/types/public'
 
@@ -17,6 +18,30 @@ function at(path: string) {
 }
 
 beforeEach(() => sessionStorage.clear())
+
+describe("the shop's photo", () => {
+  it('is shown on the sheet and the card when the agent took one, and the mark stands in otherwise', async () => {
+    const real = await customerApi.agent('af-4821', { transaction: 'cash_out', amount_sle: 2000, area: 'Lumley' })
+    const photo_url = '/api/v1/agents/af-4821/photo?v=1'
+    const spy = vi.spyOn(customerApi, 'agent').mockResolvedValue({ ...real, photo_url })
+    at('/agents/af-4821?tx=cash_out&amount=2000')
+    const hero = await screen.findByRole('img', { name: "Fatmata's Shop, photographed by the agent" })
+    expect(hero.getAttribute('src')).toMatch(/^http.*\/api\/v1\/agents\/af-4821\/photo\?v=1$/)
+    spy.mockRestore()
+    const { container } = render(
+      <MemoryRouter>
+        <AgentResultCard agent={{ ...real, photo_url } as AgentResult} to="/agents/af-4821" />
+      </MemoryRouter>,
+    )
+    expect(container.querySelector('img')?.getAttribute('src')).toMatch(/\/api\/v1\/agents\/af-4821\/photo/)
+    const { container: plain } = render(
+      <MemoryRouter>
+        <AgentResultCard agent={{ ...real, photo_url: null } as AgentResult} to="/agents/af-4821" />
+      </MemoryRouter>,
+    )
+    expect(plain.querySelector('img')).toBeNull()
+  })
+})
 
 describe('directions stay inside the app', () => {
   it('opens the way to the agent under the agent, never in another app', async () => {

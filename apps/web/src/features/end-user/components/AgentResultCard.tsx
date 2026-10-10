@@ -5,6 +5,7 @@ import { FreshnessBadge } from './FreshnessBadge'
 import { ServiceStatus } from './ServiceStatus'
 import { WhyLine } from './WhyLine'
 import { ChevronIcon } from './finder'
+import { photoSrc } from '@/lib/photo'
 
 /**
  * One result, as the file draws it: a rounded panel with an orange edge on the left, the
@@ -22,17 +23,24 @@ export function AgentResultCard({
   return (
     <article className="relative rounded-panel bg-finder-link">
       <div className="ml-[9px] flex flex-col rounded-panel bg-finder-bg px-4 pb-4 pt-4 text-white shadow-inset-finder">
-        <div className="flex items-baseline gap-3">
-          <h3 className="min-w-0 text-md font-bold leading-tight">
-            <Link to={to} className="after:absolute after:inset-0 after:content-['']">
-              {agent.name}
-            </Link>
-          </h3>
-          <span className="ml-auto text-md font-bold text-finder-muted">
-            <DistanceLabel metres={agent.distance_m} />
-          </span>
+        <div className="flex items-start gap-3">
+          {photoSrc(agent.photo_url) && (
+            <img src={photoSrc(agent.photo_url)!} alt="" className="h-12 w-16 shrink-0 rounded-field object-cover" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-3">
+              <h3 className="min-w-0 text-md font-bold leading-tight">
+                <Link to={to} className="after:absolute after:inset-0 after:content-['']">
+                  {agent.name}
+                </Link>
+              </h3>
+              <span className="ml-auto text-md font-bold text-finder-muted">
+                <DistanceLabel metres={agent.distance_m} />
+              </span>
+            </div>
+            <p className="mt-0.5 text-sm font-bold text-finder-muted">{agent.area}</p>
+          </div>
         </div>
-        <p className="mt-0.5 text-sm font-bold text-finder-muted">{agent.area}</p>
         {agent.rating_count != null && agent.rating_count >= 3 && agent.rating_average != null && (
           <p className="mt-1 text-sm font-semibold text-finder-star">★ {agent.rating_average} · {agent.rating_count} ratings</p>
         )}

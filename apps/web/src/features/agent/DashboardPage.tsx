@@ -149,7 +149,7 @@ export default function DashboardPage() {
 
       <div className="mt-6 flex flex-col gap-3">
         <SectionLabel id="customers-see">Customers now see</SectionLabel>
-        <ListingCard name={data.name} street={data.area} see={data.customers_see} compact />
+        <ListingCard name={data.name} street={data.area} see={data.customers_see} photoUrl={data.photo_url} compact />
         <button type="button" onClick={() => setLowOpen((v) => !v)} aria-expanded={lowOpen} className="flex h-control items-center self-start text-base font-bold text-finder-link">
           {data.low.cash_out || data.low.deposit ? 'Low today · change ›' : 'Low on cash out or cash in today? ›'}
         </button>
