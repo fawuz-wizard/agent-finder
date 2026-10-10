@@ -202,7 +202,7 @@ export default function HomePage() {
             Recent
           </h2>
           {recent.map((r) => (
-            <FinderBox key={r.id} className="flex min-h-[54px] flex-col justify-center gap-0.5 px-5 py-2">
+            <FinderBox key={r.id} className="flex min-h-[52px] flex-col justify-center gap-0.5 px-5 py-2">
               <Link to={`/agents/${r.id}?area=${encodeURIComponent(r.area)}`} className="truncate text-base font-bold">
                 {r.name}
               </Link>

@@ -24,7 +24,7 @@ export function TransactionTypeSelector({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(t)}
-            className={`h-[46px] w-[108px] select-none rounded-pill text-base font-bold transition-colors ${
+            className={`h-[44px] w-[104px] select-none rounded-pill text-base font-bold transition-colors ${
               selected ? 'bg-finder-link text-finder-on-orange' : 'border-2 border-white bg-transparent text-white'
             }`}
           >

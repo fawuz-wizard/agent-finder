@@ -94,7 +94,7 @@ export default function HoursPage() {
             role="radio"
             aria-checked={mode === key}
             onClick={act}
-            className={`h-[46px] rounded-pill px-3 text-[15px] font-bold leading-tight ${mode === key ? PILL_ON : PILL_OFF}`}
+            className={`h-[44px] rounded-pill px-3 text-[15px] font-bold leading-tight ${mode === key ? PILL_ON : PILL_OFF}`}
           >
             {label}
           </button>
@@ -107,7 +107,7 @@ export default function HoursPage() {
           const h = weekly[day]
           return (
             <li key={day}>
-              <FinderBox className="flex min-h-[54px] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-2">
+              <FinderBox className="flex min-h-[52px] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-2">
                 <span className="text-base font-bold">{WEEKDAY_NAMES[day]}</span>
                 <label className="flex items-center gap-2 text-sm font-semibold text-finder-muted">
                   <input

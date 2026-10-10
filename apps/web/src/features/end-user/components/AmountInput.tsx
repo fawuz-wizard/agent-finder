@@ -30,7 +30,7 @@ export function AmountInput({
       <label htmlFor={id} className="text-[15px] font-medium text-white">
         Amount (SLE)
       </label>
-      <FinderBox className={`flex h-[54px] items-center gap-4 px-4 ${error ? 'outline outline-2 outline-danger' : 'focus-within:outline focus-within:outline-2 focus-within:outline-finder-link'}`}>
+      <FinderBox className={`flex h-[52px] items-center gap-4 px-4 ${error ? 'outline outline-2 outline-danger' : 'focus-within:outline focus-within:outline-2 focus-within:outline-finder-link'}`}>
         <span className="text-md font-bold text-finder-muted">SLE</span>
         <input
           id={id}

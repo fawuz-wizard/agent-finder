@@ -211,7 +211,7 @@ export default function DashboardPage() {
             aria-checked={d.presence === p.value}
             disabled={saving !== null}
             onClick={() => void setPresence(p.value)}
-            className={`h-[46px] flex-1 rounded-pill text-base font-bold transition-colors ${d.presence === p.value ? PILL_ON : PILL_OFF}`}
+            className={`h-[44px] flex-1 rounded-pill text-base font-bold transition-colors ${d.presence === p.value ? PILL_ON : PILL_OFF}`}
           >
             {saving === p.value ? '…' : p.label}
           </button>
@@ -247,7 +247,7 @@ export default function DashboardPage() {
       </FinderBox>
 
       <SectionLabel className="mt-6">Float</SectionLabel>
-      <FinderBox className="mt-3 flex min-h-[54px] items-center justify-between gap-3 px-5 py-2">
+      <FinderBox className="mt-3 flex min-h-[52px] items-center justify-between gap-3 px-5 py-2">
         <span className="text-base font-bold">Float request</span>
         <Link to="/agent/services" className="text-base font-bold text-finder-link">
           {floatRowText(data.latest_float)} ›

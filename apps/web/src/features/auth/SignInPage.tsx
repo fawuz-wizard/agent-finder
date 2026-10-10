@@ -140,7 +140,7 @@ export default function SignInPage() {
         <label htmlFor="sign-in-ref" className="mt-3 text-[15px] font-medium">
           {isAgent ? 'Agent code' : 'Orange Money number'}
         </label>
-        <FinderBox className="mt-2 flex h-[54px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+        <FinderBox className="mt-2 flex h-[52px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
           <input
             id="sign-in-ref"
             value={ref}
@@ -163,7 +163,7 @@ export default function SignInPage() {
             {showPin ? 'Hide PIN' : 'Show PIN'}
           </button>
         </div>
-        <FinderBox className="mt-2 flex h-[54px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+        <FinderBox className="mt-2 flex h-[52px] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
           <input
             id="sign-in-pin"
             value={pin}

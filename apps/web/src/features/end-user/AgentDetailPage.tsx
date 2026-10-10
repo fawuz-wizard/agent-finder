@@ -158,7 +158,7 @@ export default function AgentDetailPage() {
 
   const services = ['Orange Money', ...(Object.keys(TRANSACTION_LABELS) as TransactionType[]).map((k) => TRANSACTION_LABELS[k])]
   const actionClass =
-    'flex h-[40px] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
+    'flex h-[38px] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
 
   return (
     <div className="flex flex-1 flex-col bg-finder-bg text-white">
@@ -259,7 +259,7 @@ export default function AgentDetailPage() {
                 type="button"
                 onClick={() => void submitRating()}
                 disabled={!rating || ratingState === 'sending'}
-                className="mt-3 h-[40px] w-full rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-opacity disabled:opacity-40"
+                className="mt-3 h-[38px] w-full rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-opacity disabled:opacity-40"
               >
                 {ratingState === 'sending' ? 'Submitting…' : 'Submit rating'}
               </button>
