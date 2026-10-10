@@ -25,6 +25,9 @@ concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write # the pilot release
+
 jobs:
   apk:
     name: Debug APK
@@ -119,3 +122,28 @@ jobs:
           path: apps/web/agent-app-*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # One stable download link per app, so a printed QR code keeps working build after
+      # build: the "pilot-latest" release is replaced every time main changes. Mock builds
+      # carry the demo network inside, so a phone needs no server to show every screen.
+      - name: Publish to the pilot release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mode=$([ -n "$API_BASE_URL" ] && echo live || echo mock)
+          cp agent-finder-*.apk agent-finder.apk
+          cp agent-app-*.apk agent-app.apk
+          {
+            echo "Built from \`${GITHUB_SHA::7}\` on $(date -u +'%Y-%m-%d %H:%M UTC') in **${mode}** mode."
+            echo
+            cat ../../docs/demo/release-notes.md
+          } > notes.md
+          if gh release view pilot-latest >/dev/null 2>&1; then
+            gh release edit pilot-latest --title "Pilot build (latest)" --notes-file notes.md --latest
+            gh release upload pilot-latest agent-finder.apk agent-app.apk --clobber
+          else
+            gh release create pilot-latest agent-finder.apk agent-app.apk --title "Pilot build (latest)" --notes-file notes.md --latest
+          fi
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/pilot-latest/agent-finder.apk"
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/pilot-latest/agent-app.apk"

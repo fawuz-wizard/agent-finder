@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Finder demo kit</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  :root { --orange: #ff7900; --ink: #000; --muted: #666; --line: #ccc; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: var(--ink); background: #fff; line-height: 1.35; }
+  .page { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h1 span { color: var(--orange); }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 15px; }
+  h2 { font-size: 17px; margin: 24px 0 10px; border-bottom: 2px solid var(--ink); padding-bottom: 4px; }
+  .qrs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .qr { border: 2px solid var(--line); padding: 12px; text-align: center; }
+  .qr img { width: 100%; max-width: 200px; height: auto; display: block; margin: 0 auto 8px; }
+  .qr b { display: block; font-size: 15px; }
+  .qr small { color: var(--muted); font-size: 12px; word-break: break-all; }
+  .qr.main { border-color: var(--orange); border-width: 3px; }
+  ol, ul { margin: 6px 0 0; padding-left: 20px; }
+  li { margin: 4px 0; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { border: 2px solid var(--line); padding: 12px 14px; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card h3 span { background: var(--orange); color: #000; padding: 1px 6px; margin-right: 6px; font-size: 12px; }
+  code { background: #f2f2f2; padding: 1px 5px; font-size: 13px; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
+  @media (max-width: 600px) { .qrs, .two { grid-template-columns: 1fr; } }
+  @media print { .page { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1><span>Agent Finder</span> · demo kit</h1>
+  <p class="sub">Two Android apps, one codebase. Everything runs on the phone: no server, no Wi‑Fi needed after install.</p>
+
+  <h2>1. Install (scan with the phone's camera)</h2>
+  <div class="qrs">
+    <div class="qr main">
+      <img src="qr-release-page.svg" alt="QR code: the download page" />
+      <b>Download page</b>
+      <small>Both apps, with these notes. Start here.</small>
+    </div>
+    <div class="qr">
+      <img src="qr-agent-finder-apk.svg" alt="QR code: Agent Finder APK" />
+      <b>Agent Finder</b>
+      <small>The customer's side (agent-finder.apk)</small>
+    </div>
+    <div class="qr">
+      <img src="qr-agent-app-apk.svg" alt="QR code: Agent App APK" />
+      <b>Agent App</b>
+      <small>Agents and aggregators (agent-app.apk)</small>
+    </div>
+  </div>
+  <ol>
+    <li>Scan, tap the <code>.apk</code>, then <b>Download</b>, then <b>Open</b>.</li>
+    <li>First time only: Android asks to <b>allow installs from this source</b>. Allow it, then <b>Install</b>.</li>
+    <li>Install both apps. They sit side by side on the home screen.</li>
+  </ol>
+
+  <h2>2. What to show</h2>
+  <div class="two">
+    <div class="card">
+      <h3><span>A</span>Agent Finder — the customer</h3>
+      <ol>
+        <li>Open the app: the Orange Money home. Tap the <b>Agent Finder</b> banner.</li>
+        <li>If the phone's location is off, the app asks to <b>turn it on</b>. Say yes.</li>
+        <li>Keep <b>Cash out</b>, tap <b>2,000</b>, then <b>Find agent</b>.</li>
+        <li>Point out the two lists: <b>Recommended</b> (can likely handle the amount) and <b>Nearest</b> (by distance, with honest status pills).</li>
+        <li>Tap <b>Get details</b> on a shop, then <b>Get Directions</b>: the map and the walk, then <b>I'm going there</b>.</li>
+        <li>Back on the home screen: the shop appears under <b>Recent</b>. <b>How availability works</b> explains the estimate in plain words.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3><span>B</span>Agent App — agents and aggregators</h3>
+      <p style="margin:0 0 6px">PIN is <code>1234</code> for every demo account.</p>
+      <ol>
+        <li>Choose <b>Agent</b>, code <code>024</code> (Fatmata's Shop), PIN <code>1234</code>.</li>
+        <li>Home: today's signal. <b>Availability</b>: open/closed and what the shop can handle, in words, never figures. <b>Float</b>: ask the aggregator for more. <b>Hours</b>: the weekly grid.</li>
+        <li>Sign out. Choose <b>Aggregator</b>, number <code>kissy</code>, PIN <code>1234</code>.</li>
+        <li><b>Overview</b>: the five signals. <b>Agents</b>: the register, with who is on the map and whose pin waits for confirmation. <b>Float</b>: approve a request. <b>Attention</b>: who needs a call.</li>
+        <li>Other agent codes to try: <code>031</code>, <code>009</code>, <code>017</code>, <code>038</code>.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2>3. If asked</h2>
+  <ul>
+    <li><b>Where does the data come from?</b> This build carries a seeded demo network of shops around Lumley. The pilot build reads Orange's own aggregator and agent file (95 agents, 2 aggregators, imported and cleaned) and places a shop on the map only once its aggregator confirms the pin.</li>
+    <li><b>Why "can likely handle"?</b> The app never shows balances. It estimates from recent transaction activity and says so; the customer confirms at the shop.</li>
+    <li><b>What is left?</b> Hosting (API server and web app), a Google Maps key for the live map, and the venue agents' pins. The code for all of it is built and tested; it needs accounts and keys.</li>
+  </ul>
+
+  <p class="note">The ribbon at the top of every screen says "Demo build". The link behind each QR code always serves the newest build, so there is nothing to reprint.</p>
+</div>
+</body>
+</html>
