@@ -42,6 +42,16 @@ def new_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+# A one-time sign-in code: six digits, read out in person. It is stored exactly like a PIN
+# and typed into the same field; the account is marked must_set_pin until the person
+# replaces it with a PIN of their own, which only they know.
+CODE_DIGITS = 6
+
+
+def new_code() -> str:
+    return f"{secrets.randbelow(10**CODE_DIGITS):0{CODE_DIGITS}d}"
+
+
 SESSION_MAX_AGE = timedelta(days=30)
 
 # A 4-6 digit PIN survives only if guessing is slow. Per-account lockout, in memory: the
@@ -75,9 +85,15 @@ class Principal:
     subject: str
     name: str
     permissions: frozenset[str]
+    # Signed in with a one-time code: the only thing this session may do is choose a PIN.
+    must_set_pin: bool = False
 
     def can(self, permission: str) -> bool:
         return permission in self.permissions
+
+
+def pin_required() -> AppError:
+    return AppError("Choose your PIN first.", code="pin_required", status_code=403)
 
 
 async def current_principal(
@@ -98,13 +114,20 @@ async def current_principal(
         if dealer is None:
             raise UnauthorizedError("That session has ended. Sign in again.")
         perms = frozenset(p for p in dealer.permissions.split(",") if p)
-        return Principal("dealer", dealer.id, dealer.name, perms)
+        return Principal("dealer", dealer.id, dealer.name, perms, dealer.must_set_pin)
     from app.db.models import Agent  # local import keeps the module graph simple
 
     agent = (await db.execute(select(Agent).where(Agent.ref == sess.subject))).scalar_one_or_none()
     if agent is None:
         raise UnauthorizedError("That session has ended. Sign in again.")
-    return Principal("agent", agent.ref, agent.shop_name, frozenset())
+    return Principal("agent", agent.ref, agent.shop_name, frozenset(), agent.must_set_pin)
+
+
+async def settled_principal(p: Principal = Depends(current_principal)) -> Principal:
+    """Any signed-in person who has chosen their PIN. Routes open to both roles use this."""
+    if p.must_set_pin:
+        raise pin_required()
+    return p
 
 
 def require_role(role: str):
@@ -112,6 +135,8 @@ def require_role(role: str):
         if p.role != role:
             # Absent, not hinted: the wrong role gets a 404 shape, never a 403 that maps the API.
             raise ForbiddenError("Not available.", code="not_found", status_code=404)
+        if p.must_set_pin:
+            raise pin_required()
         return p
 
     return _dep
@@ -121,6 +146,8 @@ def require_permission(permission: str):
     async def _dep(p: Principal = Depends(current_principal)) -> Principal:
         if p.role != "dealer" or not p.can(permission):
             raise ForbiddenError("Not available.", code="not_found", status_code=404)
+        if p.must_set_pin:
+            raise pin_required()
         return p
 
     return _dep

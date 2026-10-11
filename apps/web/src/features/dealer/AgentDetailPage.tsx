@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { Button, Card, useToast, AppBar } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
@@ -20,6 +20,8 @@ export default function DealerAgentDetailPage() {
   const { ref = '' } = useParams()
   const { session, can } = useSession()
   const toast = useToast()
+  // Straight from registration: the one-time code came along in navigation state.
+  const location = useLocation() as { state?: { code?: string } }
   const { state, data, error, refresh } = useAsync<DealerAgentDetail>((s) => operatorApi.dealerAgent(ref, s), [ref])
   const [busy, setBusy] = useState<DealerAction | null>(null)
 
@@ -106,6 +108,8 @@ export default function DealerAgentDetailPage() {
 
         {data.photo && <PhotoCard detail={data} onSaved={refresh} />}
 
+        {can(PERMISSIONS.manageAgent) && <SignInCard detail={data} initialCode={location.state?.code ?? null} />}
+
         <UsualCard detail={data} onSaved={refresh} />
 
         <Card>
@@ -166,6 +170,57 @@ export default function DealerAgentDetailPage() {
 }
 
 /** The picture the agent put on the shop's page. Customers see it already; take it down if it is wrong. */
+/**
+ * The agent's sign-in, from the aggregator's side: never their PIN, only a one-time code.
+ * The code is shown once, right here, to be read out in person. It opens the Choose-PIN
+ * screen and nothing else, and stops working the moment the agent has chosen a PIN.
+ */
+function SignInCard({ detail, initialCode }: { detail: DealerAgentDetail; initialCode: string | null }) {
+  const toast = useToast()
+  const [code, setCode] = useState<string | null>(initialCode)
+  const [busy, setBusy] = useState(false)
+
+  async function issue() {
+    setBusy(true)
+    try {
+      const out = await operatorApi.issueCode(detail.ref)
+      setCode(out.code)
+      toast.show(`New sign-in code issued for ${detail.shop_name}`)
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not issue a code.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card aria-labelledby="agent-sign-in">
+      <p id="agent-sign-in" className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">
+        Sign-in
+      </p>
+      {code ? (
+        <>
+          <p className="text-sm text-muted">One-time code for {detail.name}. Read it out in person; it is not shown again.</p>
+          <p className="mt-2 text-center text-3xl font-bold tracking-[0.3em]" aria-label={`One-time code ${code.split('').join(' ')}`}>
+            {code.slice(0, 3)} {code.slice(3)}
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            They sign in with their agent number and this code, then choose a PIN only they know. The code works once.
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted">
+          The agent signs in with a PIN only they know. If they forget it, issue a new one-time code: their phones are signed out and
+          they choose a new PIN at the next sign-in.
+        </p>
+      )}
+      <Button variant="secondary" className="mt-3" onClick={() => void issue()} disabled={busy}>
+        {busy ? 'Issuing…' : code ? 'Issue another code' : 'Issue a new sign-in code'}
+      </Button>
+    </Card>
+  )
+}
+
 function PhotoCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

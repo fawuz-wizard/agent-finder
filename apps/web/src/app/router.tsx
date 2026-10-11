@@ -12,6 +12,7 @@ const AgentDetail = lazy(() => import('@/features/end-user/AgentDetailPage'))
 const HowAvailabilityWorks = lazy(() => import('@/features/end-user/HowAvailabilityWorksPage'))
 const ReportVisit = lazy(() => import('@/features/end-user/ReportVisitPage'))
 const SignIn = lazy(() => import('@/features/auth/SignInPage'))
+const ChoosePin = lazy(() => import('@/features/auth/ChoosePinPage'))
 const HostHome = lazy(() => import('@/features/host/HostHomePage'))
 const AgentDashboard = lazy(() => import('@/features/agent/DashboardPage'))
 const AgentServices = lazy(() => import('@/features/agent/ServicesPage'))
@@ -52,7 +53,10 @@ const router = createBrowserRouter([
   },
   {
     element: <SignInLayout />,
-    children: [{ path: '/sign-in', element: withSuspense(<SignIn />) }],
+    children: [
+      { path: '/sign-in', element: withSuspense(<SignIn />) },
+      { path: '/choose-pin', element: withSuspense(<ChoosePin />) },
+    ],
   },
   // The customer build starts in the simulated host app; its banner opens the customer module.
   // The Agent App build starts on sign-in: agents and dealers never see the customer home.

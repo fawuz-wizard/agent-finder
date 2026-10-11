@@ -16,6 +16,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return s
   }, [])
 
+  const pinChosen = useCallback(() => {
+    setSession((s) => {
+      if (!s) return s
+      const next = { ...s, must_set_pin: false }
+      writeStoredSession(next)
+      return next
+    })
+  }, [])
+
   const signOut = useCallback(() => {
     const token = session?.token
     setSession(null)
@@ -34,11 +43,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       signIn,
+      pinChosen,
       signOut,
       // UX only. The API decides what this person may actually read or do.
       can: (permission: string) => Boolean(session?.permissions.includes(permission)),
     }),
-    [session, signIn, signOut],
+    [session, signIn, pinChosen, signOut],
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

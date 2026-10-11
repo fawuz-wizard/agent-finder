@@ -12,9 +12,11 @@ const AREAS = ['Lumley', 'Aberdeen', 'Wilberforce', 'Congo Cross', 'Hill Station
 /**
  * D5 — Register an agent. Any agent the dealer works with, whether or not Orange's file has
  * them: shop, person, number, a coarse location (the dealer can stand at the shop and use the
- * phone's position), hours, phone, the initial PIN, and what the agent usually handles. The
- * API decides what reads as likely from that note; the customer never sees it. "Checked
- * against Orange's record" is the dealer's own statement and only shows customers the badge.
+ * phone's position), hours, phone, and what the agent usually handles. The API decides what
+ * reads as likely from that note; the customer never sees it. "Checked against Orange's
+ * record" is the dealer's own statement and only shows customers the badge. No PIN is set
+ * here: the answer carries a one-time code the dealer reads out, and the agent chooses their
+ * own PIN at the first sign-in.
  */
 export default function RegisterAgentPage() {
   const { can } = useSession()
@@ -32,7 +34,6 @@ export default function RegisterAgentPage() {
     phone_visible: false,
     open_time: '07:00',
     close_time: '20:00',
-    pin: '',
     usual_max_sle: '',
     usual_float_max_sle: '',
     usual_daily_transactions: '',
@@ -47,8 +48,7 @@ export default function RegisterAgentPage() {
 
   const set = (k: keyof typeof form, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }))
   const num = (raw: string) => (raw.trim() === '' ? null : Math.max(0, Math.floor(Number(raw))))
-  const ready =
-    form.shop_name.trim() && form.person_name.trim() && form.street.trim() && form.lat && form.lng && /^\d{4,6}$/.test(form.pin)
+  const ready = form.shop_name.trim() && form.person_name.trim() && form.street.trim() && form.lat && form.lng
 
   function useMyLocation() {
     if (!navigator.geolocation) {
@@ -88,7 +88,6 @@ export default function RegisterAgentPage() {
       phone_visible: form.phone_visible,
       open_time: form.open_time,
       close_time: form.close_time,
-      pin: form.pin,
       usual_max_sle: num(form.usual_max_sle),
       usual_float_max_sle: num(form.usual_float_max_sle),
       usual_daily_transactions: num(form.usual_daily_transactions),
@@ -97,7 +96,8 @@ export default function RegisterAgentPage() {
     try {
       const out = await operatorApi.registerAgent(body)
       toast.show(`${out.shop_name} registered as ${out.ref}`)
-      navigate(`/dealer/agents/${encodeURIComponent(out.ref)}`, { replace: true })
+      // The code travels in navigation state, never in the URL or the address bar's history.
+      navigate(`/dealer/agents/${encodeURIComponent(out.ref)}`, { replace: true, state: { code: out.code } })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not register the agent.')
       setBusy(false)
@@ -167,7 +167,7 @@ export default function RegisterAgentPage() {
         </Card>
 
         <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Hours and PIN</p>
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Hours</p>
           <div className="grid grid-cols-2 gap-2">
             <label className="text-sm font-semibold" htmlFor="reg-open">
               Opens
@@ -178,10 +178,6 @@ export default function RegisterAgentPage() {
               <input id="reg-close" type="time" value={form.close_time} onChange={(e) => set('close_time', e.target.value)} className={`mt-1 ${field}`} />
             </label>
           </div>
-          <label className="mt-2 text-sm font-semibold" htmlFor="reg-pin">
-            Initial PIN <span className="font-normal text-muted">(4–6 digits; tell the agent in person)</span>
-            <input id="reg-pin" value={form.pin} inputMode="numeric" type="password" autoComplete="off" onChange={(e) => set('pin', e.target.value.replace(/\D/g, '').slice(0, 6))} className={`mt-1 ${field}`} />
-          </label>
         </Card>
 
         <Card>
@@ -216,7 +212,7 @@ export default function RegisterAgentPage() {
           {busy ? 'Registering…' : 'Register agent'}
         </Button>
         <p className="text-center text-xs text-muted">
-          Customers see the shop once the agent signs in with this number and PIN and sets Open.
+          You get a one-time sign-in code to read out to the agent. They choose their own PIN, and customers see the shop once they sign in and set Open.
         </p>
       </div>
     </div>

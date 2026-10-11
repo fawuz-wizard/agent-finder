@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -267,13 +267,17 @@ describe('registration', () => {
     await user.type(screen.getByLabelText(/street or landmark/i), 'Opposite the venue gate')
     await user.type(screen.getByLabelText(/latitude/i), '8.4710')
     await user.type(screen.getByLabelText(/longitude/i), '-13.2600')
-    await user.type(screen.getByLabelText(/initial pin/i), '2468')
     await user.type(screen.getByLabelText(/cash out, up to about/i), '5000')
     await user.click(screen.getByLabelText(/checked this agent against orange/i))
     await user.click(screen.getByRole('button', { name: /^register agent$/i }))
-    // Lands on the new agent's detail, under the number the platform assigned.
+    // Lands on the new agent's detail, under the number the platform assigned, with the
+    // one-time code to read out: six digits, shown once, never a PIN the dealer chose.
     expect(await screen.findByText(/Code 1\d\d/)).toBeInTheDocument()
     expect(screen.getAllByText(/Mariama's Corner/).length).toBeGreaterThan(0)
+    const shown = screen.getByLabelText(/one-time code/i)
+    const code = shown.textContent!.replace(/\s/g, '')
+    expect(code).toMatch(/^\d{6}$/)
+    expect(screen.getByText(/read it out in person/i)).toBeInTheDocument()
     // The register lists them now, and the registration was logged with the dealer's name.
     const rows = await operatorApi.dealerAgents()
     const mine = rows.find((r) => r.name === "Mariama's Corner")
@@ -281,9 +285,22 @@ describe('registration', () => {
     expect(mine!.capacity_text).toMatch(/Cash out up to ~SLE 5,000/)
     const acts = await operatorApi.actions(mine!.ref)
     expect(acts.some((a) => /registered Mariama's Corner/.test(a.note) && /Orange's record/.test(a.note))).toBe(true)
-    // The agent can sign in with the PIN the dealer set.
-    await expect(operatorApi.signIn(mine!.ref, '2468', 'agent')).resolves.toMatchObject({ role: 'agent', ref: mine!.ref })
+    // The agent signs in with the code, which opens only the Choose-PIN step; the PIN they
+    // choose works from then on and the code is dead.
+    await expect(operatorApi.signIn(mine!.ref, code, 'agent')).resolves.toMatchObject({ role: 'agent', ref: mine!.ref, must_set_pin: true })
     await expect(operatorApi.signIn(mine!.ref, '1234', 'agent')).rejects.toThrow(/PIN/)
+    await expect(operatorApi.choosePin(mine!.ref, 'agent', code)).rejects.toThrow(/not the code/)
+    await expect(operatorApi.choosePin(mine!.ref, 'agent', '2468')).resolves.toEqual({ pin_set: true })
+    await expect(operatorApi.signIn(mine!.ref, '2468', 'agent')).resolves.toMatchObject({ must_set_pin: false })
+    await expect(operatorApi.signIn(mine!.ref, code, 'agent')).rejects.toThrow(/PIN/)
+    // Forgotten: the dealer issues another code from the agent's page and never sets a PIN.
+    await user.click(screen.getByRole('button', { name: /issue another code/i }))
+    await waitFor(() => expect(screen.getByLabelText(/one-time code/i).textContent!.replace(/\s/g, '')).not.toBe(code))
+    const fresh = screen.getByLabelText(/one-time code/i).textContent!.replace(/\s/g, '')
+    await expect(operatorApi.signIn(mine!.ref, '2468', 'agent')).rejects.toThrow(/PIN/)
+    await expect(operatorApi.signIn(mine!.ref, fresh, 'agent')).resolves.toMatchObject({ must_set_pin: true })
+    const later = await operatorApi.actions(mine!.ref)
+    expect(later.some((a) => /issued a new sign-in code/.test(a.note))).toBe(true)
   })
 
   it('offers no way to register without the permission: no link, and the page sends you back', async () => {
@@ -300,7 +317,7 @@ describe('registration', () => {
     await expect(
       operatorApi.registerAgent({
         ref: null, person_name: 'A', shop_name: 'B', area: 'Lumley', street: 'C', lat: 48.85, lng: 2.35, phone: null, phone_visible: false,
-        open_time: '07:00', close_time: '20:00', pin: '1111', usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null, verified: false,
+        open_time: '07:00', close_time: '20:00', usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null, verified: false,
       }),
     ).rejects.toThrow(/outside Sierra Leone/)
   })

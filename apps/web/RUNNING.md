@@ -73,14 +73,18 @@ feed the same slot. `POST /api/v1/agent/transactions`, idempotent on `client_tok
 Sign in as the dealer, open **Agents → Register agent**. Any agent you work with can be
 registered, whether or not Orange's file lists them: shop and person, the agent number (or the
 next free one from 101), the shop's location (stand at the shop and tap *Use my location*, or
-type the coordinates), hours, phone, the initial PIN, and what the agent usually handles. Tick
+type the coordinates), hours, phone, and what the agent usually handles. Tick
 *checked against Orange's record* only when you did: that alone shows customers the
 "Verified agent" badge. The note on what they usually handle sets what amounts read as likely;
 customers never see the figures.
 
-Customers see the shop once the agent signs in with that number and PIN and sets **Open**.
-The record, location and hours can be corrected later (`PUT /api/v1/dealer/agents/{ref}`), and
-the PIN reset (`POST /api/v1/dealer/agents/{ref}/pin`).
+The answer is a six-digit **one-time code**, shown once on the agent's page for you to read
+out in person. The agent signs in with their number and the code, lands on *Choose your PIN*,
+and from then on signs in with a PIN only they know. Customers see the shop once the agent has
+signed in and set **Open**. The record, location and hours can be corrected later
+(`PUT /api/v1/dealer/agents/{ref}`). A forgotten PIN gets a new code from *Issue a new sign-in
+code* on the agent's page (`POST /api/v1/dealer/agents/{ref}/pin`): the agent's phones are
+signed out and they choose a new PIN at the next sign-in. The aggregator never sets a PIN.
 
 This needs the dealer permission `MANAGE_AGENT`. The seed grants it; a database created before
 it existed needs it added once:

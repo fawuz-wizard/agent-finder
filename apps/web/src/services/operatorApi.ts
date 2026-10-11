@@ -37,6 +37,7 @@ import type {
   RecordKind,
   RegisterAgentBody,
   RegisteredAgent,
+  RegisteredWithCode,
   Schedule,
   TodayChange,
   UsualNote,
@@ -71,6 +72,16 @@ export const operatorApi = {
       return delay(demo.demoSignIn(ref, pin, role))
     } catch (e) {
       return Promise.reject(e instanceof Error ? e : new Error('Sign-in failed.'))
+    }
+  },
+
+  /** After a sign-in with a one-time code: the PIN only this person knows, from now on. */
+  choosePin(ref: string, role: Role, pin: string): Promise<{ pin_set: true }> {
+    if (config.useLiveApi) return api.post('/api/v1/auth/pin', { pin })
+    try {
+      return delay(demo.demoChoosePin(ref, role, pin))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Could not set the PIN.'))
     }
   },
 
@@ -259,9 +270,10 @@ export const operatorApi = {
     return delay(demo.demoSetUsual(ref, note))
   },
 
-  /** Register any agent under me; the API assigns the number when none is given. */
-  registerAgent(body: RegisterAgentBody): Promise<RegisteredAgent> {
-    if (config.useLiveApi) return api.post<RegisteredAgent>('/api/v1/dealer/agents', body)
+  /** Register any agent under me; the API assigns the number when none is given, and
+   *  answers with the one-time code the agent signs in with for the first time. */
+  registerAgent(body: RegisterAgentBody): Promise<RegisteredWithCode> {
+    if (config.useLiveApi) return api.post<RegisteredWithCode>('/api/v1/dealer/agents', body)
     try {
       return delay(demo.demoRegisterAgent(body))
     } catch (e) {
@@ -270,7 +282,7 @@ export const operatorApi = {
   },
 
   /** Correct an agent's record, location or hours. */
-  editAgent(ref: string, body: Partial<Omit<RegisterAgentBody, 'pin' | 'ref'>>): Promise<RegisteredAgent> {
+  editAgent(ref: string, body: Partial<Omit<RegisterAgentBody, 'ref'>>): Promise<RegisteredAgent> {
     if (config.useLiveApi) return api.put<RegisteredAgent>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}`, body)
     try {
       return delay(demo.demoEditAgent(ref, body))
@@ -292,12 +304,14 @@ export const operatorApi = {
     return delay(demo.demoRemoveAgentPhoto(ref))
   },
 
-  resetPin(ref: string, pin: string): Promise<{ ref: string; pin_set: true }> {
-    if (config.useLiveApi) return api.post(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/pin`, { pin })
+  /** The agent forgot their PIN: a fresh one-time code, read out in person. The aggregator
+   *  never sets or learns the PIN itself; the agent chooses a new one at the next sign-in. */
+  issueCode(ref: string): Promise<{ ref: string; code: string }> {
+    if (config.useLiveApi) return api.post(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/pin`, {})
     try {
-      return delay(demo.demoResetPin(ref, pin))
+      return delay(demo.demoIssueCode(ref))
     } catch (e) {
-      return Promise.reject(e instanceof Error ? e : new Error('Could not set the PIN.'))
+      return Promise.reject(e instanceof Error ? e : new Error('Could not issue a code.'))
     }
   },
 

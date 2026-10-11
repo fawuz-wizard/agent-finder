@@ -16,12 +16,13 @@ from app.core.auth import (
     check_sign_in_allowed,
     clear_sign_in_failures,
     current_principal,
+    hash_pin,
     new_token,
     note_sign_in_failure,
     verify_pin,
 )
-from app.core.errors import UnauthorizedError
-from app.db.models import Agent, Dealer, Session
+from app.core.errors import AppError, UnauthorizedError
+from app.db.models import Action, Agent, Dealer, Session
 from app.db.session import get_session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -39,6 +40,12 @@ class SessionOut(BaseModel):
     name: str
     ref: str
     permissions: list[str]
+    # Signed in with the one-time code: choose a PIN before anything else opens.
+    must_set_pin: bool = False
+
+
+class FirstPinBody(BaseModel):
+    pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
 
 
 def as_msisdn(text: str) -> str | None:
@@ -114,6 +121,7 @@ async def sign_in(
             name=dealer.name,
             ref=dealer.name,
             permissions=[p for p in dealer.permissions.split(",") if p],
+            must_set_pin=dealer.must_set_pin,
         )
 
     ref = body.ref.strip()
@@ -129,8 +137,57 @@ async def sign_in(
     )
     await db.commit()
     return SessionOut(
-        token=token, role="agent", name=agent.shop_name, ref=agent.ref, permissions=[]
+        token=token,
+        role="agent",
+        name=agent.shop_name,
+        ref=agent.ref,
+        permissions=[],
+        must_set_pin=agent.must_set_pin,
     )
+
+
+@router.post("/pin", summary="Choose my PIN after signing in with a one-time code")
+async def choose_pin(
+    body: FirstPinBody,
+    p: Principal = Depends(current_principal),
+    authorization: str = Header(),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """The code the aggregator (or the team) read out works once: it opens this screen and
+    nothing else. The PIN chosen here replaces it, is known to nobody else, and every other
+    session opened with the code ends."""
+    if not p.must_set_pin:
+        raise AppError("Your PIN is already set.", code="pin_set", status_code=409)
+    if p.role == "dealer":
+        account = await db.get(Dealer, p.subject)
+        salt = account.id if account else ""
+    else:
+        account = (
+            await db.execute(select(Agent).where(Agent.ref == p.subject))
+        ).scalar_one_or_none()
+        salt = account.ref if account else ""
+    if account is None:
+        raise UnauthorizedError("That session has ended. Sign in again.")
+    if verify_pin(body.pin, salt, account.pin_hash):
+        raise AppError("Choose a PIN that is not the code.", code="validation", status_code=422)
+    account.pin_hash = hash_pin(body.pin, salt)
+    account.must_set_pin = False
+    this_token = authorization.split(" ", 1)[1].strip()
+    others = (
+        await db.execute(
+            select(Session).where(
+                Session.role == p.role, Session.subject == p.subject, Session.token != this_token
+            )
+        )
+    ).scalars()
+    for other in others:
+        other.revoked = True
+    if p.role == "agent":
+        db.add(
+            Action(actor=p.name, agent_ref=p.subject, action="agent_pin", note="Chose their PIN")
+        )
+    await db.commit()
+    return {"pin_set": True}
 
 
 @router.post("/sign-out", status_code=204, summary="End this session")

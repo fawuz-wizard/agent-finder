@@ -13,7 +13,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agent_app import FloatOut, float_out
-from app.core.auth import Principal, current_principal
+from app.core.auth import Principal, settled_principal
 from app.core.errors import AppError, ForbiddenError, NotFoundError
 from app.db.models import Agent, FloatRequest, FloatRequestEvent
 from app.db.session import get_session
@@ -52,7 +52,7 @@ async def _names(db: AsyncSession, refs: set[str]) -> dict[str, str]:
 @router.get("", response_model=list[FloatOut], summary="Float requests visible to me")
 async def list_requests(
     agent: str | None = Query(default=None),
-    p: Principal = Depends(current_principal),
+    p: Principal = Depends(settled_principal),
     db: AsyncSession = Depends(get_session),
 ) -> list[FloatOut]:
     now = now_utc()
@@ -71,7 +71,7 @@ async def list_requests(
 @router.post("", response_model=FloatOut, status_code=201, summary="Agent: ask for float")
 async def create(
     body: CreateBody,
-    p: Principal = Depends(current_principal),
+    p: Principal = Depends(settled_principal),
     db: AsyncSession = Depends(get_session),
 ) -> FloatOut:
     if p.role != "agent":
@@ -127,7 +127,7 @@ async def create(
 async def decide(
     request_id: str,
     body: DecisionBody,
-    p: Principal = Depends(current_principal),
+    p: Principal = Depends(settled_principal),
     db: AsyncSession = Depends(get_session),
 ) -> FloatOut:
     now = now_utc()

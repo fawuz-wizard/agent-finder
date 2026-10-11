@@ -14,14 +14,14 @@ protected.
 | Piece | State | Where |
 |---|---|---|
 | Customer module: find a nearby agent who can likely handle a cash out or cash in, directions, visit report, ratings | Built, in the Figma design, on phones | `apps/web/src/features/end-user` |
-| Agent App: sign-in by agent code or Orange Money line, four tabs (Dashboard, Activity, Services, Profile), commission per transaction, cash in / cash out recording, hours, pin the shop, photograph the shop | Built, on the finder's design | `apps/web/src/features/agent` |
-| Aggregator side: agent register, confirm a shop's pin, take down a shop's photo, float approvals, attention list, Global Report, CSV exports | Built | `apps/web/src/features/dealer` |
+| Agent App: first sign-in with a one-time code then a PIN of the agent's own, sign-in by agent code or Orange Money line, four tabs (Dashboard, Activity, Services, Profile), commission per transaction, cash in / cash out recording, hours, pin the shop, photograph the shop | Built, on the finder's design | `apps/web/src/features/agent` |
+| Aggregator side: agent register with a one-time sign-in code, issue a new code when a PIN is forgotten, confirm a shop's pin, take down a shop's photo, float approvals, attention list, Global Report, CSV exports | Built | `apps/web/src/features/dealer` |
 | Orange's agent file imported: 95 agents, 2 aggregators, cleaned with the team; addresses kept exactly as given | Done; shops appear to customers only once their aggregator confirms the pin | `apps/api/scripts/import_orange.py` |
 | Ranking and phrasing: activity in, words out ("can likely handle"), never a balance | Built; tested | `apps/api/app/services/ranker.py`, `phrasing.py` |
 | Operator gateway: one adapter that every money or transaction figure passes through | Built as a contract; demo and "none" implementations | `apps/api/app/integrations/operator/base.py` |
 | Android apps, both flavours, signed with one pilot key, published on every build | Done; QR codes in the demo kit | `.github/workflows/android.yml`, `docs/demo` |
 | Hosting: API container, Render blueprint, Postgres/PostGIS migrations, Vercel config, deploy guide | Ready; waiting on accounts | `render.yaml`, `infra/deploy/README.md` |
-| Automated tests | 136 on the API, 122 on the web app, run on every push | `apps/api/tests`, `apps/web/src/**/*.test.*` |
+| Automated tests | 139 on the API, 127 on the web app, run on every push | `apps/api/tests`, `apps/web/src/**/*.test.*` |
 
 ## 2. The gateway
 
@@ -62,10 +62,16 @@ for Orange's eyes, so the figures are real for the pilot; it is not a feature we
 
 ## 4. Security and privacy, as implemented
 
-- **Sign-in.** Agents and aggregators sign in with a 4–6 digit PIN. PINs are stored as
-  PBKDF2-HMAC-SHA256 hashes, 100 000 rounds, salted per account. Five failures lock the
-  account for 15 minutes. Sessions are random 32-byte bearer tokens, 30-day lifetime,
-  revoked on sign-out. (`apps/api/app/core/auth.py`)
+- **Sign-in.** Nobody signs up: an account exists because the aggregator registered the
+  agent or the team imported Orange's file. The first sign-in is a six-digit one-time code,
+  read out in person by the aggregator (or the team, for aggregators). The code opens one
+  screen, where the person chooses a 4–6 digit PIN that nobody else knows; the code then
+  dies and every other session opened with it ends. A forgotten PIN gets a fresh code from
+  the aggregator, which signs the agent out everywhere; the aggregator never sets or sees a
+  PIN. PINs and codes are stored as PBKDF2-HMAC-SHA256 hashes, 100 000 rounds, salted per
+  account. Five failures lock the account for 15 minutes. Sessions are random 32-byte bearer
+  tokens, 30-day lifetime, revoked on sign-out. (`apps/api/app/core/auth.py`,
+  `apps/api/app/api/v1/auth.py`)
 - **Roles.** Every endpoint is scoped to a role and a subject. An aggregator sees only their
   own agents; a wrong role gets 404, not 403, so the existence of a record is never confirmed.
 - **Customers see words, not money.** Public endpoints return no balance, float, threshold

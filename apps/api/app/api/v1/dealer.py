@@ -15,7 +15,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agent_app import declaration_of, float_out
-from app.core.auth import Principal, require_permission, require_role
+from app.core.auth import Principal, hash_pin, new_code, require_permission, require_role
 from app.core.errors import AppError, NotFoundError
 from app.db.models import (
     Action,
@@ -26,6 +26,7 @@ from app.db.models import (
     FloatRequest,
     OutcomeReport,
     SearchImpression,
+    Session,
     UsageEvent,
 )
 from app.db.session import get_session
@@ -683,10 +684,12 @@ async def usage_summary(
 # ---- Registration: the dealer brings an agent onto the platform ----------------------------
 #
 # Registration never depends on Orange's file. A dealer registers any agent they work with —
-# shop, person, agent number, a coarse location, hours, phone, the initial PIN and a note of
-# what the agent usually handles. `verified` is the dealer's own statement that the agent was
-# checked against Orange's records; it is the only thing that shows customers the badge. The
-# words are not asked: what the agent can cover comes from the note, and later from history.
+# shop, person, agent number, a coarse location, hours, phone and a note of what the agent
+# usually handles. The agent's first sign-in uses a one-time code the dealer reads out in
+# person; the agent then chooses a PIN nobody else knows. `verified` is the dealer's own
+# statement that the agent was checked against Orange's records; it is the only thing that
+# shows customers the badge. The words are not asked: what the agent can cover comes from the
+# note, and later from history.
 
 SL_LAT = (6.8, 10.1)
 SL_LNG = (-13.5, -10.2)
@@ -706,7 +709,6 @@ class RegisterBody(BaseModel):
     phone_visible: bool = False
     open_time: str = Field(default="07:00", pattern=TIME_RE)
     close_time: str = Field(default="20:00", pattern=TIME_RE)
-    pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
     usual_max_sle: int | None = Field(default=None, ge=0, le=10_000_000)
     usual_float_max_sle: int | None = Field(default=None, ge=0, le=10_000_000)
     usual_daily_transactions: int | None = Field(default=None, ge=0, le=10_000)
@@ -726,10 +728,6 @@ class EditBody(BaseModel):
     open_time: str | None = Field(default=None, pattern=TIME_RE)
     close_time: str | None = Field(default=None, pattern=TIME_RE)
     verified: bool | None = None
-
-
-class PinBody(BaseModel):
-    pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
 
 
 def normalise_ref(raw: str) -> str:
@@ -798,7 +796,6 @@ async def register_agent(
     p: Principal = Depends(require_permission("MANAGE_AGENT")),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
-    from app.core.auth import hash_pin
     from app.services import schedule
 
     now = now_utc()
@@ -807,6 +804,7 @@ async def register_agent(
     ref = normalise_ref(body.ref) if body.ref else await next_free_ref(db)
     if (await db.execute(select(Agent.ref).where(Agent.ref == ref))).first():
         raise AppError(f"{ref} is already registered.", code="exists", status_code=409)
+    code = new_code()
     a = Agent(
         ref=ref,
         dealer_id=p.subject,
@@ -821,7 +819,8 @@ async def register_agent(
         phone=body.phone.replace(" ", "") if body.phone else None,
         phone_visible=body.phone_visible,
         verified=body.verified,
-        pin_hash=hash_pin(body.pin, ref),
+        pin_hash=hash_pin(code, ref),
+        must_set_pin=True,
         presence="open",
         open_hour=o // 60,
         close_hour=max(o // 60 + 1, c // 60),
@@ -844,7 +843,8 @@ async def register_agent(
     )
     await usage.record(db, "register", "dealer", p.subject, ref)
     await db.commit()
-    return registered_out(a, now)
+    # The code is shown once, here, for the dealer to read out. It is never stored in clear.
+    return {**registered_out(a, now), "code": code}
 
 
 @router.put("/dealer/agents/{ref}", summary="Correct an agent's record, location or hours")
@@ -960,32 +960,42 @@ async def remove_agent_photo(
     return {"ref": a.ref, "photo": None}
 
 
-@router.post("/dealer/agents/{ref}/pin", summary="Set a new PIN for an agent under me")
-async def reset_pin(
+@router.post(
+    "/dealer/agents/{ref}/pin",
+    summary="Issue a new one-time sign-in code for an agent under me (they forgot their PIN)",
+)
+async def issue_code(
     ref: str,
-    body: PinBody,
     p: Principal = Depends(require_permission("MANAGE_AGENT")),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
-    from app.core.auth import hash_pin
-
+    """The dealer never learns or sets the agent's PIN. A forgotten PIN gets a fresh code,
+    read out in person; the agent chooses a new PIN at the next sign-in. Every phone the
+    agent was signed in on is signed out, in case the phone is what was lost."""
     a = (
         await db.execute(select(Agent).where(Agent.ref == ref, Agent.dealer_id == p.subject))
     ).scalar_one_or_none()
     if a is None:
         raise NotFoundError("Not available.")
-    a.pin_hash = hash_pin(body.pin, a.ref)
+    code = new_code()
+    a.pin_hash = hash_pin(code, a.ref)
+    a.must_set_pin = True
+    sessions = (
+        await db.execute(select(Session).where(Session.role == "agent", Session.subject == a.ref))
+    ).scalars()
+    for s in sessions:
+        s.revoked = True
     db.add(
         Action(
             at=now_utc(),
             actor=p.name,
             agent_ref=a.ref,
             action="register",
-            note=f"{p.name} set a new PIN for {a.shop_name}",
+            note=f"{p.name} issued a new sign-in code for {a.shop_name}",
         )
     )
     await db.commit()
-    return {"ref": a.ref, "pin_set": True}
+    return {"ref": a.ref, "code": code}
 
 
 # ---- Report and records: what the team studies, what Orange asked to export ------------------

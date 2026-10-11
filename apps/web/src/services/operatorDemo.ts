@@ -38,6 +38,7 @@ import type {
   Reliability,
   RegisterAgentBody,
   RegisteredAgent,
+  RegisteredWithCode,
   LoggedTransaction,
   TransactionBand,
   DealerReport,
@@ -93,8 +94,10 @@ interface AgentState {
   low?: { cash_out: 'low' | 'none' | null; deposit: 'low' | 'none' | null; until: number } | undefined
   /** The dealer's note at registration. PRIVATE. */
   usual: UsualNote
-  /** Demo only: a PIN the dealer set at registration; seeded agents use the demo PIN. */
+  /** Demo only: the one-time code or the PIN this agent signs in with; seeded agents use the demo PIN. */
   pin?: string
+  /** Demo only: signed in with a one-time code, a PIN is still to be chosen. */
+  mustSetPin?: boolean
   /** Set at registration; seeded agents carry their points in the customer network instead. */
   lat?: number
   lng?: number
@@ -690,16 +693,25 @@ function record(text: string, source: ActivityEvent['source'], tone: ActivityEve
 /* ---------- auth ---------- */
 
 const DEMO_PIN = '1234'
+/** Demo only: the aggregator's own code-then-PIN state, so the first sign-in can be shown. */
+const dealerSignIn: { pin: string; mustSetPin: boolean } = { pin: DEMO_PIN, mustSetPin: false }
+
+/** A six-digit one-time code, like the API's. */
+function newCode(): string {
+  return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')
+}
 
 export function demoSignIn(ref: string, pin: string, role: Role): Session {
   const wanted = agents.find((x) => x.ref.toLowerCase() === normaliseRef(ref).toLowerCase())
-  if (pin !== (role === 'agent' && wanted?.pin ? wanted.pin : DEMO_PIN)) throw new Error('That PIN is not correct.')
+  const expected = role === 'dealer' ? dealerSignIn.pin : (wanted?.pin ?? DEMO_PIN)
+  if (pin !== expected) throw new Error('That PIN is not correct.')
   if (role === 'dealer') {
     return {
       token: 'demo-dealer-token',
       role: 'dealer',
       name: 'Kissy Distribution',
       ref: 'Kissy Distribution',
+      must_set_pin: dealerSignIn.mustSetPin,
       permissions: [
         PERMISSIONS.viewAgent,
         PERMISSIONS.viewFinancial,
@@ -712,7 +724,26 @@ export function demoSignIn(ref: string, pin: string, role: Role): Session {
     }
   }
   const a = wanted ?? agents[0]!
-  return { token: 'demo-agent-token', role: 'agent', name: a.shop, ref: a.ref, permissions: [] }
+  return { token: 'demo-agent-token', role: 'agent', name: a.shop, ref: a.ref, permissions: [], must_set_pin: Boolean(a.mustSetPin) }
+}
+
+/** The code worked once; the PIN chosen here is the only thing that works from now on. */
+export function demoChoosePin(ref: string, role: Role, pin: string): { pin_set: true } {
+  if (!/^\d{4,6}$/.test(pin)) throw new Error('A PIN is 4 to 6 digits.')
+  if (role === 'dealer') {
+    if (!dealerSignIn.mustSetPin) throw new Error('Your PIN is already set.')
+    if (pin === dealerSignIn.pin) throw new Error('Choose a PIN that is not the code.')
+    dealerSignIn.pin = pin
+    dealerSignIn.mustSetPin = false
+    return { pin_set: true }
+  }
+  const a = find(ref)
+  if (!a.mustSetPin) throw new Error('Your PIN is already set.')
+  if (pin === a.pin) throw new Error('Choose a PIN that is not the code.')
+  a.pin = pin
+  a.mustSetPin = false
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'agent_pin', agent_ref: ref, at: new Date().toISOString(), note: 'Chose their PIN' })
+  return { pin_set: true }
 }
 
 /** "101" → "Agent 101"; anything else is left as typed. */
@@ -760,7 +791,7 @@ function registeredOut(a: AgentState): RegisteredAgent {
   }
 }
 
-export function demoRegisterAgent(body: RegisterAgentBody): RegisteredAgent {
+export function demoRegisterAgent(body: RegisterAgentBody): RegisteredWithCode {
   checkPoint(body.lat, body.lng)
   checkHours(body.open_time, body.close_time)
   let ref: string
@@ -801,7 +832,8 @@ export function demoRegisterAgent(body: RegisterAgentBody): RegisteredAgent {
       usual_float_max_sle: body.usual_float_max_sle,
       usual_daily_transactions: body.usual_daily_transactions,
     },
-    pin: body.pin,
+    pin: newCode(),
+    mustSetPin: true,
     lat: body.lat,
     lng: body.lng,
     verified: body.verified,
@@ -830,10 +862,10 @@ export function demoRegisterAgent(body: RegisterAgentBody): RegisteredAgent {
       usual: { cash: body.usual_max_sle, float: body.usual_float_max_sle },
     }),
   )
-  return registeredOut(a)
+  return { ...registeredOut(a), code: a.pin! }
 }
 
-export function demoEditAgent(ref: string, body: Partial<Omit<RegisterAgentBody, 'pin' | 'ref'>>): RegisteredAgent {
+export function demoEditAgent(ref: string, body: Partial<Omit<RegisterAgentBody, 'ref'>>): RegisteredAgent {
   const a = agents.find((x) => x.ref === ref)
   if (!a) throw new Error('Not available.')
   if ((body.lat === undefined) !== (body.lng === undefined)) throw new Error('Give both latitude and longitude.')
@@ -888,13 +920,17 @@ export function demoReportMistake(ref: string, field: string, text: string): { s
   return { sent: true, note }
 }
 
-export function demoResetPin(ref: string, pin: string): { ref: string; pin_set: true } {
+/** A forgotten PIN: a fresh code, and every phone the agent was signed in on is signed out. */
+export function demoIssueCode(ref: string): { ref: string; code: string } {
   const a = agents.find((x) => x.ref === ref)
   if (!a) throw new Error('Not available.')
-  a.pin = pin
-  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'contact', agent_ref: ref, at: new Date().toISOString(), note: `Kissy Distribution set a new PIN for ${a.shop}` })
-  return { ref, pin_set: true }
+  a.pin = newCode()
+  a.mustSetPin = true
+  a.otherDevicesSignedOut = true
+  actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'contact', agent_ref: ref, at: new Date().toISOString(), note: `Kissy Distribution issued a new sign-in code for ${a.shop}` })
+  return { ref, code: a.pin }
 }
+
 
 /* ---------- agent ---------- */
 

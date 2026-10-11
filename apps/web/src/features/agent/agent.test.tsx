@@ -6,6 +6,7 @@ import { ToastProvider } from '@/design'
 import { SessionProvider } from '@/features/auth/SessionProvider'
 import { RequireRole } from '@/features/auth/RequireRole'
 import SignInPage from '@/features/auth/SignInPage'
+import ChoosePinPage from '@/features/auth/ChoosePinPage'
 import DashboardPage from './DashboardPage'
 import { floatRowText } from './floatRow'
 import ServicesPage from './ServicesPage'
@@ -20,6 +21,7 @@ function App({ start = '/agent' }: { start?: string }) {
       <MemoryRouter initialEntries={[start]}>
         <Routes>
           <Route path="/sign-in" element={<SignInPage />} />
+          <Route path="/choose-pin" element={<ChoosePinPage />} />
           <Route element={<RequireRole role="agent" />}>
             <Route path="/agent" element={<DashboardPage />} />
             <Route path="/agent/services" element={<ServicesPage />} />
@@ -50,6 +52,33 @@ describe('agent app', () => {
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
     await signIn(user)
     expect((await screen.findAllByText("Fatmata's Shop")).length).toBeGreaterThan(0)
+  })
+
+  it('a one-time code opens only the Choose-PIN step; the PIN chosen there signs the agent in', async () => {
+    const user = userEvent.setup()
+    const { code, ref } = await operatorApi.registerAgent({
+      ref: '140', person_name: 'Isatu Conteh', shop_name: "Isatu's Place", area: 'Lumley', street: 'By the roundabout', lat: 8.44, lng: -13.28,
+      phone: null, phone_visible: false, open_time: '07:00', close_time: '20:00', usual_max_sle: null, usual_float_max_sle: null,
+      usual_daily_transactions: null, verified: false,
+    })
+    render(<App />)
+    await user.type(await screen.findByLabelText(/agent code/i), ref)
+    await user.type(screen.getByLabelText(/^pin$/i), code)
+    await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+    // Not the dashboard: the PIN screen, and the dashboard route sends you back to it.
+    expect(await screen.findByRole('heading', { name: /choose your pin/i })).toBeInTheDocument()
+    expect(screen.queryAllByText("Isatu's Place")).toHaveLength(0)
+    await user.type(screen.getByLabelText(/^new pin$/i), '2468')
+    await user.type(screen.getByLabelText(/same pin again/i), '2460')
+    await user.click(screen.getByRole('button', { name: /save pin/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not the same/i)
+    await user.clear(screen.getByLabelText(/same pin again/i))
+    await user.type(screen.getByLabelText(/same pin again/i), '2468')
+    await user.click(screen.getByRole('button', { name: /save pin/i }))
+    expect((await screen.findAllByText("Isatu's Place")).length).toBeGreaterThan(0)
+    // The session is settled: a refresh lands on the dashboard, not the PIN screen again.
+    expect(JSON.parse(sessionStorage.getItem('af.session')!)).toMatchObject({ ref, must_set_pin: false })
+    await expect(operatorApi.signIn(ref, code, 'agent')).rejects.toThrow(/PIN/)
   })
 
   it('refuses the wrong PIN without signing anyone in', async () => {

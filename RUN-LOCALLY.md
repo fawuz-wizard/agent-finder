@@ -74,13 +74,19 @@ agent file, which the team holds outside the repo:
 
 ```bash
 python scripts/import_orange.py ~/Downloads/orange-agents-clean.csv --apply
-python scripts/set_pin.py <agent code or aggregator line> 1234
+python scripts/issue_code.py <agent code or aggregator line>
 ```
+
+`issue_code.py` prints a six-digit one-time code to read out to the person. They sign in
+with it, choose their own PIN, and the code dies. (`set_pin.py` still sets a PIN directly for
+a development database.)
 
 Then point the web app at it: copy `apps/web/.env.example` to `apps/web/.env.local`, set
 `VITE_API_MODE=live` and `VITE_API_BASE_URL=http://localhost:8000`, restart `npm run dev`.
 Agents sign in with their agent code or Orange Money line; aggregators with their line.
-Imported shops appear to customers only once an aggregator has confirmed their pin.
+Nobody signs up: accounts are issued, and the first sign-in is always a one-time code from
+the aggregator (or the team) followed by the person choosing a PIN. Imported shops appear to
+customers only once an aggregator has confirmed their pin.
 
 ## 6. Checks before you push
 

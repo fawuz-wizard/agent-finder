@@ -30,6 +30,8 @@ class Dealer(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(40), primary_key=True)  # e.g. "kissy"
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    # True while the account holds a one-time sign-in code, not a PIN the person chose.
+    must_set_pin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Named grants, comma-separated. The API is the authority on these.
     permissions: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # Orange's regions: east | north | west | south. Derived from the city on import.
@@ -99,6 +101,8 @@ class Agent(Base, TimestampMixin):
     photo_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    # True while the account holds a one-time sign-in code, not a PIN the person chose.
+    must_set_pin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Current declaration. PRIVATE words; compared server-side only.
     presence: Mapped[str] = mapped_column(

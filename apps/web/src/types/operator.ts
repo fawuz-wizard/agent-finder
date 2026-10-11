@@ -20,6 +20,8 @@ export interface Session {
   ref: string
   /** Named grants. The backend is authoritative; these only decide what the UI offers. */
   permissions: string[]
+  /** Signed in with a one-time code: choose a PIN before anything else opens. */
+  must_set_pin?: boolean
 }
 
 export type CapacityWord = 'most' | 'some' | 'small' | 'none'
@@ -502,7 +504,6 @@ export interface RegisterAgentBody {
   phone_visible: boolean
   open_time: string
   close_time: string
-  pin: string
   usual_max_sle: number | null
   usual_float_max_sle: number | null
   usual_daily_transactions: number | null
@@ -532,6 +533,11 @@ export interface RegisteredAgent {
   verified: boolean
   usual: UsualNote
   next_step: string
+}
+
+/** The answer to a registration: the record, plus the one-time sign-in code, shown once. */
+export interface RegisteredWithCode extends RegisteredAgent {
+  code: string
 }
 
 export interface UsualNote {

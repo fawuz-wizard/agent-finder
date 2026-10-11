@@ -21,7 +21,6 @@ NEW = {
     "phone_visible": False,
     "open_time": "08:00",
     "close_time": "19:00",
-    "pin": "2468",
     "usual_max_sle": 5_000,
     "usual_float_max_sle": 3_000,
     "usual_daily_transactions": 25,
@@ -32,6 +31,18 @@ CUST = {"X-Client": "cust-register"}
 
 async def _sign_in(client, ref, pin, role):
     return await client.post("/api/v1/auth/sign-in", json={"ref": ref, "pin": pin, "role": role})
+
+
+async def _first_sign_in(client, ref, code, pin):
+    """The agent's first sign-in: the one-time code opens only the PIN screen; the PIN they
+    choose is what they sign in with from then on."""
+    s = await _sign_in(client, ref, code, "agent")
+    assert s.status_code == 200 and s.json()["must_set_pin"] is True, s.text
+    h = {"Authorization": f"Bearer {s.json()['token']}"}
+    assert (await client.post("/api/v1/auth/pin", json={"pin": pin}, headers=h)).status_code == 200
+    s = await _sign_in(client, ref, pin, "agent")
+    assert s.status_code == 200 and s.json()["must_set_pin"] is False, s.text
+    return {"Authorization": f"Bearer {s.json()['token']}"}
 
 
 async def _search(client, amount, tx="cash_out"):
@@ -51,14 +62,14 @@ async def test_registered_agent_is_found_by_a_customer_standing_nearby(client, d
     out = r.json()
     assert out["ref"] == "Agent 101" and out["public_id"] == "af-101"
     assert out["hours_text"].startswith("Open today 08:00–19:00")
-    assert "2468" not in json.dumps(out)  # the PIN itself is never echoed back
+    # The one-time code comes back once, for the dealer to read out; no PIN exists yet.
+    code = out["code"]
+    assert len(code) == 6 and code.isdigit()
     # Nothing shows for a customer until the agent has signed in and set Open...
     found = [a for a in (await _search(client, 4_000))["recommended"] if a["id"] == "af-101"]
     assert found == []
-    # ...which they do with the number and PIN the dealer gave them.
-    s = await _sign_in(client, "101", "2468", "agent")
-    assert s.status_code == 200, s.text
-    agent = {"Authorization": f"Bearer {s.json()['token']}"}
+    # ...which they do with the number and code the dealer gave them, choosing their own PIN.
+    agent = await _first_sign_in(client, "101", code, "2468")
     assert (
         await client.post("/api/v1/agent/availability", json={"presence": "open"}, headers=agent)
     ).status_code == 200
@@ -116,9 +127,6 @@ async def test_registration_is_permission_gated_and_validated(client, agent, dea
         "/api/v1/dealer/agents", json={**NEW, "ref": "Agent 024"}, headers=dealer
     )
     assert dup.status_code == 409 and dup.json()["error"]["code"] == "exists"
-    assert (
-        await client.post("/api/v1/dealer/agents", json={**NEW, "pin": "12"}, headers=dealer)
-    ).status_code == 422
     # Numbers are accepted bare or with the prefix, and the next free one otherwise.
     ok = await client.post("/api/v1/dealer/agents", json={**NEW, "ref": "150"}, headers=dealer)
     assert ok.status_code == 201 and ok.json()["ref"] == "Agent 150"
@@ -128,7 +136,9 @@ async def test_registration_is_permission_gated_and_validated(client, agent, dea
 
 @pytest.mark.asyncio
 async def test_dealer_can_correct_the_record_and_reset_the_pin(client, dealer):
-    ref = (await client.post("/api/v1/dealer/agents", json=NEW, headers=dealer)).json()["ref"]
+    out = (await client.post("/api/v1/dealer/agents", json=NEW, headers=dealer)).json()
+    ref = out["ref"]
+    await _first_sign_in(client, ref, out["code"], "2468")
     moved = await client.put(
         f"/api/v1/dealer/agents/{ref}",
         json={
@@ -153,10 +163,13 @@ async def test_dealer_can_correct_the_record_and_reset_the_pin(client, dealer):
     assert (
         await client.put("/api/v1/dealer/agents/Agent 999", json={"street": "x"}, headers=dealer)
     ).status_code == 404
-    # PIN reset: the old one stops working, the new one works.
+    # Forgotten PIN: the dealer issues a new code; the old PIN stops working and the agent
+    # chooses a new one. The dealer never sets or learns the PIN itself.
     assert (await _sign_in(client, ref, "2468", "agent")).status_code == 200
-    assert (
-        await client.post(f"/api/v1/dealer/agents/{ref}/pin", json={"pin": "9753"}, headers=dealer)
-    ).status_code == 200
+    issued = await client.post(f"/api/v1/dealer/agents/{ref}/pin", headers=dealer)
+    assert issued.status_code == 200 and issued.json()["code"].isdigit()
+    assert "pin_set" not in issued.json()
     assert (await _sign_in(client, ref, "2468", "agent")).status_code == 401
-    assert (await _sign_in(client, ref, "9753", "agent")).status_code == 200
+    await _first_sign_in(client, ref, issued.json()["code"], "9753")
+    acts = (await client.get(f"/api/v1/actions?agent={ref}", headers=dealer)).json()
+    assert any("issued a new sign-in code" in a["note"] for a in acts)

@@ -66,6 +66,10 @@ export default function SignInPage() {
     setError(null)
     try {
       const s = await signIn(ref.trim(), pin, role)
+      if (s.must_set_pin) {
+        navigate('/choose-pin', { replace: true })
+        return
+      }
       const home = s.role === 'agent' ? '/agent' : '/dealer'
       navigate(location.state?.from && location.state.from.startsWith(home) ? location.state.from : home, {
         replace: true,
@@ -171,7 +175,7 @@ export default function SignInPage() {
             inputMode="numeric"
             type={showPin ? 'text' : 'password'}
             autoComplete="current-password"
-            placeholder="4 to 6 digits"
+            placeholder="PIN, or your one-time code"
             className={`${input} ${showPin || !pin ? '' : 'tracking-[0.4em]'}`}
           />
         </FinderBox>
@@ -186,7 +190,9 @@ export default function SignInPage() {
         </FinderCta>
 
         <p className="mt-4 text-center text-sm font-medium text-finder-muted">
-          {isAgent ? 'No PIN yet? Your aggregator sets it when you are registered.' : 'No PIN yet? Ask the Agent Finder team.'}
+          {isAgent
+            ? 'First time, or forgot your PIN? Your aggregator gives you a one-time code. Sign in with it and choose your PIN.'
+            : 'First time, or forgot your PIN? The Agent Finder team gives you a one-time code.'}
         </p>
 
         {config.isDemo && (
