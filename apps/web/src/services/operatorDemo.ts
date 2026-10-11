@@ -727,6 +727,14 @@ export function demoSignIn(ref: string, pin: string, role: Role): Session {
   return { token: 'demo-agent-token', role: 'agent', name: a.shop, ref: a.ref, permissions: [], must_set_pin: Boolean(a.mustSetPin) }
 }
 
+/** The aggregator's own PIN change: the current one first, like the API. */
+export function demoChangeDealerPin(currentPin: string, newPin: string): { pin_set: true } {
+  if (currentPin !== dealerSignIn.pin) throw new Error('That PIN is not correct.')
+  if (newPin === currentPin) throw new Error('Choose a different PIN.')
+  dealerSignIn.pin = newPin
+  return { pin_set: true }
+}
+
 /** The code worked once; the PIN chosen here is the only thing that works from now on. */
 export function demoChoosePin(ref: string, role: Role, pin: string): { pin_set: true } {
   if (!/^\d{4,6}$/.test(pin)) throw new Error('A PIN is 4 to 6 digits.')

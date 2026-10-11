@@ -400,6 +400,26 @@ describe('agents from Orange\'s file', () => {
 })
 
 describe('report and records', () => {
+  it('the aggregator changes their own PIN from Profile, the current one first', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    render(<App start="/dealer/profile" />)
+    await user.click(await screen.findByRole('button', { name: /^change/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Current PIN'), '9999')
+    await user.type(within(dialog).getByLabelText('New PIN'), '5566')
+    await user.type(within(dialog).getByLabelText('New PIN again'), '5566')
+    await user.click(within(dialog).getByRole('button', { name: /^change pin$/i }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/not correct/i)
+    await user.clear(within(dialog).getByLabelText('Current PIN'))
+    await user.type(within(dialog).getByLabelText('Current PIN'), '1234')
+    await user.click(within(dialog).getByRole('button', { name: /^change pin$/i }))
+    expect(await screen.findByText(/your pin is changed/i)).toBeInTheDocument()
+    await expect(operatorApi.signIn('kissy', '1234', 'dealer')).rejects.toThrow(/PIN/)
+    await expect(operatorApi.signIn('kissy', '5566', 'dealer')).resolves.toMatchObject({ role: 'dealer' })
+    await operatorApi.changeDealerPin('5566', '1234')
+  })
+
   it('the profile shows the Global Report figures and exports CSVs of my agents, never money', async () => {
     const user = userEvent.setup()
     signIn(ALL)

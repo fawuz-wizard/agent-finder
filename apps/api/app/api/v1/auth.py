@@ -19,6 +19,7 @@ from app.core.auth import (
     hash_pin,
     new_token,
     note_sign_in_failure,
+    settled_principal,
     verify_pin,
 )
 from app.core.errors import AppError, UnauthorizedError
@@ -46,6 +47,11 @@ class SessionOut(BaseModel):
 
 class FirstPinBody(BaseModel):
     pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
+
+
+class PinChangeBody(BaseModel):
+    current_pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
+    new_pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
 
 
 def as_msisdn(text: str) -> str | None:
@@ -185,6 +191,37 @@ async def choose_pin(
     if p.role == "agent":
         db.add(
             Action(actor=p.name, agent_ref=p.subject, action="agent_pin", note="Chose their PIN")
+        )
+    await db.commit()
+    return {"pin_set": True}
+
+
+@router.post("/change-pin", summary="Change my PIN: the current one first, then the new one")
+async def change_pin(
+    body: PinChangeBody,
+    p: Principal = Depends(settled_principal),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """For agents and aggregators alike. Nobody else can set a PIN: a forgotten one gets a
+    one-time code instead (the aggregator for an agent, the team for an aggregator)."""
+    if p.role == "dealer":
+        account = await db.get(Dealer, p.subject)
+        salt = account.id if account else ""
+    else:
+        account = (
+            await db.execute(select(Agent).where(Agent.ref == p.subject))
+        ).scalar_one_or_none()
+        salt = account.ref if account else ""
+    if account is None:
+        raise UnauthorizedError("That session has ended. Sign in again.")
+    if not verify_pin(body.current_pin, salt, account.pin_hash):
+        raise AppError("That PIN is not correct.", code="wrong_pin", status_code=403)
+    if body.new_pin == body.current_pin:
+        raise AppError("Choose a different PIN.", code="validation", status_code=422)
+    account.pin_hash = hash_pin(body.new_pin, salt)
+    if p.role == "agent":
+        db.add(
+            Action(actor=p.name, agent_ref=p.subject, action="agent_pin", note="Changed their PIN")
         )
     await db.commit()
     return {"pin_set": True}

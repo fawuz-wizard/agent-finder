@@ -85,6 +85,16 @@ export const operatorApi = {
     }
   },
 
+  /** The aggregator changes their own PIN: the current one first, like the agent. */
+  changeDealerPin(current_pin: string, new_pin: string): Promise<{ pin_set: true }> {
+    if (config.useLiveApi) return api.post('/api/v1/auth/change-pin', { current_pin, new_pin })
+    try {
+      return delay(demo.demoChangeDealerPin(current_pin, new_pin))
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new Error('Could not change the PIN.'))
+    }
+  },
+
   /** Revokes the token on the server. Best effort: the local session is cleared regardless. */
   signOut(token: string): Promise<void> {
     if (config.useLiveApi) {

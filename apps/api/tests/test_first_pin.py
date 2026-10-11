@@ -96,3 +96,21 @@ async def test_issuing_a_code_signs_the_agent_out_everywhere(client, agent, deal
     # Another dealer's agent, or one that does not exist, is a 404 with no hint.
     gone = await client.post("/api/v1/dealer/agents/Agent 999/pin", headers=dealer)
     assert gone.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_an_aggregator_changes_their_own_pin(client, dealer):
+    wrong = await client.post(
+        "/api/v1/auth/change-pin", json={"current_pin": "9999", "new_pin": "5566"}, headers=dealer
+    )
+    assert wrong.status_code == 403 and wrong.json()["error"]["code"] == "wrong_pin"
+    same = await client.post(
+        "/api/v1/auth/change-pin", json={"current_pin": "1234", "new_pin": "1234"}, headers=dealer
+    )
+    assert same.status_code == 422
+    ok = await client.post(
+        "/api/v1/auth/change-pin", json={"current_pin": "1234", "new_pin": "5566"}, headers=dealer
+    )
+    assert ok.status_code == 200 and ok.json() == {"pin_set": True}
+    assert (await _sign_in(client, "kissy", "1234", "dealer")).status_code == 401
+    assert (await _sign_in(client, "kissy", "5566", "dealer")).status_code == 200
