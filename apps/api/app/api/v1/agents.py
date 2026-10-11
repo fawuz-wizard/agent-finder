@@ -47,7 +47,7 @@ async def agent_detail(
     public_id: str,
     transaction: Literal["cash_out", "withdraw", "deposit", "send"] | None = Query(default=None),
     amount_sle: int | None = Query(default=None, ge=1),
-    area: str = Query(default="Lumley", min_length=1, max_length=60),
+    area: str = Query(default="Freetown", min_length=1, max_length=60),
     lat: float | None = None,
     lng: float | None = None,
     db: AsyncSession = Depends(get_session),

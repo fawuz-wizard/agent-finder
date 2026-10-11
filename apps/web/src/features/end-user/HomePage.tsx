@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { AREAS } from '@/lib/reference'
 import { readRecent, whenLabel } from '@/lib/recent'
+import { readPlaces, rememberPlace } from '@/lib/places'
+import type { Place } from '@/lib/placeName'
 import { useCoarseLocation } from '@/hooks/useCoarseLocation'
 import { usePlaceName } from '@/hooks/usePlaceName'
 import type { TransactionType } from '@/types/public'
@@ -9,6 +10,8 @@ import { TransactionTypeSelector } from './components/TransactionTypeSelector'
 import { AmountInput } from './components/AmountInput'
 import { FinderBox, FinderCta, FinderHeader, PinIcon } from './components/finder'
 import { LocationPromptCard, LocationPromptSheet } from './components/LocationPrompt'
+import { PlaceSearch } from './components/PlaceSearch'
+import { pointFrom } from './searchPoint'
 // Loaded only when a visit is waiting to be reported, so the API client stays out of the
 // first customer payload.
 const OutcomePrompt = lazy(() => import('./OutcomePrompt').then((m) => ({ default: m.OutcomePrompt })))
@@ -26,42 +29,53 @@ export default function HomePage() {
     initialTx === 'cash_out' || initialTx === 'deposit' ? initialTx : 'cash_out',
   )
   const [amount, setAmount] = useState(() => params.get('amount') ?? '')
-  // An area the customer chose by hand. Coming back from Edit, a search without a point was
-  // a hand-picked area; one with a point was the live location, whatever label it carried.
-  const [manualArea, setManualArea] = useState<string | null>(() =>
-    params.has('area') && !params.has('lat') ? params.get('area') : null,
-  )
-  const [pickArea, setPickArea] = useState(false)
+  // A place the customer searched by hand. Coming back from Edit, a search marked by=place
+  // was one; anything else was the live location, whatever label it carried.
+  const [chosen, setChosen] = useState<Place | null>(() => {
+    const p = pointFrom(params)
+    const name = params.get('area')
+    return params.get('by') === 'place' && p && name ? { name, detail: null, ...p } : null
+  })
+  const [pickPlace, setPickPlace] = useState(false)
+  const [places, setPlaces] = useState(readPlaces)
   const [error, setError] = useState<string | null>(null)
   const [recent] = useState(readRecent)
   // Find agent tapped before the phone answered: search the moment it does.
   const [pending, setPending] = useState(false)
   const [askLocation, setAskLocation] = useState(false)
-  // The phone's own position, blunted to ~110 m, so "agents around you" means around you. The
-  // area stays as the label and as the fallback when the position is denied or unavailable.
+  // The phone's own position, blunted to ~110 m, so "agents around you" means around you.
+  // No fixed area anywhere: without a position the customer searches a place on the map.
   const location = useCoarseLocation(true)
-  // Live when the phone gave a position and the customer did not pick an area instead.
-  const live = location.state === 'ready' && location.point !== null && manualArea === null
+  // Live when the phone gave a position and the customer did not choose a place instead.
+  const live = location.state === 'ready' && location.point !== null && chosen === null
   const place = usePlaceName(live ? location.point : null)
   const liveLabel = place.name ?? 'Your location'
-  // The named area: chosen by hand, or the first one as the fallback with no position.
-  const area = manualArea ?? AREAS[0]
-  // While the phone is still answering there is no place to name yet: say so, not an area.
-  const waiting = manualArea === null && (location.state === 'idle' || location.state === 'locating')
-  const shownLabel = live ? liveLabel : waiting ? 'Finding your location…' : area
+  // While the phone is still answering there is no place to name yet: say so.
+  const waiting = chosen === null && (location.state === 'idle' || location.state === 'locating')
+  const shownLabel = chosen ? chosen.name : live ? liveLabel : waiting ? 'Finding your location…' : 'Your location'
 
-  function go(withPoint: boolean) {
+  /** Every search carries a point: the phone's, or the chosen place's. */
+  function go(target: 'live' | 'place') {
     if (!transaction) return
-    const q = new URLSearchParams({ tx: transaction, area: withPoint && live ? liveLabel : area })
+    const point = target === 'live' ? location.point : chosen
+    if (!point) return
+    const q = new URLSearchParams({ tx: transaction, area: target === 'live' ? liveLabel : chosen!.name })
     if (amount) q.set('amount', amount)
-    if (withPoint && live && location.point) {
-      q.set('lat', String(location.point.lat))
-      q.set('lng', String(location.point.lng))
-    }
+    q.set('lat', String(point.lat))
+    q.set('lng', String(point.lng))
+    if (target === 'place') q.set('by', 'place')
+    else if (location.rough) q.set('rough', '1')
     navigate(`/search?${q.toString()}`)
   }
 
-  /** The live position first. No position: say how to turn it on before offering the area. */
+  function choosePlace(p: Place) {
+    setChosen(p)
+    setPlaces(rememberPlace(p))
+    setPickPlace(false)
+    setAskLocation(false)
+  }
+
+  /** The live position first. No position: say how to turn it on, or search a place. */
   function submit() {
     if (!transaction) {
       setError('Choose what you need first.')
@@ -72,16 +86,16 @@ export default function HomePage() {
       return
     }
     setError(null)
-    if (live) return go(true)
-    if (manualArea !== null) return go(false)
+    if (chosen !== null) return go('place')
+    if (live) return go('live')
     if (location.state === 'locating') return setPending(true)
     if (location.state === 'idle') {
       setPending(true)
       location.request()
       return
     }
-    // Nothing to turn on: a phone with no location at all searches around the area.
-    if (location.problem?.reason === 'unsupported') return go(false)
+    // Nothing to turn on: a phone with no location at all searches a place on the map.
+    if (location.problem?.reason === 'unsupported') return setPickPlace(true)
     setAskLocation(true)
   }
 
@@ -89,10 +103,10 @@ export default function HomePage() {
     if (!pending) return
     if (location.state === 'ready') {
       setPending(false)
-      go(true)
+      go('live')
     } else if (location.state === 'denied' || location.state === 'unavailable') {
       setPending(false)
-      if (location.problem?.reason === 'unsupported') go(false)
+      if (location.problem?.reason === 'unsupported') setPickPlace(true)
       else setAskLocation(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,8 +124,8 @@ export default function HomePage() {
       <div className="mt-6 flex items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => setPickArea((v) => !v)}
-          aria-expanded={pickArea}
+          onClick={() => setPickPlace((v) => !v)}
+          aria-expanded={pickPlace}
           className="-ml-1 flex h-control min-w-0 items-center gap-3 px-1 text-md font-bold"
         >
           <PinIcon />
@@ -119,21 +133,21 @@ export default function HomePage() {
         </button>
         <button
           type="button"
-          onClick={() => setPickArea((v) => !v)}
-          aria-expanded={pickArea}
+          onClick={() => setPickPlace((v) => !v)}
+          aria-expanded={pickPlace}
           className="h-control shrink-0 text-md font-bold text-finder-link"
         >
-          Change
+          {pickPlace ? 'Close' : 'Change'}
         </button>
       </div>
 
-      {manualArea !== null ? (
+      {chosen !== null ? (
         <p className="text-sm font-medium text-finder-muted" role="status">
-          Searching around {manualArea}
+          Searching around {chosen.name}
           {location.state === 'ready' && (
             <>
               {' · '}
-              <button type="button" onClick={() => setManualArea(null)} className="font-bold text-finder-link">
+              <button type="button" onClick={() => setChosen(null)} className="font-bold text-finder-link">
                 Use my location
               </button>
             </>
@@ -143,33 +157,17 @@ export default function HomePage() {
         <p className="text-sm font-medium text-finder-muted" role="status">
           {location.state !== 'ready'
             ? 'Allow location when the phone asks'
-            : place.state === 'finding'
-              ? 'Searching around your location · finding the place name…'
-              : 'Searching around your location'}
+            : location.rough
+              ? 'Searching around your location · approximate, move outside for a better fix'
+              : place.state === 'finding'
+                ? 'Searching around your location · finding the place name…'
+                : 'Searching around your location'}
         </p>
       ) : (
-        location.problem && <LocationPromptCard problem={location.problem} area={area} onRetry={retryLocation} />
+        location.problem && <LocationPromptCard problem={location.problem} onRetry={retryLocation} onSearchPlace={() => setPickPlace(true)} />
       )}
 
-      {pickArea && (
-        <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Choose your area">
-          {AREAS.map((a) => (
-            <button
-              key={a}
-              type="button"
-              role="radio"
-              aria-checked={a === manualArea}
-              onClick={() => {
-                setManualArea(a)
-                setPickArea(false)
-              }}
-              className={`h-chip rounded-pill px-4 text-base font-bold ${a === manualArea ? 'bg-finder-link text-finder-on-orange' : 'border-2 border-white text-white'}`}
-            >
-              {a}
-            </button>
-          ))}
-        </div>
-      )}
+      {pickPlace && <PlaceSearch recents={places} onPick={choosePlace} />}
 
       <h1 className="mt-5 text-xl font-bold leading-tight">What do you need?</h1>
       <div className="mt-5">
@@ -184,14 +182,13 @@ export default function HomePage() {
       <LocationPromptSheet
         open={askLocation}
         problem={location.problem}
-        area={area}
         onRetry={() => {
           setAskLocation(false)
           retryLocation()
         }}
-        onUseArea={() => {
+        onSearchPlace={() => {
           setAskLocation(false)
-          go(false)
+          setPickPlace(true)
         }}
         onClose={() => setAskLocation(false)}
       />

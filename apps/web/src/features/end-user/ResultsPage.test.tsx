@@ -91,10 +91,16 @@ describe('U3 — Results', () => {
     expect(screen.getAllByRole('heading', { level: 3 })[0]).toHaveTextContent("Fatmata's Shop")
   })
 
-  it('says which area it searched around when no position was shared', async () => {
-    renderResults()
+  it('says which place it searched around when the customer chose one by hand', async () => {
+    renderResults('?tx=cash_out&amount=2000&area=Lumley&lat=8.4405&lng=-13.2795&by=place')
     await screen.findByText("Fatmata's Shop")
     expect(screen.getByText('Distances from around Lumley, within 500 m')).toBeInTheDocument()
+  })
+
+  it('says when the phone fix was only approximate', async () => {
+    renderResults('?tx=cash_out&amount=2000&area=Your+location&lat=8.4405&lng=-13.2795&rough=1')
+    await screen.findByText("Fatmata's Shop")
+    expect(screen.getByText(/Distances from your approximate location/)).toBeInTheDocument()
   })
 
   it('offers a next action when the search fails', async () => {

@@ -417,4 +417,4 @@ export function demoAgent(
   }
 }
 
-export { AREAS as DEMO_AREAS, OUTCOME_REASONS } from '@/lib/reference'
+export { OUTCOME_REASONS } from '@/lib/reference'

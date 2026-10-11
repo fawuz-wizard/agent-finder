@@ -72,7 +72,8 @@ for Orange's eyes, so the figures are real for the pilot; it is not a feature we
   or capacity figure, by contract and by test. Agents' phone numbers show only if the agent
   opts in. Availability is hidden overnight (20:00–07:00) for agents' safety.
 - **Locations.** A customer's position is rounded to about 110 m before it leaves the phone;
-  it is never stored. A shop's pin goes live only after its aggregator confirms it, and the
+  it is never stored. Searches always start from the phone's point, or from a place the
+  customer looked up on the map (OpenStreetMap, inside Sierra Leone); no area is assumed. A shop's pin goes live only after its aggregator confirms it, and the
   address from Orange's file is never altered by the app.
 - **Shop photos.** One picture of the shopfront per agent, shrunk on the phone to about
   1024 px before it is sent, checked on the server to be a picture under 400 KB, served only

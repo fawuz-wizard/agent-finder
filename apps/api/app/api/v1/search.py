@@ -56,9 +56,10 @@ FALLBACK_RADIUS_M = 20_000
 class SearchRequest(BaseModel):
     transaction: Literal["cash_out", "withdraw", "deposit", "send"]
     amount_sle: int | None = Field(default=None, ge=1, le=10_000_000)
-    # Free text from the customer: trimmed, never empty, never longer than a street name.
+    # The label for where the search is from. The app always sends a point; a request with
+    # none is measured from the area's centre when it is a known one, else from Freetown.
     area: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)] = (
-        "Lumley"
+        "Freetown"
     )
     lat: float | None = None
     lng: float | None = None

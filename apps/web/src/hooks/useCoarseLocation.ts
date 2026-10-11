@@ -21,7 +21,10 @@ export interface CoarsePoint {
 }
 
 const COARSE_DP = 3
-const TIMEOUT_MS = 8_000
+// A first GPS fix indoors on a budget phone can take 15 s; eight was giving up too early.
+const TIMEOUT_MS = 20_000
+/** A fix this rough (network-only, no GPS) is told to the customer as approximate. */
+export const ROUGH_FIX_M = 500
 
 function blunt(n: number): number {
   return Number(n.toFixed(COARSE_DP))
@@ -30,6 +33,8 @@ function blunt(n: number): number {
 export function useCoarseLocation(auto = true) {
   const [state, setState] = useState<LocationState>('idle')
   const [point, setPoint] = useState<CoarsePoint | null>(null)
+  /** How far the phone itself says the fix may be off, in metres (rounded to 10). */
+  const [accuracy, setAccuracy] = useState<number | null>(null)
   const [problem, setProblem] = useState<LocationProblem | null>(null)
   const asked = useRef(false)
   const offered = useRef(false)
@@ -45,6 +50,7 @@ export function useCoarseLocation(auto = true) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setPoint({ lat: blunt(pos.coords.latitude), lng: blunt(pos.coords.longitude) })
+        setAccuracy(Number.isFinite(pos.coords.accuracy) ? Math.round(pos.coords.accuracy / 10) * 10 : null)
         setState('ready')
       },
       (err) => {
@@ -100,5 +106,6 @@ export function useCoarseLocation(auto = true) {
     void nativeLocation.turnOn().then(() => request())
   }, [request])
 
-  return { state, point, problem, request, turnOn }
+  const rough = accuracy !== null && accuracy > ROUGH_FIX_M
+  return { state, point, accuracy, rough, problem, request, turnOn }
 }

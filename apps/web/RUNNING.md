@@ -34,8 +34,10 @@ The outcome prompt appears on the home screen about 20 seconds after taking dire
 **Location.** `/find` asks the phone for its position (blunted to about 110 m before it is used
 anywhere) and searches the 500 m core around it; the results say "Distances from your location".
 Without a position the home screen says why (blocked, switched off, slow) and how to turn it
-on, and Find agent opens a sheet with "Turn on location" and "Search around Lumley instead":
-the area is the way out, not the default. In the APK, a phone with location switched off gets
+on, and Find agent opens a sheet with "Turn on location" and "Search a place instead": the
+customer looks a place up on the map (OpenStreetMap, Sierra Leone only; recent places are
+remembered) and the search runs from that place's point. There is no default area. A rough
+fix (network only, over 500 m) is called approximate on the home and results screens. In the APK, a phone with location switched off gets
 the system "Turn on location?" dialog (the `LocationSettings` plugin in
 `android/app/src/main/java/com/agentfinder/app/`); the browser can only ask permission. When
 the permission is granted later in settings, the page asks the phone again by itself.

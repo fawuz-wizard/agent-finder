@@ -29,3 +29,29 @@ describe('the name of where the customer is', () => {
     expect(await reverseGeocode({ lat: 8.6, lng: -13.2 })).toBeNull()
   })
 })
+
+describe('searchPlaces', () => {
+  it('asks the map inside Sierra Leone only and returns named points, blunted', async () => {
+    const fetchMock = vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url.includes('q=Kissy')
+          ? [
+              { name: 'Kissy', lat: '8.48123', lon: '-13.19876', address: { suburb: 'Kissy', city: 'Freetown' } },
+              { name: 'Kissy Road', lat: '8.4850', lon: '-13.2100', address: { road: 'Kissy Road', city: 'Freetown' } },
+              { name: 'Kissy', lat: '8.48', lon: '-13.20', address: {} },
+            ]
+          : [],
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { searchPlaces } = await import('./placeName')
+    const found = await searchPlaces('Kissy')
+    expect(fetchMock.mock.calls[0]![0]).toContain('countrycodes=sl')
+    expect(found).toEqual([
+      { name: 'Kissy', detail: 'Freetown', lat: 8.481, lng: -13.199 },
+      { name: 'Kissy Road', detail: 'Freetown', lat: 8.485, lng: -13.21 },
+    ])
+    expect(await searchPlaces('K')).toEqual([])
+    vi.unstubAllGlobals()
+  })
+})

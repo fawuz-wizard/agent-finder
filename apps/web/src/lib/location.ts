@@ -28,7 +28,7 @@ const PROBLEMS: Record<LocationReason, Omit<LocationProblem, 'reason'>> = {
   },
   unsupported: {
     title: 'This phone cannot share its location.',
-    advice: 'Choose an area instead.',
+    advice: 'Search a place instead.',
   },
 }
 

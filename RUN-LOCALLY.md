@@ -19,9 +19,12 @@ npm run dev
 ```
 
 Open http://localhost:5173. The first screen is a simulated Orange Money home; tap the
-**Agent Finder** banner. Allow location when the browser asks (the app names the place you
-are in and searches around it; "Change" picks an area by hand). Keep **Cash out**, tap
-**2,000**, then **Find agent**. Open a shop with **Get details**, then **Get Directions**.
+**Agent Finder** banner. Allow location when the browser asks: the app searches around your
+exact position and names the place when the map knows it. There is no fixed area any more;
+"Change" searches a place on the map (inside Sierra Leone) and remembers recent ones. The
+demo's shops are all in Lumley, Aberdeen and Wilberforce, so from elsewhere search "Lumley"
+by hand to see results within 500 m. Keep **Cash out**, tap **2,000**, then **Find agent**.
+Open a shop with **Get details**, then **Get Directions**.
 
 ## 3. The Agent App
 

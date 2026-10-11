@@ -118,9 +118,9 @@ export interface ReportAccepted {
 export interface SearchRequest {
   transaction: TransactionType
   amount_sle: number | null
-  /** Coarse area label. Used when the device gave no position, and as the display label. */
+  /** The label for where the search is from: the place's name, or "Your location". */
   area: string
-  /** Coarse point, rounded to ~110 m. Absent when the customer declined location. */
+  /** Coarse point, rounded to ~110 m: the phone's, or a place the customer searched. */
   lat?: number
   lng?: number
   radius_m?: number

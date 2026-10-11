@@ -13,7 +13,7 @@ function parse(params: URLSearchParams): SearchRequest | null {
   if (tx !== 'cash_out' && tx !== 'deposit') return null
   const raw = params.get('amount')
   const amount = raw && Number(raw) > 0 ? Number(raw) : null
-  const req: SearchRequest = { transaction: tx, amount_sle: amount, area: params.get('area') ?? 'Lumley', radius_m: 500 }
+  const req: SearchRequest = { transaction: tx, amount_sle: amount, area: params.get('area') ?? 'Your location', radius_m: 500 }
   const point = pointFrom(params)
   if (point) {
     req.lat = point.lat
@@ -101,7 +101,11 @@ export default function ResultsPage() {
         </button>
       </div>
       <p className="mt-1 text-sm font-medium text-finder-muted">
-        {req.lat !== undefined ? 'Distances from your location, within 500 m' : `Distances from around ${req.area}, within 500 m`}
+        {req.lat === undefined || params.get('by') === 'place'
+          ? `Distances from around ${req.area}, within 500 m`
+          : params.get('rough') === '1'
+            ? 'Distances from your approximate location, within 500 m · move outside for a better fix'
+            : 'Distances from your location, within 500 m'}
       </p>
 
       <div className="mt-4 flex flex-col gap-4">

@@ -20,7 +20,11 @@ function renderHome() {
   )
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  localStorage.clear()
+  sessionStorage.clear()
+})
 
 describe('U1 — Home', () => {
   it('searches around the phone\'s own position when it is shared, blunted to about 110 m', async () => {
@@ -40,21 +44,32 @@ describe('U1 — Home', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Your+location&amount=2000&lat=8.47&lng=-13.261')
   })
 
-  it('falls back to the chosen area, and says so, when location is off', async () => {
+  it('offers a place search, never a fixed area, when the phone has no location at all', async () => {
+    const user = userEvent.setup()
     renderHome()
-    expect(await screen.findByText(/Location off — searching around Lumley/)).toBeInTheDocument()
+    expect(await screen.findByText('This phone cannot share its location.')).toBeInTheDocument()
+    expect(screen.queryByText(/Lumley/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Search a place instead' }))
+    expect(screen.getByRole('searchbox', { name: 'Search a place' })).toBeInTheDocument()
+    expect(screen.getByText('Type a neighbourhood, road or town.')).toBeInTheDocument()
   })
 
-  it('states the transaction first and carries it into the search', async () => {
+  it('states the transaction first and carries it into the search, from a place the customer found on the map', async () => {
     const user = userEvent.setup()
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [{ name: 'Aberdeen', lat: '8.4842', lon: '-13.2711', address: { suburb: 'Aberdeen', city: 'Freetown' } }] })))
     renderHome()
 
     expect(screen.getByRole('heading', { name: 'What do you need?' })).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: 'Cash in' }))
     await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
+    // No location on this phone: Find agent opens the place search instead of guessing an area.
     await user.click(screen.getByRole('button', { name: 'Find agent' }))
-
-    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=deposit&area=Lumley&amount=2000')
+    expect(screen.queryByTestId('loc')).not.toBeInTheDocument()
+    await user.type(screen.getByRole('searchbox', { name: 'Search a place' }), 'Aber')
+    await user.click(await screen.findByRole('button', { name: /Aberdeen/ }))
+    expect(screen.getByText(/Searching around Aberdeen/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=deposit&area=Aberdeen&amount=2000&lat=8.484&lng=-13.271&by=place')
   })
 
   it('shows the old-Leone equivalent, the most common amount error', async () => {
@@ -90,7 +105,9 @@ describe('U1 — Home', () => {
   })
   it('fills the amount from a quick pill', async () => {
     const user = userEvent.setup()
+    vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition: (ok: (p: unknown) => void) => ok({ coords: { latitude: 8.47, longitude: -13.26 } }) } })
     renderHome()
+    await screen.findByText(/Searching around your location/)
     await user.click(screen.getByRole('button', { name: '2,000' }))
     expect(screen.getByRole('button', { name: '2,000' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('= Le 2,000,000 old Leones')).toBeInTheDocument()
@@ -110,21 +127,35 @@ describe('U1 — Home asks for the live location first', () => {
     phone((_ok, fail) => fail({ code: 2 }))
     renderHome()
     expect(await screen.findByText('Location is switched off on this phone.')).toBeInTheDocument()
-    expect(screen.getByText(/turn on Location, then try again. Until then we search around Lumley/)).toBeInTheDocument()
+    expect(screen.getByText(/turn on Location, then try again\.$/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Turn on location' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Search a place instead' })).toBeInTheDocument()
   })
 
-  it('stops Find agent with the prompt, and searches around the area only when the customer says so', async () => {
+  it('stops Find agent with the prompt, and searches a place only when the customer picks one', async () => {
     const user = userEvent.setup()
     phone((_ok, fail) => fail({ code: 1 }))
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [{ name: 'Aberdeen', lat: '8.4842', lon: '-13.2711', address: { suburb: 'Aberdeen', city: 'Freetown' } }] })))
     renderHome()
     await screen.findByText('Location is blocked for this app.')
     await user.click(screen.getByRole('button', { name: 'Find agent' }))
     const sheet = await screen.findByRole('dialog', { name: 'Turn on your location' })
     expect(screen.queryByTestId('loc')).not.toBeInTheDocument()
-    await user.click(within(sheet).getByRole('button', { name: 'Search around Lumley instead' }))
-    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Lumley')
-    expect(screen.getByTestId('loc')).not.toHaveTextContent('lat=')
+    await user.click(within(sheet).getByRole('button', { name: 'Search a place instead' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Search a place' }), 'Aberdeen')
+    await user.click(await screen.findByRole('button', { name: /Aberdeen/ }))
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    // The chosen place's own point goes with the search, marked as a place, never a guess.
+    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen&lat=8.484&lng=-13.271&by=place')
+  })
+
+  it('says when the fix is only approximate, and carries that into the results', async () => {
+    const user = userEvent.setup()
+    phone((ok) => ok({ coords: { latitude: 8.4701, longitude: -13.2609, accuracy: 1800 } }))
+    renderHome()
+    expect(await screen.findByText(/approximate, move outside for a better fix/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Find agent' }))
+    expect(screen.getByTestId('loc')).toHaveTextContent('lat=8.47&lng=-13.261&rough=1')
   })
 
   it('searches around the phone as soon as the customer turns location on', async () => {
@@ -173,24 +204,45 @@ describe('U1 — Home names where the customer is', () => {
     sessionStorage.clear()
   })
 
-  it('lets the customer pick an area by hand, then come back to the live place', async () => {
+  it('lets the customer search a place by hand, remembers it, then comes back to the live place', async () => {
     const user = userEvent.setup()
     phoneAt(8.4701, -13.2609)
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [{ name: 'Aberdeen', lat: '8.4842', lon: '-13.2711', address: { suburb: 'Aberdeen', city: 'Freetown' } }] })))
     renderHome()
     await screen.findByText(/Searching around your location/)
     await user.click(screen.getByRole('button', { name: 'Change' }))
-    await user.click(screen.getByRole('radio', { name: 'Aberdeen' }))
+    expect(screen.queryByRole('radio', { name: 'Lumley' })).not.toBeInTheDocument()
+    await user.type(screen.getByRole('searchbox', { name: 'Search a place' }), 'Aberdeen')
+    const hit = await screen.findByRole('button', { name: /Aberdeen/ })
+    expect(hit).toHaveTextContent('Freetown')
+    await user.click(hit)
     expect(screen.getByText(/Searching around Aberdeen/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Find agent' }))
-    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen')
-    expect(screen.getByTestId('loc')).not.toHaveTextContent('lat=')
+    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen&lat=8.484&lng=-13.271&by=place')
+    // Remembered on this phone for next time.
+    expect(JSON.parse(localStorage.getItem('af.places') ?? '[]')).toHaveLength(1)
   })
 
-  it('treats a search that came back from Edit without a point as a hand-picked area', async () => {
+  it('shows recent places first, and says so when the map does not know a place', async () => {
+    const user = userEvent.setup()
+    phoneAt(8.4701, -13.2609)
+    localStorage.setItem('af.places', JSON.stringify([{ name: 'Bo', detail: 'Southern Province', lat: 7.955, lng: -11.74 }]))
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [] })))
+    renderHome()
+    await screen.findByText(/Searching around your location/)
+    await user.click(screen.getByRole('button', { name: 'Change' }))
+    expect(screen.getByText('Recent places')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Bo/ })).toBeInTheDocument()
+    await user.type(screen.getByRole('searchbox', { name: 'Search a place' }), 'Nowhere village')
+    expect(await screen.findByText(/The map does not know that place/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Bo/ })).not.toBeInTheDocument()
+  })
+
+  it('treats a search that came back from Edit marked as a place as the hand-picked place', async () => {
     const user = userEvent.setup()
     phoneAt(8.4701, -13.2609)
     render(
-      <MemoryRouter initialEntries={['/find?tx=deposit&area=Aberdeen&amount=500']}>
+      <MemoryRouter initialEntries={['/find?tx=deposit&area=Aberdeen&amount=500&lat=8.484&lng=-13.271&by=place']}>
         <Routes>
           <Route path="/find" element={<HomePage />} />
           <Route path="/search" element={<LocationProbe />} />
