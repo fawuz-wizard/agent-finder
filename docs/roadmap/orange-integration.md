@@ -21,7 +21,7 @@ protected.
 | Operator gateway: one adapter that every money or transaction figure passes through | Built as a contract; demo and "none" implementations | `apps/api/app/integrations/operator/base.py` |
 | Android apps, both flavours, signed with one pilot key, published on every build | Done; QR codes in the demo kit | `.github/workflows/android.yml`, `docs/demo` |
 | Hosting: API container, Render blueprint, Postgres/PostGIS migrations, Vercel config, deploy guide | Ready; waiting on accounts | `render.yaml`, `infra/deploy/README.md` |
-| Automated tests | 139 on the API, 129 on the web app, run on every push | `apps/api/tests`, `apps/web/src/**/*.test.*` |
+| Automated tests | 139 on the API, 133 on the web app, run on every push | `apps/api/tests`, `apps/web/src/**/*.test.*` |
 
 ## 2. The gateway
 

@@ -1450,6 +1450,9 @@ export function demoAgentRows() {
       region: 'west' as const,
       city: 'Freetown',
       source: 'manual' as const,
+      pending_float: demoFloatRequests(null).some((r) => r.agent_ref === a.ref && r.state === 'pending'),
+      photo: Boolean(a.photo),
+      verified: a.ref === 'Agent 024' || Boolean(a.verified),
     }
   })
 }

@@ -4,7 +4,7 @@ import { operatorApi } from '@/services/operatorApi'
 import type { DealerAgentRow } from '@/types/operator'
 import { FinderBox, FinderHeader } from '@/features/end-user/components/finder'
 import { PILL_OFF, SectionLabel } from '@/features/agent/components/agentChrome'
-import { agentMatches, readSearches, rememberSearch } from '@/lib/dealerSearches'
+import { agentMatches, parseQuery, readSearches, rememberSearch, summaryLine } from '@/lib/dealerSearches'
 import { AgentRowCard } from './components/AgentRowCard'
 
 /**
@@ -20,6 +20,7 @@ export default function DealerSearchPage() {
   const q = query.trim()
   const rows = data ?? []
   const shown = q ? rows.filter((a) => agentMatches(a, q)) : []
+  const { keywords } = parseQuery(q)
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-white">
@@ -61,7 +62,8 @@ export default function DealerSearchPage() {
 
       {!q && (
         <p className="mt-5 text-sm font-medium text-finder-muted">
-          Type a shop name, the agent's name, their number, Orange code, phone, street or town. Your agents on the map will live here too.
+          Type a shop name, the agent's name, their number, Orange code, phone, street or town. Words work too: active, away, closed, not on map, inactive, attention,
+          float, photo, verified, new, west. Put them together: “closed Lumley”. Your agents on the map will live here too.
         </p>
       )}
 
@@ -69,11 +71,7 @@ export default function DealerSearchPage() {
         <div className="mt-5 flex flex-col gap-3" role="region" aria-live="polite" aria-label="Results">
           {state === 'loading' && <p className="text-base font-medium text-finder-muted">Looking…</p>}
           {state === 'ready' && shown.length === 0 && <p className="text-base font-medium text-finder-muted">No agent of yours matches “{q}”.</p>}
-          {state === 'ready' && shown.length > 0 && (
-            <p className="text-sm font-bold text-finder-muted">
-              {shown.length} {shown.length === 1 ? 'agent' : 'agents'}
-            </p>
-          )}
+          {state === 'ready' && shown.length > 0 && <p className="text-sm font-bold text-finder-muted">{summaryLine(shown.length, rows.length, keywords)}</p>}
           {shown.map((a) => (
             <AgentRowCard key={a.ref} agent={a} onOpen={() => setRecent(rememberSearch(q))} />
           ))}

@@ -315,6 +315,17 @@ async def agents_list(
     agents = await my_agents(db, p.subject)
     trust = await trust_for(db, agents, now)
     ledgers = await ledgers_for(db, agents, now)
+    asking = set(
+        (
+            await db.execute(
+                select(FloatRequest.agent_ref).where(
+                    FloatRequest.dealer_id == p.subject, FloatRequest.state == "pending"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
     for a in agents:
         ledger = ledgers.get(a.ref)
         d = declaration_of(a, now, ledger)
@@ -358,6 +369,10 @@ async def agents_list(
                 "region": a.region,
                 "city": a.city,
                 "source": a.source,
+                # Facts the Search box answers by keyword: "float", "photo", "verified".
+                "pending_float": a.ref in asking,
+                "photo": a.photo_at is not None,
+                "verified": bool(a.verified),
             }
         )
     return rows

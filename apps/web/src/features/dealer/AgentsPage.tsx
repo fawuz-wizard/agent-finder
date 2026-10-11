@@ -8,26 +8,26 @@ import type { DealerAgentRow, DealerBucket } from '@/types/operator'
 import { FinderBox, FinderHeader } from '@/features/end-user/components/finder'
 import { PILL_OFF, PILL_ON } from '@/features/agent/components/agentChrome'
 import { AgentRowCard } from './components/AgentRowCard'
-import { agentMatches } from '@/lib/dealerSearches'
+import { agentMatches, keywordByKey } from '@/lib/dealerSearches'
 
-/** The four buckets the dashboard counts, plus three states an aggregator chases. */
+/** The four buckets the dashboard counts, plus three states an aggregator chases. Each is a Search word. */
 type Filter = DealerBucket | 'all' | 'unlocated' | 'inactive' | 'attention'
 
+const word = (key: string) => keywordByKey(key)!.test
 const FILTERS: { key: Filter; label: string; empty: string; test: (a: DealerAgentRow) => boolean }[] = [
   { key: 'all', label: 'All', empty: 'No agents are assigned to you yet.', test: () => true },
-  { key: 'active', label: 'Active', empty: 'No agent is open and fresh right now.', test: (a) => a.bucket === 'active' },
-  { key: 'limited', label: 'Limited', empty: 'No agent is on Small or None right now.', test: (a) => a.bucket === 'limited' },
-  { key: 'hidden', label: 'Away', empty: 'Nobody is away right now.', test: (a) => a.bucket === 'hidden' },
-  { key: 'closed', label: 'Closed', empty: 'Nobody is closed or stale right now.', test: (a) => a.bucket === 'closed' },
-  { key: 'unlocated', label: 'Not on map', empty: 'Every active agent is on the map.', test: (a) => a.active && (!a.located || !a.location_confirmed) },
-  { key: 'inactive', label: 'Inactive at Orange', empty: 'Every agent is active at Orange.', test: (a) => !a.active },
-  { key: 'attention', label: 'Attention', empty: 'Nobody needs attention right now.', test: (a) => a.attention },
+  { key: 'active', label: 'Active', empty: 'No agent is open and fresh right now.', test: word('active') },
+  { key: 'limited', label: 'Limited', empty: 'No agent is on Small or None right now.', test: word('limited') },
+  { key: 'hidden', label: 'Away', empty: 'Nobody is away right now.', test: word('hidden') },
+  { key: 'closed', label: 'Closed', empty: 'Nobody is closed or stale right now.', test: word('closed') },
+  { key: 'unlocated', label: 'Not on map', empty: 'Every active agent is on the map.', test: word('unlocated') },
+  { key: 'inactive', label: 'Inactive at Orange', empty: 'Every agent is active at Orange.', test: word('inactive') },
+  { key: 'attention', label: 'Attention', empty: 'Nobody needs attention right now.', test: word('attention') },
 ]
 
 function isFilter(v: string | null): v is Filter {
   return FILTERS.some((f) => f.key === v)
 }
-
 
 /**
  * Agents: every agent this aggregator is responsible for, each in the finder's card frame

@@ -361,6 +361,12 @@ export interface DealerAgentRow {
   city: string | null
   /** manual (registered in the app) or orange_file (imported). */
   source: 'manual' | 'orange_file'
+  /** A float request of theirs is waiting for a decision. */
+  pending_float: boolean
+  /** The agent photographed the shop. */
+  photo: boolean
+  /** The aggregator's statement that the agent was checked against Orange's record. */
+  verified: boolean
 }
 
 export interface Signal {
