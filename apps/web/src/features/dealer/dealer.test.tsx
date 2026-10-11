@@ -15,6 +15,7 @@ import DealerAgentsPage from './AgentsPage'
 import DealerFloatQueuePage from './FloatQueuePage'
 import DealerProfilePage from './ProfilePage'
 import RegisterAgentPage from './RegisterAgentPage'
+import DealerSearchPage from './SearchPage'
 
 const ALL = [PERMISSIONS.viewAgent, PERMISSIONS.viewFinancial, PERMISSIONS.manageFloat, PERMISSIONS.viewHistory, PERMISSIONS.contact, PERMISSIONS.escalate]
 
@@ -32,6 +33,7 @@ function App({ start }: { start: string }) {
             <Route path="/dealer/agents" element={<DealerAgentsPage />} />
             <Route path="/dealer/agents/new" element={<RegisterAgentPage />} />
             <Route path="/dealer/agents/:ref" element={<DealerAgentDetailPage />} />
+            <Route path="/dealer/search" element={<DealerSearchPage />} />
             <Route path="/dealer/float" element={<DealerFloatQueuePage />} />
             <Route path="/dealer/float/:id" element={<DealerFloatReviewPage />} />
             <Route path="/dealer/attention" element={<DealerAttentionPage />} />
@@ -336,6 +338,37 @@ describe('registration', () => {
         open_time: '07:00', close_time: '20:00', usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null, verified: false,
       }),
     ).rejects.toThrow(/outside Sierra Leone/)
+  })
+})
+
+describe('search', () => {
+  it('finds an agent by town, by number or by phone, opens them, and remembers the search', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    localStorage.clear()
+    render(<App start="/dealer/search" />)
+    const box = await screen.findByLabelText('Search your agents')
+    expect(screen.queryByText('Recent')).not.toBeInTheDocument()
+    await user.type(box, 'Aberdeen')
+    expect(await screen.findByText('Sento Enterprise')).toBeInTheDocument()
+    expect(screen.queryByText("Fatmata's Shop")).not.toBeInTheDocument()
+    expect(screen.getByText('1 agent')).toBeInTheDocument()
+    await user.clear(box)
+    await user.type(box, '024')
+    expect(await screen.findByText("Fatmata's Shop")).toBeInTheDocument()
+    await user.clear(box)
+    await user.type(box, '076 000 009')
+    expect(await screen.findByText('Ibrahim Cash Point')).toBeInTheDocument()
+    await user.clear(box)
+    await user.type(box, 'nobody here')
+    expect(await screen.findByText(/no agent of yours matches/i)).toBeInTheDocument()
+    // Opening a result remembers the query; it comes back as a pill under the box.
+    await user.clear(box)
+    await user.type(box, 'Sento')
+    await user.click(await screen.findByText('Sento Enterprise'))
+    expect(await screen.findByText(/Code 031 · /)).toBeInTheDocument()
+    render(<App start="/dealer/search" />)
+    expect((await screen.findAllByRole('button', { name: 'Sento' })).length).toBeGreaterThan(0)
   })
 })
 

@@ -6,8 +6,9 @@ import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS } from '@/types/operator'
 import type { DealerAgentRow, DealerBucket } from '@/types/operator'
 import { FinderBox, FinderHeader } from '@/features/end-user/components/finder'
-import { EdgeCard, PILL_OFF, PILL_ON } from '@/features/agent/components/agentChrome'
-import { Tag } from './components/dealerChrome'
+import { PILL_OFF, PILL_ON } from '@/features/agent/components/agentChrome'
+import { AgentRowCard } from './components/AgentRowCard'
+import { agentMatches } from '@/lib/dealerSearches'
 
 /** The four buckets the dashboard counts, plus three states an aggregator chases. */
 type Filter = DealerBucket | 'all' | 'unlocated' | 'inactive' | 'attention'
@@ -27,11 +28,6 @@ function isFilter(v: string | null): v is Filter {
   return FILTERS.some((f) => f.key === v)
 }
 
-const PRESENCE_TONE: Record<DealerAgentRow['presence'], string> = {
-  open: 'text-finder-likely',
-  hidden: 'text-warning',
-  closed: 'text-finder-muted',
-}
 
 /**
  * Agents: every agent this aggregator is responsible for, each in the finder's card frame
@@ -47,8 +43,7 @@ export default function DealerAgentsPage() {
   const [query, setQuery] = useState('')
   const rows = data ?? []
   const q = query.trim().toLowerCase()
-  const matches = (a: DealerAgentRow) =>
-    !q || a.name.toLowerCase().includes(q) || a.ref.toLowerCase().includes(q) || a.area.toLowerCase().includes(q)
+  const matches = (a: DealerAgentRow) => agentMatches(a, q)
   const current = FILTERS.find((f) => f.key === filter)!
   const shown = rows.filter(current.test).filter(matches)
   const count = (f: (typeof FILTERS)[number]) => rows.filter(f.test).length
@@ -99,42 +94,9 @@ export default function DealerAgentsPage() {
       <div className="mt-4 flex flex-col gap-3">
         {state === 'loading' && <p className="text-base font-medium text-finder-muted">Loading…</p>}
         {state === 'ready' && shown.length === 0 && <p className="text-base font-medium text-finder-muted">{q ? 'No agent matches that.' : current.empty}</p>}
-        {shown.map((a) => {
-          const onMap = a.active && a.located && a.location_confirmed
-          return (
-            <Link key={a.ref} to={`/dealer/agents/${encodeURIComponent(a.ref)}`} className="block">
-              <EdgeCard muted={!onMap} className={a.attention ? '!bg-warning' : ''}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className={`truncate text-md font-bold leading-tight ${onMap ? 'text-white' : 'text-finder-muted'}`}>{a.name}</p>
-                    <p className="truncate text-sm font-bold text-finder-muted">
-                      {a.ref.replace(/^Agent /, 'Code ')} · {a.area}
-                    </p>
-                  </div>
-                  <span className="shrink-0 pt-0.5 text-xs font-semibold text-finder-muted">{a.freshness_text}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`text-sm font-bold ${PRESENCE_TONE[a.presence]}`}>{a.presence_text}</span>
-                  <span className="text-sm font-bold text-finder-muted" aria-hidden="true">
-                    ·
-                  </span>
-                  <span className="text-sm font-bold text-finder-muted" title={a.reliability.text}>
-                    {a.reliability.label_text}
-                  </span>
-                </div>
-                {(!a.active || !onMap || a.attention) && (
-                  <div className="flex flex-wrap gap-2">
-                    {!a.active && <Tag tone="danger">Inactive at Orange</Tag>}
-                    {a.active && !a.located && <Tag tone="warning">Not on the map</Tag>}
-                    {a.active && a.located && !a.location_confirmed && <Tag tone="warning">Pin to confirm</Tag>}
-                    {a.attention && <Tag tone="warning">Needs attention</Tag>}
-                  </div>
-                )}
-                <p className="text-sm font-medium text-finder-muted">{a.capacity_text}</p>
-              </EdgeCard>
-            </Link>
-          )
-        })}
+        {shown.map((a) => (
+          <AgentRowCard key={a.ref} agent={a} />
+        ))}
       </div>
     </div>
   )

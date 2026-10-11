@@ -1431,7 +1431,10 @@ export function demoAgentRows() {
     return {
       ref: a.ref,
       name: a.shop,
+      person_name: a.name,
       area: a.area,
+      agent_code: null,
+      phone: a.phone,
       presence: a.presence,
       presence_text: PRESENCE_LABELS[a.presence],
       bucket: bucketOf(a),

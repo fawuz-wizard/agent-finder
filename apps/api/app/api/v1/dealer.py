@@ -333,7 +333,12 @@ async def agents_list(
             {
                 "ref": a.ref,
                 "name": a.shop_name,
+                "person_name": a.person_name,
                 "area": a.street,
+                # The register is also what Search looks through: Orange's code and the
+                # phone the aggregator may call are on the row for that, never for customers.
+                "agent_code": a.agent_code,
+                "phone": a.phone,
                 "presence": a.presence,
                 "presence_text": PRESENCE_LABEL[a.presence],
                 "bucket": bucket_of(a, now, ledger),

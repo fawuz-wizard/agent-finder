@@ -333,7 +333,13 @@ export interface Reliability {
 export interface DealerAgentRow {
   ref: string
   name: string
+  /** The person behind the shop; Search matches on it. */
+  person_name: string
   area: string
+  /** Orange's own agent code, when the record came from their file. */
+  agent_code: string | null
+  /** The number the aggregator may call; never shown to customers from here. */
+  phone: string | null
   presence: Presence
   presence_text: string
   /** Server-computed from the same rule as the dashboard counts, so the two never disagree. */
