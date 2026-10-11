@@ -119,10 +119,10 @@ export const PILL_ON = 'bg-finder-link text-finder-on-orange'
 export const PILL_OFF = 'border-2 border-white bg-transparent text-white'
 
 /* The three tabs: one icon family, 2 px strokes, filled when active. */
-type IconProps = { active: boolean }
+export type IconProps = { active: boolean }
 const fillWhenActive = (active: boolean) => (active ? 'currentColor' : 'none')
 
-function DashboardIcon({ active }: IconProps) {
+export function DashboardIcon({ active }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
       <rect x="3" y="3" width="8" height="8" rx="2" fill={fillWhenActive(active)} fillOpacity="0.25" />
@@ -149,7 +149,7 @@ function ActivityIcon({ active }: IconProps) {
     </svg>
   )
 }
-function ProfileIcon({ active }: IconProps) {
+export function ProfileIcon({ active }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="8" r="4" fill={fillWhenActive(active)} fillOpacity="0.25" />

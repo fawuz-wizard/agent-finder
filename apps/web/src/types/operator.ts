@@ -393,6 +393,10 @@ export interface DealerOverview {
   dealer_name: string
   agent_count: number
   counts: DealerCounts
+  /** Shops customers can be sent to: confirmed point, active at Orange. */
+  on_map: number
+  /** Shops the agent pinned from the phone, waiting for this aggregator to confirm. */
+  pins_waiting: { ref: string; name: string; person_name: string; area: string }[]
   float_requests: FloatRequest[]
   signals: Signal[]
   forecast_counts: Record<FloatRisk, number>

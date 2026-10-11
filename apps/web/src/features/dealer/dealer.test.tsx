@@ -57,6 +57,22 @@ describe('dealer', () => {
     expect(container.textContent).not.toMatch(/balance/i)
   })
 
+  it('lists a pin waiting for confirmation as a thing to do, leading to the agent', async () => {
+    signIn(ALL)
+    const real = await operatorApi.dealerOverview()
+    vi.spyOn(operatorApi, 'dealerOverview').mockResolvedValue({
+      ...real,
+      on_map: real.agent_count - 1,
+      pins_waiting: [{ ref: 'Agent 024', name: "Fatmata's Shop", person_name: 'Fatmata Kamara', area: 'Lumley Beach Road, by the bank' }],
+    })
+    render(<App start="/dealer" />)
+    expect(await screen.findByText(/pins waiting for your confirmation · 1/i)).toBeInTheDocument()
+    const row = screen.getByRole('link', { name: /Fatmata's Shop.*pinned by Fatmata Kamara.*Lumley Beach Road/s })
+    expect(row).toHaveAttribute('href', '/dealer/agents/Agent%20024')
+    expect(screen.getByText(/4 of 5 on the map for customers/)).toBeInTheDocument()
+    vi.restoreAllMocks()
+  })
+
   it('masks money by default, requires a purpose to reveal, and the reveal is recorded', async () => {
     signIn(ALL)
     const user = userEvent.setup()

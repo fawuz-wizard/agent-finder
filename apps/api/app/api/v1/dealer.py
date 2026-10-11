@@ -272,10 +272,19 @@ async def overview(
         .all()
     )
     names = {a.ref: a.shop_name for a in agents}
+    # The to-do list's third kind of row: a shop the agent pinned from the phone, waiting for
+    # this aggregator to confirm before customers are sent there.
+    pins_waiting = [
+        {"ref": a.ref, "name": a.shop_name, "person_name": a.person_name, "area": a.street}
+        for a in agents
+        if a.lat is not None and a.lng is not None and not a.location_confirmed
+    ]
     return {
         "dealer_name": p.name,
         "agent_count": len(agents),
         "counts": counts,
+        "on_map": sum(1 for a in agents if on_map(a)),
+        "pins_waiting": pins_waiting,
         "float_requests": [
             float_out(r, names.get(r.agent_ref, r.agent_ref), now).model_dump() for r in pending
         ],

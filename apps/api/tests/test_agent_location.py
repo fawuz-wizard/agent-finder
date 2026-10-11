@@ -42,9 +42,16 @@ async def test_agent_pins_the_shop_and_appears_on_the_map(client, agent, dealer)
     rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
     mine = [x for x in rows if x["ref"] == "Agent 024"][0]
     assert mine["located"] and mine["location_confirmed"] is False
+    # The aggregator's dashboard lists the pin as a thing to do, and counts the shop off the map.
+    over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    assert [w["ref"] for w in over["pins_waiting"]] == ["Agent 024"]
+    assert over["pins_waiting"][0]["area"] == "Lumley Beach Road, by the bank"
+    assert over["on_map"] == over["agent_count"] - 1
     c = await client.post("/api/v1/dealer/agents/Agent 024/confirm-location", headers=dealer)
     assert c.status_code == 200, c.text
     assert c.json()["located"] is True
+    over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    assert over["pins_waiting"] == [] and over["on_map"] == over["agent_count"]
     assert (await client.get("/api/v1/agents/af-024")).status_code == 200
     assert (
         await client.post("/api/v1/dealer/agents/Agent 024/confirm-location", headers=agent)

@@ -15,7 +15,7 @@ protected.
 |---|---|---|
 | Customer module: find a nearby agent who can likely handle a cash out or cash in, directions, visit report, ratings | Built, in the Figma design, on phones | `apps/web/src/features/end-user` |
 | Agent App: first sign-in with a one-time code then a PIN of the agent's own, sign-in by agent code or Orange Money line, four tabs (Dashboard, Activity, Services, Profile), commission per transaction, cash in / cash out recording, hours, pin the shop, photograph the shop | Built, on the finder's design | `apps/web/src/features/agent` |
-| Aggregator side: agent register with a one-time sign-in code, issue a new code when a PIN is forgotten, confirm a shop's pin, take down a shop's photo, float approvals, attention list, Global Report, CSV exports | Built | `apps/web/src/features/dealer` |
+| Aggregator side: four tabs on the finder's design (Dashboard done; Agents, Search, Profile next), agent register with a one-time sign-in code, issue a new code when a PIN is forgotten, confirm a shop's pin, take down a shop's photo, float approvals, attention list, Global Report, CSV exports | Built, Dashboard on the finder's design | `apps/web/src/features/dealer` |
 | Orange's agent file imported: 95 agents, 2 aggregators, cleaned with the team; addresses kept exactly as given | Done; shops appear to customers only once their aggregator confirms the pin | `apps/api/scripts/import_orange.py` |
 | Ranking and phrasing: activity in, words out ("can likely handle"), never a balance | Built; tested | `apps/api/app/services/ranker.py`, `phrasing.py` |
 | Operator gateway: one adapter that every money or transaction figure passes through | Built as a contract; demo and "none" implementations | `apps/api/app/integrations/operator/base.py` |

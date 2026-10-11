@@ -1,11 +1,10 @@
 import { Outlet, Link } from 'react-router-dom'
 import { AgentStrip, AgentTabBar } from '@/features/agent/components/agentChrome'
 import { ShopPresenceWatch } from '@/features/agent/components/ShopPresence'
-import { DealerTabBar } from '@/features/dealer/components/DealerTabBar'
-import { LogoMark, Wordmark } from '@/design'
+import { AggregatorStrip, DealerTabBar } from '@/features/dealer/components/DealerTabBar'
+import { Wordmark } from '@/design'
 import { HostStrip } from '@/features/end-user/components/finder'
 import { config } from '@/lib/config'
-import { useSession } from '@/features/auth/session'
 import { t } from '@/i18n'
 
 function DemoRibbon() {
@@ -34,26 +33,6 @@ export function CustomerLayout() {
   )
 }
 
-/**
- * Says which app this is and who is signed in: the brand mark, the app's name, the account.
- * Boosted's global header on a phone: black on white, one rule underneath.
- */
-function RoleStrip({ role }: { role: 'Agent' | 'Aggregator' }) {
-  const { session } = useSession()
-  return (
-    <div className="flex h-11 items-center justify-between gap-3 border-b-2 border-ink bg-paper px-4">
-      <span className="flex items-center gap-2 text-sm font-bold tracking-tight">
-        <LogoMark size={22} className="text-ink" />
-        {role} App
-      </span>
-      <span className="min-w-0 truncate text-sm font-semibold text-muted">{session?.name}</span>
-    </div>
-  )
-}
-
-// No overflow rule here: a shell that clips becomes the box a sticky tab bar sticks to,
-// instead of the screen. Horizontal overflow is clipped on <html> in tokens.css.
-const shell = 'mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-canvas md:min-h-0 md:my-8 md:border-2 md:border-line'
 
 /** Agent shell: the customer module's dark surface and three tabs that never leave the screen. */
 export function AgentLayout() {
@@ -68,12 +47,12 @@ export function AgentLayout() {
   )
 }
 
-/** Aggregator shell: same app as the agent, its own five tabs. */
+/** Aggregator shell: the same dark surface as the agent's, its own four tabs. */
 export function DealerLayout() {
   return (
-    <div className={shell}>
+    <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
       <DemoRibbon />
-      <RoleStrip role="Aggregator" />
+      <AggregatorStrip />
       <Outlet />
       <DealerTabBar />
     </div>

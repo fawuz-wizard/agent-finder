@@ -1314,6 +1314,9 @@ export function demoDealerOverview(): DealerOverview {
     dealer_name: 'Kissy Distribution',
     agent_count: agents.length,
     counts,
+    on_map: agents.filter((a) => customersSee(a).state !== 'unlocated').length,
+    // The demo's pins are confirmed the moment they are made, so nothing ever waits here.
+    pins_waiting: [],
     float_requests: demoFloatRequests(null).filter((r) => r.state === 'pending'),
     signals: demoSignals(),
     forecast_counts,
