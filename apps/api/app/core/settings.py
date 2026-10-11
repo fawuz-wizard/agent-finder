@@ -64,9 +64,12 @@ class Settings(BaseSettings):
                     "CORS_ORIGINS must be set in production: a comma-separated list of the "
                     "browser origins allowed to call the API, e.g. https://agentfinder.example"
                 )
+            # The web app's dev servers: 5173 customer, 5174 agent app (live), 5175 and 5177
+            # the mock builds, 5176 and 5178 the LAN and phone-tunnel instances.
+            hosts = ("localhost", "127.0.0.1")
+            dev = [f"http://{h}:{port}" for port in range(5173, 5179) for h in hosts]
             self.cors_origins = [
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
+                *dev,
                 # The Android APK serves the same web build from these origins (Capacitor):
                 # https://localhost normally, http://localhost for a hotspot demo build.
                 "https://localhost",
