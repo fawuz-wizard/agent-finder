@@ -46,13 +46,10 @@ def test_production_without_cors_origins_refuses_to_start(monkeypatch):
         _settings(app_env="production")
     # Development keeps the local dev servers; a comma-separated value is split and trimmed.
     # ...plus the origins the Android APK serves the same build from (Capacitor).
-    assert _settings(app_env="development").cors_origins == [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://localhost",
-        "http://localhost",
-        "capacitor://localhost",
-    ]
+    dev = _settings(app_env="development").cors_origins
+    assert dev[:2] == ["http://localhost:5173", "http://127.0.0.1:5173"]
+    assert "http://localhost:5174" in dev and "http://127.0.0.1:5178" in dev
+    assert dev[-3:] == ["https://localhost", "http://localhost", "capacitor://localhost"]
     assert _settings(
         app_env="production", cors_origins=" https://a.example, https://b.example "
     ).cors_origins == [  # noqa: E501
