@@ -176,7 +176,7 @@ describe('dealer', () => {
     expect(closedChip).toHaveTextContent(`Closed${tileCount}`)
 
     // Chips are the same filter; an empty bucket says so; "All" brings every agent back.
-    await user.click(within(chips).getByRole('button', { name: /^hidden/i }))
+    await user.click(within(chips).getByRole('button', { name: /^away/i }))
     expect(await screen.findByText('Ibrahim Cash Point')).toBeInTheDocument()
     expect(screen.queryByText(/Agent 038/)).not.toBeInTheDocument()
     await user.click(within(chips).getByRole('button', { name: /^limited/i }))
@@ -322,10 +322,10 @@ describe('registration', () => {
   it('offers no way to register without the permission: no link, and the page sends you back', async () => {
     signIn(ALL)
     render(<App start="/dealer/agents" />)
-    await screen.findByRole('heading', { name: 'Agents' })
+    await screen.findByLabelText('Find an agent')
     expect(screen.queryByRole('link', { name: /^register$/i })).not.toBeInTheDocument()
     render(<App start="/dealer/agents/new" />)
-    expect(await screen.findAllByRole('heading', { name: 'Agents' })).not.toHaveLength(0)
+    expect(await screen.findAllByLabelText('Find an agent')).not.toHaveLength(0)
     expect(screen.queryByRole('heading', { name: /register an agent/i })).not.toBeInTheDocument()
   })
 

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { Button, Card, useToast, AppBar } from '@/design'
+import { useToast } from '@/design'
+import { FinderCta, FinderHeader } from '@/features/end-user/components/finder'
+import { FieldLabel, TextField } from '@/features/agent/components/agentChrome'
+import { PillButton, Section } from './components/dealerChrome'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS } from '@/types/operator'
@@ -8,6 +11,19 @@ import type { RegisterAgentBody } from '@/types/operator'
 import { locationErrorText } from '@/lib/location'
 
 const AREAS = ['Lumley', 'Aberdeen', 'Wilberforce', 'Congo Cross', 'Hill Station', 'Freetown']
+
+/** A label over a field; defined once at module level so typing never remounts the input. */
+function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <FieldLabel htmlFor={id}>
+        {label}
+        {hint && <span className="font-medium text-finder-muted"> ({hint})</span>}
+      </FieldLabel>
+      {children}
+    </div>
+  )
+}
 
 /**
  * D5 — Register an agent. Any agent the dealer works with, whether or not Orange's file has
@@ -104,114 +120,99 @@ export default function RegisterAgentPage() {
     }
   }
 
-  const field = 'h-control w-full rounded-card border border-line bg-paper px-3 text-base'
-
+  const select = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-base font-medium text-white shadow-inset-finder outline-none focus:outline focus:outline-2 focus:outline-finder-link'
   return (
-    <div className="flex flex-1 flex-col">
-      <AppBar back="/dealer/agents" title="Register an agent" subtitle={<>Any agent you work with, on Orange's list or not</>} />
+    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+      <FinderHeader back="/dealer/agents" title="Agents" />
+      <h1 className="mt-6 text-xl font-bold leading-tight">Register an agent</h1>
+      <p className="mt-1 text-sm font-medium text-finder-muted">Any agent you work with, on Orange's list or not.</p>
 
-      <div className="flex flex-col gap-3 p-4 pb-6">
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">The shop</p>
-          <label className="text-sm font-semibold" htmlFor="reg-shop">
-            Shop name
-            <input id="reg-shop" value={form.shop_name} onChange={(e) => set('shop_name', e.target.value)} className={`mt-1 ${field}`} />
-          </label>
-          <label className="mt-2 text-sm font-semibold" htmlFor="reg-person">
-            Agent's name
-            <input id="reg-person" value={form.person_name} onChange={(e) => set('person_name', e.target.value)} className={`mt-1 ${field}`} />
-          </label>
-          <label className="mt-2 text-sm font-semibold" htmlFor="reg-ref">
-            Agent number <span className="font-normal text-muted">(optional — the next free number otherwise)</span>
-            <input id="reg-ref" value={form.ref} inputMode="numeric" placeholder="e.g. 101" onChange={(e) => set('ref', e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} className={`mt-1 ${field}`} />
-          </label>
-          <label className="mt-2 text-sm font-semibold" htmlFor="reg-phone">
-            Phone <span className="font-normal text-muted">(optional)</span>
-            <input id="reg-phone" value={form.phone} inputMode="tel" placeholder="+232 76 000 000" onChange={(e) => set('phone', e.target.value)} className={`mt-1 ${field}`} />
-          </label>
-          <label className="mt-2 flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.phone_visible} onChange={(e) => set('phone_visible', e.target.checked)} />
+      <div className="mt-5 flex flex-col gap-3">
+        <Section heading="The shop" className="gap-3">
+          <Field id="reg-shop" label="Shop name">
+            <TextField id="reg-shop" value={form.shop_name} onChange={(e) => set('shop_name', e.target.value)} />
+          </Field>
+          <Field id="reg-person" label="Agent's name">
+            <TextField id="reg-person" value={form.person_name} onChange={(e) => set('person_name', e.target.value)} />
+          </Field>
+          <Field id="reg-ref" label="Agent number" hint="optional, the next free number otherwise">
+            <TextField id="reg-ref" value={form.ref} inputMode="numeric" placeholder="e.g. 101" onChange={(e) => set('ref', e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} />
+          </Field>
+          <Field id="reg-phone" label="Phone" hint="optional">
+            <TextField id="reg-phone" value={form.phone} inputMode="tel" placeholder="+232 76 000 000" onChange={(e) => set('phone', e.target.value)} />
+          </Field>
+          <label className="flex items-center gap-3 text-sm font-medium">
+            <input type="checkbox" className="h-5 w-5 accent-finder-link" checked={form.phone_visible} onChange={(e) => set('phone_visible', e.target.checked)} />
             Customers may call this number
           </label>
-        </Card>
+        </Section>
 
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Where</p>
-          <label className="text-sm font-semibold" htmlFor="reg-area">
-            Area
-            <select id="reg-area" value={form.area} onChange={(e) => set('area', e.target.value)} className={`mt-1 ${field}`}>
+        <Section heading="Where" className="gap-3">
+          <Field id="reg-area" label="Area">
+            <select id="reg-area" value={form.area} onChange={(e) => set('area', e.target.value)} className={select}>
               {AREAS.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>
               ))}
             </select>
-          </label>
-          <label className="mt-2 text-sm font-semibold" htmlFor="reg-street">
-            Street or landmark <span className="font-normal text-muted">(what customers read)</span>
-            <input id="reg-street" value={form.street} onChange={(e) => set('street', e.target.value)} className={`mt-1 ${field}`} />
-          </label>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <label className="text-sm font-semibold" htmlFor="reg-lat">
-              Latitude
-              <input id="reg-lat" value={form.lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => set('lat', e.target.value)} className={`mt-1 ${field}`} />
-            </label>
-            <label className="text-sm font-semibold" htmlFor="reg-lng">
-              Longitude
-              <input id="reg-lng" value={form.lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => set('lng', e.target.value)} className={`mt-1 ${field}`} />
-            </label>
+          </Field>
+          <Field id="reg-street" label="Street or landmark" hint="what customers read">
+            <TextField id="reg-street" value={form.street} onChange={(e) => set('street', e.target.value)} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field id="reg-lat" label="Latitude">
+              <TextField id="reg-lat" value={form.lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => set('lat', e.target.value)} />
+            </Field>
+            <Field id="reg-lng" label="Longitude">
+              <TextField id="reg-lng" value={form.lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => set('lng', e.target.value)} />
+            </Field>
           </div>
-          <Button size="control" variant="secondary" className="mt-2" onClick={useMyLocation} disabled={locating}>
-            {locating ? 'Reading location…' : 'Use my location (stand at the shop)'}
-          </Button>
-        </Card>
+          <PillButton className="self-start" onClick={useMyLocation} disabled={locating}>
+            {locating ? 'Reading location…' : 'Use my location'}
+          </PillButton>
+          <p className="text-xs font-medium text-finder-muted">Stand at the shop for the phone's position, or type the coordinates.</p>
+        </Section>
 
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Hours</p>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-sm font-semibold" htmlFor="reg-open">
-              Opens
-              <input id="reg-open" type="time" value={form.open_time} onChange={(e) => set('open_time', e.target.value)} className={`mt-1 ${field}`} />
-            </label>
-            <label className="text-sm font-semibold" htmlFor="reg-close">
-              Closes
-              <input id="reg-close" type="time" value={form.close_time} onChange={(e) => set('close_time', e.target.value)} className={`mt-1 ${field}`} />
-            </label>
+        <Section heading="Hours" className="gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Field id="reg-open" label="Opens">
+              <TextField id="reg-open" type="time" value={form.open_time} onChange={(e) => set('open_time', e.target.value)} />
+            </Field>
+            <Field id="reg-close" label="Closes">
+              <TextField id="reg-close" type="time" value={form.close_time} onChange={(e) => set('close_time', e.target.value)} />
+            </Field>
           </div>
-        </Card>
+        </Section>
 
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Usually handles</p>
-          <p className="text-sm text-muted">Sets what amounts customers are told this agent can likely handle, until records replace it. Customers never see the figures.</p>
-          <label className="mt-2 text-sm font-semibold" htmlFor="reg-cash">
-            Cash out, up to about (SLE)
-            <input id="reg-cash" value={form.usual_max_sle} inputMode="numeric" onChange={(e) => set('usual_max_sle', e.target.value.replace(/\D/g, ''))} className={`mt-1 ${field}`} />
-          </label>
-          <label className="mt-2 text-sm font-semibold" htmlFor="reg-float">
-            Cash in, up to about (SLE)
-            <input id="reg-float" value={form.usual_float_max_sle} inputMode="numeric" onChange={(e) => set('usual_float_max_sle', e.target.value.replace(/\D/g, ''))} className={`mt-1 ${field}`} />
-          </label>
-          <label className="mt-2 text-sm font-semibold" htmlFor="reg-daily">
-            Transactions on a usual day
-            <input id="reg-daily" value={form.usual_daily_transactions} inputMode="numeric" onChange={(e) => set('usual_daily_transactions', e.target.value.replace(/\D/g, ''))} className={`mt-1 ${field}`} />
-          </label>
-          <label className="mt-3 flex items-start gap-2 text-sm">
-            <input type="checkbox" className="mt-0.5" checked={form.verified} onChange={(e) => set('verified', e.target.checked)} />
+        <Section heading="Usually handles" className="gap-3">
+          <p className="text-sm font-medium text-finder-muted">Sets what amounts customers are told this agent can likely handle, until records replace it. Customers never see the figures.</p>
+          <Field id="reg-cash" label="Cash out, up to about (SLE)">
+            <TextField id="reg-cash" value={form.usual_max_sle} inputMode="numeric" onChange={(e) => set('usual_max_sle', e.target.value.replace(/\D/g, ''))} />
+          </Field>
+          <Field id="reg-float" label="Cash in, up to about (SLE)">
+            <TextField id="reg-float" value={form.usual_float_max_sle} inputMode="numeric" onChange={(e) => set('usual_float_max_sle', e.target.value.replace(/\D/g, ''))} />
+          </Field>
+          <Field id="reg-daily" label="Transactions on a usual day">
+            <TextField id="reg-daily" value={form.usual_daily_transactions} inputMode="numeric" onChange={(e) => set('usual_daily_transactions', e.target.value.replace(/\D/g, ''))} />
+          </Field>
+          <label className="flex items-start gap-3 text-sm font-medium">
+            <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-finder-link" checked={form.verified} onChange={(e) => set('verified', e.target.checked)} />
             <span>
-              I checked this agent against Orange's record. <span className="text-muted">Customers then see the “Verified agent” badge.</span>
+              I checked this agent against Orange's record. <span className="text-finder-muted">Customers then see the “Verified agent” badge.</span>
             </span>
           </label>
-        </Card>
+        </Section>
 
         {error && (
           <p role="alert" className="text-base font-semibold text-danger">
             {error}
           </p>
         )}
-        <Button size="cta" onClick={submit} disabled={!ready || busy}>
+        <FinderCta onClick={submit} disabled={!ready || busy}>
           {busy ? 'Registering…' : 'Register agent'}
-        </Button>
-        <p className="text-center text-xs text-muted">
+        </FinderCta>
+        <p className="text-center text-xs font-medium text-finder-muted">
           You get a one-time sign-in code to read out to the agent. They choose their own PIN, and customers see the shop once they sign in and set Open.
         </p>
       </div>

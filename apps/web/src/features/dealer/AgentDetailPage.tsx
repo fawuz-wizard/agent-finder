@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { Button, Card, useToast, AppBar } from '@/design'
+import { useToast } from '@/design'
+import { FinderCta, FinderHeader } from '@/features/end-user/components/finder'
+import { FieldLabel, TextField } from '@/features/agent/components/agentChrome'
+import { Line, PillButton, Section } from './components/dealerChrome'
+import { PILL_OFF } from '@/features/agent/components/agentChrome'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -9,7 +13,6 @@ import type { DealerAction, DealerAgentDetail } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
 import { MaskedValue } from './components/MaskedValue'
 import { locationErrorText } from '@/lib/location'
-
 
 /**
  * D2 — Agent detail. Declaration, money (masked), today's counts with their source, the
@@ -35,76 +38,75 @@ export default function DealerAgentDetailPage() {
     }
   }
 
-  if (state === 'loading' && !data) return <p className="p-4 text-base text-muted">Loading…</p>
+  if (state === 'loading' && !data)
+    return (
+      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+        <FinderHeader back="/dealer/agents" title="Agent" />
+        <p className="text-base font-medium text-finder-muted">Loading…</p>
+      </div>
+    )
   if (!data)
     return (
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+        <FinderHeader back="/dealer/agents" title="Agent" />
         <p className="text-base font-semibold text-danger">{error ?? 'We could not find that agent.'}</p>
-        <Link to="/dealer/agents" className="text-base font-bold text-brand-text">
+        <Link to="/dealer/agents" className="text-base font-bold text-finder-link">
           Back to agents
         </Link>
       </div>
     )
 
   const d = data.declaration
-  const tone = d.presence === 'open' ? 'text-success' : d.presence === 'hidden' ? 'text-warning' : 'text-muted'
+  const tone = d.presence === 'open' ? 'text-finder-likely' : d.presence === 'hidden' ? 'text-warning' : 'text-finder-muted'
 
   return (
-    <div className="flex flex-1 flex-col">
-      <AppBar back="/dealer/agents" title={data.shop_name} subtitle={<>{data.ref.replace(/^Agent /, 'Code ')} · {data.area}</>} />
+    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+      <FinderHeader back="/dealer/agents" title={data.shop_name} />
+      <p className="mt-4 text-sm font-bold text-finder-muted">
+        {data.ref.replace(/^Agent /, 'Code ')} · {data.area}
+      </p>
 
-      <div className="flex flex-col gap-3 p-4 pb-6">
-        <Card>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="mt-4 flex flex-col gap-3">
+        <Section heading="Now">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className={`text-lg font-bold leading-tight ${tone}`}>{PRESENCE_LABELS[d.presence]}</span>
-            <span className="text-sm text-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '')}</span>
+            <span className="text-sm font-medium text-finder-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '')}</span>
           </div>
-          <p className="mt-1 text-sm text-muted">{data.capacity_text}</p>
-          {d.freshness === 'expired' && <p className="mt-1 text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
-          <p className="mt-1 text-sm text-muted">
-            <span className="font-bold">{data.reliability.label_text}</span> · {data.reliability.text}
+          <p className="text-sm font-medium text-finder-muted">{data.capacity_text}</p>
+          {d.freshness === 'expired' && <p className="text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
+          <p className="text-sm font-medium text-finder-muted">
+            <span className="font-bold text-white">{data.reliability.label_text}</span> · {data.reliability.text}
           </p>
-        </Card>
+        </Section>
 
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Float &amp; balance</p>
+        <Section heading={<>Float &amp; balance</>}>
           <MaskedValue agentRef={data.ref} field="balance" label="Balance" />
           <MaskedValue agentRef={data.ref} field="float" label="Float position" />
-          <div className="flex items-center justify-between py-2">
-            <span className="text-sm text-muted">Pending request</span>
-            {data.pending_float ? (
-              <Link to={`/dealer/float/${data.pending_float.id}`} className="text-sm font-bold text-brand-text">
-                {formatSle(data.pending_float.amount_sle)} · Review
-              </Link>
-            ) : (
-              <span className="text-sm font-semibold text-muted">None</span>
-            )}
-          </div>
-          {!can(PERMISSIONS.viewFinancial) && (
-            <p className="pt-1 text-xs text-muted">Financial detail needs a permission you do not hold.</p>
-          )}
-        </Card>
+          <Line
+            label="Pending request"
+            value={
+              data.pending_float ? (
+                <Link to={`/dealer/float/${data.pending_float.id}`} className="text-finder-link">
+                  {formatSle(data.pending_float.amount_sle)} · Review
+                </Link>
+              ) : (
+                'None'
+              )
+            }
+          />
+          {!can(PERMISSIONS.viewFinancial) && <p className="text-xs font-medium text-finder-muted">Financial detail needs a permission you do not hold.</p>}
+        </Section>
 
         {(!data.located || !data.active) && <PlacementCard detail={data} onSaved={refresh} />}
         {data.located && data.active && !data.location_confirmed && <ConfirmCard detail={data} onSaved={refresh} />}
 
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Orange record</p>
-          <div className="grid grid-cols-2 gap-x-4">
-            <p className="text-sm text-muted">Agent code</p>
-            <p className="text-right text-sm font-bold">{data.agent_code ?? '—'}</p>
-            <p className="text-sm text-muted">Status</p>
-            <p className={`text-right text-sm font-bold ${data.active ? 'text-success' : 'text-danger'}`}>{data.active ? 'Active' : 'Inactive'}</p>
-            <p className="text-sm text-muted">Region · city</p>
-            <p className="text-right text-sm font-bold">
-              {data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : '—'} · {data.city ?? '—'}
-            </p>
-            <p className="text-sm text-muted">On the map</p>
-            <p className="text-right text-sm font-bold">{data.located ? (data.location_confirmed ? 'Yes' : 'Pinned, not confirmed') : 'No'}</p>
-            <p className="text-sm text-muted">Source</p>
-            <p className="text-right text-sm font-bold">{data.source === 'orange_file' ? "Orange's file" : 'Registered in the app'}</p>
-          </div>
-        </Card>
+        <Section heading="Orange record">
+          <Line label="Agent code" value={data.agent_code ?? '—'} />
+          <Line label="Status" value={data.active ? 'Active' : 'Inactive'} tone={data.active ? 'text-finder-likely' : 'text-danger'} />
+          <Line label="Region · city" value={<>{data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : '—'} · {data.city ?? '—'}</>} />
+          <Line label="On the map" value={data.located ? (data.location_confirmed ? 'Yes' : 'Pinned, not confirmed') : 'No'} />
+          <Line label="Source" value={data.source === 'orange_file' ? "Orange's file" : 'Registered in the app'} />
+        </Section>
 
         {data.photo && <PhotoCard detail={data} onSaved={refresh} />}
 
@@ -112,58 +114,37 @@ export default function DealerAgentDetailPage() {
 
         <UsualCard detail={data} onSaved={refresh} />
 
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Today</p>
-          <div className="flex items-baseline justify-between border-b border-line py-2">
-            <span className="text-sm text-muted">
-              Transactions <span className="text-xs font-semibold">· {data.today.transactions === null ? 'not connected' : 'Orange'}</span>
-            </span>
-            <span className="text-base font-bold">{data.today.transactions ?? '—'}</span>
-          </div>
-          <div className="flex items-baseline justify-between border-b border-line py-2">
-            <span className="text-sm text-muted">Successful</span>
-            <span className="text-base font-bold">{data.today.successful ?? '—'}</span>
-          </div>
-          <div className="flex items-baseline justify-between border-b border-line py-2">
-            <span className="text-sm text-muted">Customers who found them</span>
-            <span className="text-base font-bold text-brand-text">{data.today.found_you}</span>
-          </div>
-          <div className="flex items-baseline justify-between py-2">
-            <span className="text-sm text-muted">Reported problems</span>
-            <span className={`text-base font-bold ${data.today.reported_problems > 0 ? 'text-danger' : ''}`}>{data.today.reported_problems}</span>
-          </div>
-        </Card>
+        <Section heading="Today">
+          <Line label={<>Transactions <span className="text-xs">· {data.today.transactions === null ? 'not connected' : 'Orange'}</span></>} value={data.today.transactions ?? '—'} />
+          <Line label="Successful" value={data.today.successful ?? '—'} />
+          <Line label="Customers who found them" value={data.today.found_you} tone="text-finder-link" />
+          <Line label="Reported problems" value={data.today.reported_problems} tone={data.today.reported_problems > 0 ? 'text-danger' : ''} />
+        </Section>
 
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Availability today</p>
-          {data.availability_today.length === 0 && <p className="py-1 text-sm text-muted">No changes today.</p>}
+        <Section heading="Availability today">
+          {data.availability_today.length === 0 && <p className="text-sm font-medium text-finder-muted">No changes today.</p>}
           {data.availability_today.map((e, i) => (
-            <div key={i} className="flex items-baseline justify-between border-b border-line py-2 last:border-b-0">
-              <span className="text-sm text-muted">{e.time_text}</span>
-              <span className={`text-sm font-bold ${e.tone === 'warning' ? 'text-warning' : ''}`}>{e.text}</span>
-            </div>
+            <Line key={i} label={e.time_text} value={e.text} tone={e.tone === 'warning' ? 'text-warning' : ''} />
           ))}
-        </Card>
+        </Section>
 
-        <div className="flex gap-2">
-          <Button size="control" variant="secondary" className="flex-1" onClick={() => act('contact')} disabled={busy !== null}>
+        <div className="flex gap-3">
+          <PillButton className="flex-1" onClick={() => act('contact')} disabled={busy !== null}>
             Contact
-          </Button>
-          <Button size="control" variant="primary" className="flex-1" onClick={() => act('nudge')} disabled={busy !== null}>
+          </PillButton>
+          <PillButton tone="on" className="flex-1" onClick={() => act('nudge')} disabled={busy !== null}>
             Nudge
-          </Button>
+          </PillButton>
         </div>
-        <div className="flex gap-2">
-          <Link to="/dealer/attention" className="flex-1">
-            <Button size="control" variant="secondary" block className="w-full">
-              History
-            </Button>
+        <div className="flex gap-3">
+          <Link to="/dealer/attention" className={`flex h-chip flex-1 items-center justify-center rounded-pill text-base font-bold ${PILL_OFF}`}>
+            History
           </Link>
-          <Button size="control" variant="destructive" className="flex-1" onClick={() => act('escalate')} disabled={busy !== null}>
+          <PillButton tone="danger" className="flex-1" onClick={() => act('escalate')} disabled={busy !== null}>
             Escalate
-          </Button>
+          </PillButton>
         </div>
-        <p className="text-center text-xs text-muted">Every action is recorded with your name. None of them changes the agent's status.</p>
+        <p className="text-center text-xs font-medium text-finder-muted">Every action is recorded with your name. None of them changes the agent's status.</p>
       </div>
     </div>
   )
@@ -194,30 +175,25 @@ function SignInCard({ detail, initialCode }: { detail: DealerAgentDetail; initia
   }
 
   return (
-    <Card aria-labelledby="agent-sign-in">
-      <p id="agent-sign-in" className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">
-        Sign-in
-      </p>
+    <Section id="agent-sign-in" heading="Sign-in">
       {code ? (
         <>
-          <p className="text-sm text-muted">One-time code for {detail.name}. Read it out in person; it is not shown again.</p>
-          <p className="mt-2 text-center text-3xl font-bold tracking-[0.3em]" aria-label={`One-time code ${code.split('').join(' ')}`}>
+          <p className="text-sm font-medium text-finder-muted">One-time code for {detail.name}. Read it out in person; it is not shown again.</p>
+          <p className="text-center text-3xl font-bold tracking-[0.3em] text-white" aria-label={`One-time code ${code.split('').join(' ')}`}>
             {code.slice(0, 3)} {code.slice(3)}
           </p>
-          <p className="mt-2 text-sm text-muted">
-            They sign in with their agent number and this code, then choose a PIN only they know. The code works once.
-          </p>
+          <p className="text-sm font-medium text-finder-muted">They sign in with their agent number and this code, then choose a PIN only they know. The code works once.</p>
         </>
       ) : (
-        <p className="text-sm text-muted">
-          The agent signs in with a PIN only they know. If they forget it, issue a new one-time code: their phones are signed out and
-          they choose a new PIN at the next sign-in.
+        <p className="text-sm font-medium text-finder-muted">
+          The agent signs in with a PIN only they know. If they forget it, issue a new one-time code: their phones are signed out and they choose
+          a new PIN at the next sign-in.
         </p>
       )}
-      <Button variant="secondary" className="mt-3" onClick={() => void issue()} disabled={busy}>
+      <PillButton className="self-start" onClick={() => void issue()} disabled={busy}>
         {busy ? 'Issuing…' : code ? 'Issue another code' : 'Issue a new sign-in code'}
-      </Button>
-    </Card>
+      </PillButton>
+    </Section>
   )
 }
 
@@ -239,19 +215,18 @@ function PhotoCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
     }
   }
   return (
-    <Card aria-labelledby="shop-photo">
-      <p id="shop-photo" className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Shop photo</p>
-      <img src={detail.photo ?? ''} alt={`${detail.shop_name}, photographed by the agent`} className="aspect-[4/3] w-full rounded-lg object-cover" />
-      <p className="mt-2 text-sm text-muted">Customers see this on the shop's page. If it is not the shop, take it down; the agent can take a new one.</p>
+    <Section id="shop-photo" heading="Shop photo">
+      <img src={detail.photo ?? ''} alt={`${detail.shop_name}, photographed by the agent`} className="aspect-[4/3] w-full rounded-field object-cover" />
+      <p className="text-sm font-medium text-finder-muted">Customers see this on the shop's page. If it is not the shop, take it down; the agent can take a new one.</p>
       {error && (
         <p role="alert" className="text-sm font-semibold text-danger">
           {error}
         </p>
       )}
-      <Button size="control" variant="secondary" className="mt-2" onClick={remove} disabled={busy}>
+      <PillButton className="self-start" onClick={remove} disabled={busy}>
         {busy ? 'Removing…' : 'Remove photo'}
-      </Button>
-    </Card>
+      </PillButton>
+    </Section>
   )
 }
 
@@ -274,9 +249,8 @@ function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: 
     }
   }
   return (
-    <Card className="border-warning bg-warning-tint/40" aria-labelledby="confirm-location">
-      <p id="confirm-location" className="text-xs font-bold uppercase tracking-wider text-muted">Pin waiting for your confirmation</p>
-      <p className="text-sm">
+    <Section id="confirm-location" heading="Pin waiting for your confirmation" tone="warning">
+      <p className="text-sm font-medium">
         The agent pinned the shop at <b>{detail.area}</b>. Customers are not sent there until you confirm it is right.
       </p>
       {error && (
@@ -284,10 +258,10 @@ function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: 
           {error}
         </p>
       )}
-      <Button size="control" className="mt-1" onClick={confirm} disabled={busy}>
+      <PillButton tone="on" className="self-start" onClick={confirm} disabled={busy}>
         {busy ? 'Confirming…' : 'Confirm this location'}
-      </Button>
-    </Card>
+      </PillButton>
+    </Section>
   )
 }
 
@@ -304,10 +278,9 @@ function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved
   const [error, setError] = useState<string | null>(null)
   if (!detail.active) {
     return (
-      <Card className="border-warning/40 bg-warning-tint/40">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted">Not shown to customers</p>
-        <p className="text-sm">This agent is marked inactive at Orange. Customers cannot find them until Orange's record changes.</p>
-      </Card>
+      <Section heading="Not shown to customers" tone="danger">
+        <p className="text-sm font-medium">This agent is marked inactive at Orange. Customers cannot find them until Orange's record changes.</p>
+      </Section>
     )
   }
   function useMyLocation() {
@@ -342,33 +315,31 @@ function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved
       setSaving(false)
     }
   }
-  const field = 'mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal'
   return (
-    <Card className="border-warning/40 bg-warning-tint/40" aria-labelledby="place-agent">
-      <p id="place-agent" className="text-xs font-bold uppercase tracking-wider text-muted">Not on the map yet</p>
-      <p className="text-sm">Customers cannot find this shop until it has a location. Stand at the shop and use the phone's position, or type the coordinates.</p>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <label className="text-sm font-semibold" htmlFor="place-lat">
-          Latitude
-          <input id="place-lat" value={lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => setLat(e.target.value)} className={field} />
-        </label>
-        <label className="text-sm font-semibold" htmlFor="place-lng">
-          Longitude
-          <input id="place-lng" value={lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => setLng(e.target.value)} className={field} />
-        </label>
+    <Section id="place-agent" heading="Not on the map yet" tone="warning">
+      <p className="text-sm font-medium">Customers cannot find this shop until it has a location. Stand at the shop and use the phone's position, or type the coordinates.</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-2">
+          <FieldLabel htmlFor="place-lat">Latitude</FieldLabel>
+          <TextField id="place-lat" value={lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => setLat(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <FieldLabel htmlFor="place-lng">Longitude</FieldLabel>
+          <TextField id="place-lng" value={lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => setLng(e.target.value)} />
+        </div>
       </div>
-      <Button size="control" variant="secondary" className="mt-2" onClick={useMyLocation} disabled={locating}>
-        {locating ? 'Reading location…' : 'Use my location (stand at the shop)'}
-      </Button>
+      <PillButton className="self-start" onClick={useMyLocation} disabled={locating}>
+        {locating ? 'Reading location…' : 'Use my location'}
+      </PillButton>
       {error && (
-        <p role="alert" className="mt-2 text-sm font-semibold text-danger">
+        <p role="alert" className="text-sm font-semibold text-danger">
           {error}
         </p>
       )}
-      <Button size="control" className="mt-2" onClick={save} disabled={saving || !lat || !lng}>
+      <FinderCta onClick={save} disabled={saving || !lat || !lng}>
         {saving ? 'Saving…' : 'Pin this shop'}
-      </Button>
-    </Card>
+      </FinderCta>
+    </Section>
   )
 }
 
@@ -393,32 +364,31 @@ function UsualCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
   }
   const fromRecords = detail.evidence.cash.source === 'operator'
   return (
-    <Card>
-      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Usually handles</p>
-      <p className="text-sm text-muted">{detail.evidence.cash.text}</p>
-      {detail.evidence.float.source !== 'none' && <p className="text-sm text-muted">{detail.evidence.float.text}</p>}
+    <Section heading="Usually handles">
+      <p className="text-sm font-medium text-finder-muted">{detail.evidence.cash.text}</p>
+      {detail.evidence.float.source !== 'none' && <p className="text-sm font-medium text-finder-muted">{detail.evidence.float.text}</p>}
       {fromRecords ? (
-        <p className="mt-1 text-xs text-muted">From the operator's records. Your note is no longer needed.</p>
+        <p className="text-xs font-medium text-finder-muted">From the operator's records. Your note is no longer needed.</p>
       ) : (
-        <div className="mt-2 flex flex-col gap-2">
-          <label className="text-sm font-semibold" htmlFor="usual-cash">
-            Cash out, up to about (SLE)
-            <input id="usual-cash" type="number" inputMode="numeric" min={0} value={cash} onChange={(e) => setCash(e.target.value)} className="mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal" />
-          </label>
-          <label className="text-sm font-semibold" htmlFor="usual-float">
-            Cash in, up to about (SLE)
-            <input id="usual-float" type="number" inputMode="numeric" min={0} value={float} onChange={(e) => setFloat(e.target.value)} className="mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal" />
-          </label>
-          <label className="text-sm font-semibold" htmlFor="usual-daily">
-            Transactions on a usual day
-            <input id="usual-daily" type="number" inputMode="numeric" min={0} value={daily} onChange={(e) => setDaily(e.target.value)} className="mt-1 h-control w-full rounded-card border border-line bg-paper px-3 text-base font-normal" />
-          </label>
-          <Button size="control" variant="secondary" onClick={save} disabled={saving}>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="usual-cash">Cash out, up to about (SLE)</FieldLabel>
+            <TextField id="usual-cash" type="number" inputMode="numeric" min={0} value={cash} onChange={(e) => setCash(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="usual-float">Cash in, up to about (SLE)</FieldLabel>
+            <TextField id="usual-float" type="number" inputMode="numeric" min={0} value={float} onChange={(e) => setFloat(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="usual-daily">Transactions on a usual day</FieldLabel>
+            <TextField id="usual-daily" type="number" inputMode="numeric" min={0} value={daily} onChange={(e) => setDaily(e.target.value)} />
+          </div>
+          <PillButton className="self-start" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : 'Save note'}
-          </Button>
-          <p className="text-xs text-muted">Sets what amounts customers are told this agent can likely handle. The figure is never shown to them, and it is replaced by the operator's records on integration.</p>
+          </PillButton>
+          <p className="text-xs font-medium text-finder-muted">Sets what amounts customers are told this agent can likely handle. The figure is never shown to them, and it is replaced by the operator's records on integration.</p>
         </div>
       )}
-    </Card>
+    </Section>
   )
 }
