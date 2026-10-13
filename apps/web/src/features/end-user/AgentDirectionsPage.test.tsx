@@ -1,16 +1,31 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentDirectionsPage from './AgentDirectionsPage'
 import { customerApi } from '@/services/customerApi'
 
-function at(path: string) {
+/** Stands in for the details screen: its own Back is a real step back, as on the page. */
+function DetailsStub() {
+  const navigate = useNavigate()
+  return (
+    <div>
+      <p>the shop's details</p>
+      <button type="button" onClick={() => navigate(-1)}>
+        details back
+      </button>
+    </div>
+  )
+}
+
+/** The screens before, as the customer walked them; the last entry is where the test starts. */
+function at(...entries: string[]) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={entries} initialIndex={entries.length - 1}>
       <Routes>
+        <Route path="/search" element={<p>the results</p>} />
         <Route path="/agents/:id/directions" element={<AgentDirectionsPage />} />
-        <Route path="/agents/:id" element={<p>the shop's details</p>} />
+        <Route path="/agents/:id" element={<DetailsStub />} />
       </Routes>
     </MemoryRouter>,
   )
@@ -32,14 +47,25 @@ describe('the directions screen', () => {
     expect(screen.queryByRole('button', { name: /i'm going there/i })).not.toBeInTheDocument()
     // The maps-app hand-off is still there, but quiet and secondary.
     expect(screen.getByRole('link', { name: /open walking directions in maps/i })).toHaveAttribute('target', '_blank')
-    expect(screen.getByRole('link', { name: /back/i })).toHaveAttribute('href', '/agents/af-4821?tx=cash_out&amount=2000')
+    expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument()
   })
 
-  it('Back returns to the details screen', async () => {
+  it('Back is a real step back: details, then results, never a details/directions loop', async () => {
+    const user = userEvent.setup()
+    at('/search?tx=cash_out&amount=2000', '/agents/af-4821?tx=cash_out&amount=2000', '/agents/af-4821/directions?tx=cash_out&amount=2000')
+    await screen.findByRole('heading', { name: "Fatmata's Shop" })
+    await user.click(screen.getByRole('button', { name: /back/i }))
+    expect(await screen.findByText("the shop's details")).toBeInTheDocument()
+    // Had Back pushed the details, this step would land on the directions again.
+    await user.click(screen.getByRole('button', { name: /details back/i }))
+    expect(await screen.findByText('the results')).toBeInTheDocument()
+  })
+
+  it('Back from a link straight into the directions goes to the details', async () => {
     const user = userEvent.setup()
     at('/agents/af-4821/directions?tx=cash_out&amount=2000')
     await screen.findByRole('heading', { name: "Fatmata's Shop" })
-    await user.click(screen.getByRole('link', { name: /back/i }))
+    await user.click(screen.getByRole('button', { name: /back/i }))
     expect(await screen.findByText("the shop's details")).toBeInTheDocument()
   })
 
