@@ -1,7 +1,7 @@
-# End User feature (U1–U7)
+# End User feature (U1–U6)
 
 Screens: `HomePage` (U1), `ResultsPage` (U3), `AgentDetailPage`, `HowAvailabilityWorksPage` (U4),
-`ReportVisitPage` (U6), `OutcomeForm` + `OutcomePrompt` (U7).
+`AgentDirectionsPage`, `ReportVisitPage` (U6).
 
 ## Rules this code must keep
 
@@ -13,8 +13,8 @@ Screens: `HomePage` (U1), `ResultsPage` (U3), `AgentDetailPage`, `HowAvailabilit
   rating once at least three ratings exist; individual ratings and comments stay private.
 - **No customer identity.** Reports carry an agent id, an answer, an optional reason/rating/comment
   and an idempotency token. Comment-only reports are linked to the selected shop without showing
-  its agent code. `usePendingVisit` keeps only the last visit in `sessionStorage` so the outcome
-  can be asked on return.
+  its agent code. Nothing is remembered about where the customer went, and nothing is asked
+  afterwards: Report a visit is the customer's own choice, from the shop's details.
 - **Transport is swappable.** Screens call `services/customerApi`. With `VITE_API_MODE=live` it calls
   the FastAPI endpoints; otherwise `services/demoNetwork` answers with the seeded network. The demo
   file is the only place that behaves like a server.
@@ -25,6 +25,5 @@ Screens: `HomePage` (U1), `ResultsPage` (U3), `AgentDetailPage`, `HowAvailabilit
    Max it deep link lands directly on results.
 2. **Simulated area fallback.** The local prototype uses a curated area and labels its 500 m search
    origin as simulated. It must not imply device GPS was acquired.
-3. **Outcome prompt timing** — asked on the next home visit at least 15 minutes after directions.
-4. **Agent attribution in U6** comes from the shop details or pending visit context. If the
+3. **Agent attribution in U6** comes from the shop details the customer was on. If the
    customer opens Report a visit without a selected shop, the page sends them to search first.

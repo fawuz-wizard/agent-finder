@@ -1,7 +1,5 @@
-import { useEffect } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Skeleton } from '@/design'
-import { usePendingVisit } from '@/hooks/usePendingVisit'
 import { RouteMap } from '@/features/map'
 import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
@@ -12,15 +10,14 @@ import { requestFrom, useAgentDetail } from './useAgentDetail'
 /**
  * The way to the agent, on its own screen: the map takes the page, with the shop's name and
  * distance above it and Call at the foot. The shop's details are the screen before this one,
- * so the customer has read what the agent can do before they set off. Opening this screen is
- * the customer setting off: it starts the "how did it go?" question, once, and only here.
+ * so the customer has read what the agent can do before they set off. Nothing is asked
+ * afterwards: a customer who wants to say how it went chooses Report a visit on the details.
  */
 export default function AgentDirectionsPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
   const req = requestFrom(params)
   const { agent, error } = useAgentDetail(id, req)
-  const { visit, remember } = usePendingVisit()
   const navigate = useNavigate()
   const location = useLocation()
   const detailsPath = `/agents/${id}${params.toString() ? `?${params.toString()}` : ''}`
@@ -30,12 +27,6 @@ export default function AgentDirectionsPage() {
   // link straight into this screen (no earlier entry, the "default" key) goes to the details
   // by path, replacing this entry so Back from there leaves the app's flow cleanly.
   const back = () => (location.key === 'default' ? navigate(detailsPath, { replace: true }) : navigate(-1))
-
-  // Taking directions is the visit. Remembered once per agent; the details screen never does this.
-  useEffect(() => {
-    if (agent && visit?.agentId !== agent.id) remember({ agentId: agent.id, agentName: agent.name, transaction: req.tx, amount: req.amount })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent?.id])
 
   if (error) {
     return (

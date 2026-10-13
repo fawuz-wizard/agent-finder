@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { readRecent, whenLabel } from '@/lib/recent'
 import { readPlaces, rememberPlace } from '@/lib/places'
@@ -14,7 +14,6 @@ import { PlaceSearch } from './components/PlaceSearch'
 import { pointFrom } from './searchPoint'
 // Loaded only when a visit is waiting to be reported, so the API client stays out of the
 // first customer payload.
-const OutcomePrompt = lazy(() => import('./OutcomePrompt').then((m) => ({ default: m.OutcomePrompt })))
 
 /**
  * U1 — Home, as the "Agent finder page" frame draws it: where you are, what you need,
@@ -220,9 +219,6 @@ export default function HomePage() {
         </Link>
       </nav>
 
-      <Suspense fallback={null}>
-        <OutcomePrompt />
-      </Suspense>
     </div>
   )
 }

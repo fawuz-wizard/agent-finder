@@ -18,11 +18,6 @@ export const config = {
   operatorFeed: ((env.VITE_OPERATOR_FEED as string | undefined) ?? 'off') === 'on',
   /** Results re-query cadence while the results screen is visible (architecture §9). */
   searchRefreshMs: 30_000,
-  /**
-   * How long after taking directions the outcome question appears. Fifteen minutes in a real
-   * deployment; seconds in demo mode so the reporting loop can be shown end to end.
-   */
-  outcomePromptAfterMs: ((env.VITE_AUTH_MODE as string | undefined) ?? 'demo') === 'demo' ? 20_000 : 15 * 60_000,
   maxResults: 10,
   /**
    * Which app this build is. One codebase ships as two installs: the customer's Agent Finder

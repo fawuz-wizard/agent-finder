@@ -81,7 +81,7 @@ If the only open agent inside 500 metres has weak evidence, show it prominently 
 4. Nearest shows the open core-area agents in distance order, including agents with unclear or weak evidence. Recommended agents may also appear here.
 5. If no likely core match exists, show a short no-match explanation, preserve the in-radius options, and add up to two farther options in a separate group.
 6. Tapping any agent opens its shop details first. Show name, location, open status, services, hours, distance, request-specific availability wording, and freshness.
-7. The customer chooses Get directions to open the map on the next screen (the map takes the page, with Call at the foot), Call if the agent opted in, or goes back to results. Looking at the shop is not a visit; opening directions is, and starts the outcome question once.
+7. The customer chooses Get directions to open the map on the next screen (the map takes the page, with Call at the foot), Call if the agent opted in, or goes back to results. Nothing is asked afterwards: a customer who wants to say how it went chooses Report a visit on the details and writes a comment.
 
 ## Results Screen States
 

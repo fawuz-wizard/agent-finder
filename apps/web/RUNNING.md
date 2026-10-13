@@ -26,11 +26,10 @@ Vite prints a local address, usually `http://localhost:5173`.
 | `/` | **The demo starts here.** Simulated host app home; tap the Agent Finder banner |
 | `/find` | Agent Finder home — choose a transaction and an amount |
 | `/search?tx=cash_out&amount=2000&area=Lumley` | Results, deep-linked |
-| `/agents/:id` and `/agents/:id/directions` | Shop details, then the way there on its own screen: the map takes the page, Call at the foot. Opening directions starts the outcome question |
+| `/agents/:id` and `/agents/:id/directions` | Shop details, then the way there on its own screen: the map takes the page, Call at the foot. Nothing is asked afterwards: Report a visit on the details is the customer's own choice |
 | `/how-availability-works` | Plain-language explanation |
 | `/report-a-visit` | Outcome report |
 
-The outcome prompt appears on the home screen about 20 seconds after taking directions (15 minutes in a live deployment — `outcomePromptAfterMs` in `src/lib/config.ts`).
 
 **Location.** `/find` asks the phone for its position (blunted to about 110 m before it is used
 anywhere) and searches the 500 m core around it; the results say "Distances from your location".

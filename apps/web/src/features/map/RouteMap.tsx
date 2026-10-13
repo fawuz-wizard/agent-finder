@@ -17,9 +17,6 @@ export interface RouteMapProps {
   originIsSimulated?: boolean
   /** Kept as a quiet secondary link for people who want their own maps app. */
   directions_url: string
-  /** The customer says they are going. Only then does the "how did it go?" question follow. */
-  onGoing?: () => void
-  going?: boolean
   /**
    * The map takes the whole screen: no travel-mode buttons and no "I'm going there", only the
    * map, the distance line and the quiet Maps link. The parent gives it the height.
@@ -129,7 +126,7 @@ function SketchRoute({ agent, origin, distance_m, fill = false }: { agent: Route
   )
 }
 
-export function RouteMap({ agent, origin, distance_m, directions_url, originIsSimulated = false, onGoing, going = false, fill = false }: RouteMapProps) {
+export function RouteMap({ agent, origin, distance_m, directions_url, originIsSimulated = false, fill = false }: RouteMapProps) {
   const [travelMode, setTravelMode] = useState<'walking' | 'driving'>('walking')
   const mapsUrl = new URL(directions_url)
   mapsUrl.searchParams.set('travelmode', travelMode)
@@ -156,26 +153,10 @@ export function RouteMap({ agent, origin, distance_m, directions_url, originIsSi
       <p className={fill ? 'px-5 pt-3 text-xs text-finder-muted' : 'text-xs text-muted'}>
         {origin ? `${originIsSimulated ? 'Simulated demo location · ' : ''}Straight-line distance, ${distanceText(distance_m)}, ${walkText(distance_m)}.` : 'Your location is not shared, so this shows the agent\'s area.'} Ask when you arrive.
       </p>
-      {!fill &&
-        onGoing &&
-        (going ? (
-          <p className="text-sm font-semibold text-success-strong" role="status">
-            Noted. We will ask how it went later — only once, and you can skip it.
-          </p>
-        ) : (
-          <button
-            type="button"
-            onClick={onGoing}
-            className="inline-flex h-control w-full items-center justify-center rounded-card border-2 border-brand-deep text-base font-bold text-brand-text"
-          >
-            I'm going there
-          </button>
-        ))}
       <a
         href={mapsUrl.toString()}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={onGoing}
         className={fill ? 'mx-5 self-start text-xs font-semibold text-finder-link underline' : 'self-start text-xs font-semibold text-brand-text underline'}
       >
         Open {travelMode} directions in Maps

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/design'
 import { ApiRequestError } from '@/lib/api'
-import { usePendingVisit } from '@/hooks/usePendingVisit'
 import { customerApi } from '@/services/customerApi'
 import type { VisitReport } from '@/types/public'
 
@@ -19,20 +18,19 @@ interface ReportVisitState {
   agentName?: unknown
 }
 
-function reportTarget(state: unknown, pending: { agentId: string; agentName: string } | null) {
+function reportTarget(state: unknown) {
   const candidate = state as ReportVisitState | null
   if (typeof candidate?.agentId === 'string' && typeof candidate.agentName === 'string') {
     return { agentId: candidate.agentId, agentName: candidate.agentName }
   }
-  return pending
+  return null
 }
 
 /** Leave a private comment for the Orange network about the shop currently in context. */
 export default function ReportVisitPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { visit, clear } = usePendingVisit()
-  const target = reportTarget(location.state, visit)
+  const target = reportTarget(location.state)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -81,10 +79,7 @@ export default function ReportVisitPage() {
           </p>
           <Button
             size="cta"
-            onClick={() => {
-              clear()
-              navigate('/find')
-            }}
+            onClick={() => navigate('/find')}
           >
             Done
           </Button>

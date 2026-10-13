@@ -98,23 +98,14 @@ describe('the directions screen', () => {
     at('/agents/af-0000/directions?tx=cash_out&amount=2000')
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not find that agent/i)
     expect(screen.getByRole('link', { name: /search again/i })).toHaveAttribute('href', '/find')
-    expect(sessionStorage.getItem('af.pendingVisit')).toBeNull()
   })
 })
 
-describe('taking directions is the visit', () => {
-  it('opening the screen starts the outcome question once, with the request the customer made', async () => {
+describe('nothing is asked after a visit', () => {
+  it('opening the map leaves no pending visit behind, so no question follows on the home screen', async () => {
     at('/agents/af-4821/directions?tx=cash_out&amount=2000')
     await screen.findByRole('img', { name: /sketch of the way to fatmata/i })
-    const pending = JSON.parse(sessionStorage.getItem('af.pendingVisit') ?? 'null')
-    expect(pending).toMatchObject({ agentId: 'af-4821', agentName: "Fatmata's Shop", transaction: 'cash_out', amount: 2000 })
-  })
-
-  it('does not restart the clock when the same agent\'s map is opened again', async () => {
-    const earlier = { agentId: 'af-4821', agentName: "Fatmata's Shop", transaction: 'cash_out', amount: 2000, at: Date.now() - 60_000 }
-    sessionStorage.setItem('af.pendingVisit', JSON.stringify(earlier))
-    at('/agents/af-4821/directions?tx=cash_out&amount=2000')
-    await screen.findByRole('img', { name: /sketch of the way to fatmata/i })
-    expect(JSON.parse(sessionStorage.getItem('af.pendingVisit') ?? 'null')).toEqual(earlier)
+    expect(sessionStorage.getItem('af.pendingVisit')).toBeNull()
+    expect(screen.queryByText(/we will ask how it went/i)).not.toBeInTheDocument()
   })
 })

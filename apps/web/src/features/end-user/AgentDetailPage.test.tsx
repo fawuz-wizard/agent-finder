@@ -122,10 +122,11 @@ describe('the details carry no praise', () => {
   })
 })
 
-describe('looking at the shop is not a visit', () => {
-  it('opening the details remembers nothing', async () => {
+describe('saying how it went is the customer\'s choice', () => {
+  it('offers Report a visit with the shop already chosen, and asks nothing by itself', async () => {
     at('/agents/af-4821?tx=cash_out&amount=2000')
     await screen.findByText("Fatmata's Shop")
+    expect(screen.getByRole('link', { name: /report a visit/i })).toHaveAttribute('href', '/report-a-visit')
     expect(sessionStorage.getItem('af.pendingVisit')).toBeNull()
     expect(screen.queryByRole('button', { name: /i'm going there/i })).not.toBeInTheDocument()
   })

@@ -82,7 +82,7 @@ If the only open agent inside 500 metres has weak evidence, show it prominently 
 4. Nearest shows the open core-area agents in distance order, including agents with unclear or weak evidence. Recommended agents may also appear here.
 5. If no likely core match exists, show a short no-match explanation, preserve the in-radius options, and add up to two farther options in a separate group.
 6. Tapping any agent opens its shop details first. Show name, location, open status, services, hours, distance, request-specific availability wording, and freshness.
-7. The customer chooses Get directions to open the map on the next screen (the map takes the page, with Call at the foot), Call if the agent opted in, or goes back to results. Looking at the shop is not a visit; opening directions is, and starts the outcome question once.
+7. The customer chooses Get directions to open the map on the next screen (the map takes the page, with Call at the foot), Call if the agent opted in, or goes back to results. Nothing is asked afterwards: a customer who wants to say how it went chooses Report a visit on the details and writes a comment.
 
 ## Results Screen States
 
@@ -168,7 +168,7 @@ The repository already has the customer search API, recommendation and nearest g
 ### Evidence reviewed
 
 - `apps/api/app/api/v1/search.py`: current search loads every `Agent`, calculates Haversine distance in Python, then filters to `FALLBACK_RADIUS_M = 20_000`; Recommended is capped at two, Nearest at ten, and farther options appear only when no likely 500 m match exists.
-- `apps/web/src/features/end-user/ResultsPage.tsx`, `AgentDetailPage.tsx`, and `OutcomeForm.tsx`: customer result states, details-first map reveal, and report comments are implemented.
+- `apps/web/src/features/end-user/ResultsPage.tsx`, `AgentDetailPage.tsx`, and `ReportVisitPage.tsx`: customer result states, details then the map on its own screen, and report comments are implemented.
 - `apps/web/src/features/end-user/HomePage.tsx`: area selection is wired; it does not invoke `useCoarseLocation`. `apps/web/src/hooks/useCoarseLocation.ts` exists but currently has no caller, so live GPS is not part of this customer path.
 - `apps/web/src/features/map/RouteMap.tsx`: the local map path explicitly labels simulated origin and straight-line distance; external directions use a Google Maps URL.
 - `apps/api/app/api/v1/agents.py`: public detail lookup fetches an agent by public ID without the visibility/open filtering applied in search; it may return opt-in contact details for an agent that is hidden from search.
