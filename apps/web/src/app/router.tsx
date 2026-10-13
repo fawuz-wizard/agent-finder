@@ -9,6 +9,7 @@ import { config } from '@/lib/config'
 const CustomerHome = lazy(() => import('@/features/end-user/HomePage'))
 const SearchResults = lazy(() => import('@/features/end-user/ResultsPage'))
 const AgentDetail = lazy(() => import('@/features/end-user/AgentDetailPage'))
+const AgentDirections = lazy(() => import('@/features/end-user/AgentDirectionsPage'))
 const HowAvailabilityWorks = lazy(() => import('@/features/end-user/HowAvailabilityWorksPage'))
 const ReportVisit = lazy(() => import('@/features/end-user/ReportVisitPage'))
 const SignIn = lazy(() => import('@/features/auth/SignInPage'))
@@ -48,6 +49,7 @@ const router = createBrowserRouter([
       { path: '/find', element: withSuspense(<CustomerHome />) },
       { path: '/search', element: withSuspense(<SearchResults />) },
       { path: '/agents/:id', element: withSuspense(<AgentDetail />) },
+      { path: '/agents/:id/directions', element: withSuspense(<AgentDirections />) },
       { path: '/how-availability-works', element: withSuspense(<HowAvailabilityWorks />) },
       { path: '/report-a-visit', element: withSuspense(<ReportVisit />) },
     ],

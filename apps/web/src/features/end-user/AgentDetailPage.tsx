@@ -1,18 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Skeleton } from '@/design'
 import { customerApi } from '@/services/customerApi'
 import { ApiRequestError } from '@/lib/api'
 import { rememberRecent } from '@/lib/recent'
-import { usePendingVisit } from '@/hooks/usePendingVisit'
-import { TRANSACTION_LABELS, type AgentDetail, type TransactionType } from '@/types/public'
-import { RouteMap } from '@/features/map'
+import { TRANSACTION_LABELS, type TransactionType } from '@/types/public'
 import { ServiceStatus } from './components/ServiceStatus'
 import { FreshnessBadge } from './components/FreshnessBadge'
 import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
 import { FinderCta, FinderHeader, PinIcon } from './components/finder'
-import { pointFrom } from './searchPoint'
+import { DirectionsIcon, PhoneIcon, actionClass } from './components/actions'
+import { requestFrom, useAgentDetail } from './useAgentDetail'
 import { photoSrc } from '@/lib/photo'
 
 function ratingToken(): string {
@@ -50,47 +49,25 @@ const StarIcon = (
     <path d="M9 1.5l2.3 4.8 5.2.7-3.8 3.6.9 5.2L9 13.3l-4.6 2.5.9-5.2L1.5 7l5.2-.7z" fill="currentColor" />
   </svg>
 )
-const PhoneIcon = (
-  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-    <path d="M4 2h3l1.5 3.5L6.8 7a9 9 0 004.2 4.2l1.5-1.7L16 11v3a1.5 1.5 0 01-1.6 1.5A13 13 0 012.5 3.6 1.5 1.5 0 014 2z" fill="currentColor" />
-  </svg>
-)
-const DirectionsIcon = (
-  <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-    <path d="M10 1.5l8.5 8.5-8.5 8.5L1.5 10z" fill="currentColor" />
-    <path d="M7.5 11.5v-2.5h4V7.5l2.5 2.5-2.5 2.5V11h-2.5v1.5z" fill="var(--color-finder-link)" />
-  </svg>
-)
-
 /**
  * Agent detail, as the "Agent details page" frames draw it: a picture of the shop, then a
  * sheet, dark like the rest of the module, with the name, how far and whether it is open, rating, where, phone, the
  * services, the hours, and Call / Get Directions at the foot. Our own answer to the
  * customer's request sits right under the name, because that is what they came for.
+ * Shop details always come before the map: Get Directions opens the next screen.
  */
 export default function AgentDetailPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
-  const [agent, setAgent] = useState<AgentDetail | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const { visit, remember } = usePendingVisit()
-  // Shop details always appear before the map. Looking at either is not a visit:
-  // only "I'm going there" starts the outcome question.
-  const [showMap, setShowMap] = useState(false)
-  const mapRef = useRef<HTMLDivElement>(null)
+  const { agent, error } = useAgentDetail(id, requestFrom(params))
   const [rating, setRating] = useState<number | null>(null)
   const [ratingState, setRatingState] = useState<'idle' | 'sending' | 'sent'>('idle')
   const [ratingError, setRatingError] = useState<string | null>(null)
-
-  const tx = (params.get('tx') as TransactionType | null) ?? null
-  const amount = params.get('amount') ? Number(params.get('amount')) : null
-  const area = params.get('area') ?? 'Lumley'
-  const point = pointFrom(params)
-  const pointKey = point ? `${point.lat},${point.lng}` : ''
+  const directionsPath = `/agents/${id}/directions${params.toString() ? `?${params.toString()}` : ''}`
 
   useEffect(() => {
-    if (showMap) mapRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-  }, [showMap])
+    if (agent) rememberRecent({ id: agent.id, name: agent.name, area: agent.area })
+  }, [agent])
 
   async function submitRating() {
     if (!rating || ratingState === 'sending') return
@@ -113,27 +90,6 @@ export default function AgentDetailPage() {
       setRatingError(e instanceof ApiRequestError ? e.error.message : e instanceof Error ? e.message : 'We could not save your rating. Please try again.')
     }
   }
-
-  useEffect(() => {
-    const ctrl = new AbortController()
-    setError(null)
-    customerApi
-      .agent(id, { transaction: tx, amount_sle: amount, area, ...(point ?? {}) }, ctrl.signal)
-      .then((a) => {
-        setAgent(a)
-        rememberRecent({ id: a.id, name: a.name, area: a.area })
-      })
-      .catch((e: unknown) => {
-        if (e instanceof DOMException && e.name === 'AbortError') return
-        setError(
-          e instanceof ApiRequestError
-            ? e.error.message
-            : 'We could not find that agent. It may have been removed from the network.',
-        )
-      })
-    return () => ctrl.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, tx, amount, area, pointKey])
 
   if (error) {
     return (
@@ -158,8 +114,6 @@ export default function AgentDetailPage() {
   }
 
   const services = ['Orange Money', ...(Object.keys(TRANSACTION_LABELS) as TransactionType[]).map((k) => TRANSACTION_LABELS[k])]
-  const actionClass =
-    'flex h-[2.5rem] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
 
   return (
     <div className="flex flex-1 flex-col bg-finder-bg text-white">
@@ -224,20 +178,6 @@ export default function AgentDetailPage() {
         <h2 className="mt-6 text-xl font-bold">Opening Hours</h2>
         <p className="mt-3 text-base font-medium text-finder-muted">{agent.hours_text}</p>
 
-        <div ref={mapRef} id="agent-directions-map" className={showMap ? 'mt-6 scroll-mt-4' : 'hidden'}>
-          {showMap && (
-            <RouteMap
-              agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }}
-              origin={agent.origin}
-              distance_m={agent.distance_m}
-              originIsSimulated={!point}
-              directions_url={agent.directions_url}
-              going={visit?.agentId === agent.id}
-              onGoing={() => remember({ agentId: agent.id, agentName: agent.name, transaction: tx, amount })}
-            />
-          )}
-        </div>
-
         <section className="mt-6 rounded-field bg-finder-bg p-4 shadow-inset-finder">
           <h2 className="text-base font-bold">Rate this agent</h2>
           <p className="mt-1 text-sm font-medium text-finder-muted">Any Max it user can rate. You do not need a completed transaction.</p>
@@ -293,16 +233,10 @@ export default function AgentDetailPage() {
             Call
           </a>
         )}
-        <button
-          type="button"
-          aria-expanded={showMap}
-          aria-controls="agent-directions-map"
-          onClick={() => setShowMap((v) => !v)}
-          className={actionClass}
-        >
+        <Link to={directionsPath} className={actionClass}>
           {DirectionsIcon}
-          {showMap ? 'Hide map' : 'Get Directions'}
-        </button>
+          Get Directions
+        </Link>
       </div>
     </div>
   )

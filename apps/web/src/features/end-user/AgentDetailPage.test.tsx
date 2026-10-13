@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentDetailPage from './AgentDetailPage'
@@ -43,30 +42,27 @@ describe("the shop's photo", () => {
   })
 })
 
-describe('directions stay inside the app', () => {
-  it('opens the way to the agent under the agent, never in another app', async () => {
-    const user = userEvent.setup()
-    at('/agents/af-4821?tx=cash_out&amount=2000')
+describe('directions are the next screen, inside the app', () => {
+  it('shows no map on the details; Get Directions leads to the directions screen with the same request', async () => {
+    at('/agents/af-4821?tx=cash_out&amount=2000&lat=8.4405&lng=-13.2795')
     await screen.findByText("Fatmata's Shop")
     expect(screen.queryByRole('img', { name: /way to fatmata/i })).not.toBeInTheDocument()
-    const cta = screen.getByRole('button', { name: /get directions/i })
-    expect(cta).toHaveAttribute('aria-expanded', 'false')
-    await user.click(cta)
-    const sketch = await screen.findByRole('img', { name: /sketch of the way to fatmata's shop: 300 m to the/i })
-    expect(sketch).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /hide map/i })).toHaveAttribute('aria-expanded', 'true')
-    // The maps-app hand-off is still there, but quiet and secondary.
-    expect(screen.getByRole('link', { name: /open walking directions in maps/i })).toHaveAttribute('target', '_blank')
+    expect(screen.queryByRole('button', { name: /hide map/i })).not.toBeInTheDocument()
+    const cta = screen.getByRole('link', { name: /get directions/i })
+    expect(cta).toHaveAttribute('href', '/agents/af-4821/directions?tx=cash_out&amount=2000&lat=8.4405&lng=-13.2795')
+    expect(cta).not.toHaveAttribute('target')
   })
 
-  it('keeps the map closed until the customer chooses directions', async () => {
-    const user = userEvent.setup()
-    at('/agents/af-4821?tx=cash_out&amount=2000&map=1')
+  it('Call and Get Directions read in white on the orange buttons', async () => {
+    at('/agents/af-4821?tx=cash_out&amount=2000')
     await screen.findByText("Fatmata's Shop")
-    expect(screen.queryByRole('img', { name: /sketch of the way to fatmata/i })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /get directions/i }))
-    expect(await screen.findByRole('img', { name: /sketch of the way to fatmata/i })).toBeInTheDocument()
-    expect(screen.getByText(/straight-line distance, 300 m, about 4 min walk/i)).toBeInTheDocument()
+    const directions = screen.getByRole('link', { name: /get directions/i })
+    const call = screen.getByRole('link', { name: /^call$/i })
+    for (const el of [directions, call]) {
+      expect(el).toHaveClass('text-white')
+      expect(el).not.toHaveClass('text-finder-on-orange')
+    }
+    expect(call).toHaveAttribute('href', expect.stringMatching(/^tel:/))
   })
 
   it('the results card opens the shop details before directions', () => {
@@ -96,30 +92,19 @@ describe('directions stay inside the app', () => {
 })
 
 describe('distances from the customer\'s own position', () => {
-  it('measures from the shared point and no longer calls the origin simulated', async () => {
-    const user = userEvent.setup()
+  it('measures from the shared point', async () => {
     at('/agents/af-4821?tx=cash_out&amount=2000&lat=8.4405&lng=-13.2795')
     await screen.findByText("Fatmata's Shop")
     // The blunted point (~110 m grid) lands about 80 m from her shop: a real, short distance.
     expect(screen.getByLabelText(/^\d{2} m away$/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /get directions/i }))
-    expect(await screen.findByText(/Straight-line distance/)).toBeInTheDocument()
-    expect(screen.queryByText(/Simulated demo location/)).not.toBeInTheDocument()
   })
 })
 
-describe('the outcome question follows a visit, not a look', () => {
-  it('opening the map remembers nothing; "I\'m going there" starts the visit once', async () => {
-    const user = userEvent.setup()
+describe('looking at the shop is not a visit', () => {
+  it('opening the details remembers nothing', async () => {
     at('/agents/af-4821?tx=cash_out&amount=2000')
     await screen.findByText("Fatmata's Shop")
-    await user.click(screen.getByRole('button', { name: /get directions/i }))
-    await screen.findByRole('img', { name: /sketch of the way to fatmata/i })
     expect(sessionStorage.getItem('af.pendingVisit')).toBeNull()
-    await user.click(screen.getByRole('button', { name: /i'm going there/i }))
-    const pending = JSON.parse(sessionStorage.getItem('af.pendingVisit') ?? 'null')
-    expect(pending).toMatchObject({ agentId: 'af-4821', agentName: "Fatmata's Shop", transaction: 'cash_out', amount: 2000 })
-    expect(screen.getByRole('status')).toHaveTextContent(/only once, and you can skip it/i)
     expect(screen.queryByRole('button', { name: /i'm going there/i })).not.toBeInTheDocument()
   })
 })
