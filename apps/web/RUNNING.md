@@ -26,7 +26,7 @@ Vite prints a local address, usually `http://localhost:5173`.
 | `/` | **The demo starts here.** Simulated host app home; tap the Agent Finder banner |
 | `/find` | Agent Finder home — choose a transaction and an amount |
 | `/search?tx=cash_out&amount=2000&area=Lumley` | Results, deep-linked |
-| `/agents/:id` and `/agents/:id/directions` | Shop details, then the way there on its own screen (map, walk, "I'm going there", Call) |
+| `/agents/:id` and `/agents/:id/directions` | Shop details, then the way there on its own screen: the map takes the page, Call at the foot. Opening directions starts the outcome question |
 | `/how-availability-works` | Plain-language explanation |
 | `/report-a-visit` | Outcome report |
 

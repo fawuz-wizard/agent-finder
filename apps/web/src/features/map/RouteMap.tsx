@@ -20,6 +20,11 @@ export interface RouteMapProps {
   /** The customer says they are going. Only then does the "how did it go?" question follow. */
   onGoing?: () => void
   going?: boolean
+  /**
+   * The map takes the whole screen: no travel-mode buttons and no "I'm going there", only the
+   * map, the distance line and the quiet Maps link. The parent gives it the height.
+   */
+  fill?: boolean
 }
 
 function distanceText(m: number): string {
@@ -44,7 +49,7 @@ function compass(east: number, north: number): string {
   return names[Math.round(deg / 45) % 8]!
 }
 
-function LiveRoute({ agent, origin }: { agent: RouteMapProps['agent']; origin: LatLng | null }) {
+function LiveRoute({ agent, origin, className }: { agent: RouteMapProps['agent']; origin: LatLng | null; className: string }) {
   const onReady = useCallback(
     (map: google.maps.Map, marker: google.maps.MarkerLibrary) => {
       const here = { lat: agent.lat, lng: agent.lng }
@@ -65,13 +70,14 @@ function LiveRoute({ agent, origin }: { agent: RouteMapProps['agent']; origin: L
     },
     [agent.lat, agent.lng, agent.name, origin],
   )
-  return <GoogleMap center={{ lat: agent.lat, lng: agent.lng }} zoom={16} className="h-56 w-full" onReady={onReady} />
+  return <GoogleMap center={{ lat: agent.lat, lng: agent.lng }} zoom={16} className={className} onReady={onReady} />
 }
 
 /** No Maps key (or offline): the same two points as a sketch. Scaled to fit, north up. */
-function SketchRoute({ agent, origin, distance_m }: { agent: RouteMapProps['agent']; origin: LatLng | null; distance_m: number }) {
+function SketchRoute({ agent, origin, distance_m, fill = false }: { agent: RouteMapProps['agent']; origin: LatLng | null; distance_m: number; fill?: boolean }) {
+  // A card-sized landscape sketch, or a portrait one that covers the whole screen.
   const W = 320
-  const H = 220
+  const H = fill ? 560 : 220
   const pad = 44
   const here = { lat: agent.lat, lng: agent.lng }
   const off = origin ? offsetMetres(origin, here) : { east: 0, north: 0 }
@@ -88,7 +94,13 @@ function SketchRoute({ agent, origin, distance_m }: { agent: RouteMapProps['agen
     ? `Sketch of the way to ${agent.name}: ${distanceText(distance_m)} to the ${heading}, ${walkText(distance_m)}`
     : `Sketch showing ${agent.name}'s location`
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} className="h-56 w-full rounded-card border border-line bg-canvas">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio={fill ? 'xMidYMid slice' : 'xMidYMid meet'}
+      role="img"
+      aria-label={label}
+      className={fill ? 'h-full w-full bg-canvas' : 'h-56 w-full rounded-card border border-line bg-canvas'}
+    >
       <defs>
         <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
           <path d="M 24 0 L 0 0 0 24" fill="none" stroke="currentColor" strokeOpacity="0.08" />
@@ -117,26 +129,35 @@ function SketchRoute({ agent, origin, distance_m }: { agent: RouteMapProps['agen
   )
 }
 
-export function RouteMap({ agent, origin, distance_m, directions_url, originIsSimulated = false, onGoing, going = false }: RouteMapProps) {
+export function RouteMap({ agent, origin, distance_m, directions_url, originIsSimulated = false, onGoing, going = false, fill = false }: RouteMapProps) {
   const [travelMode, setTravelMode] = useState<'walking' | 'driving'>('walking')
   const mapsUrl = new URL(directions_url)
   mapsUrl.searchParams.set('travelmode', travelMode)
   if (origin) mapsUrl.searchParams.set('origin', `${origin.lat},${origin.lng}`)
 
   return (
-    <section aria-label={`Way to ${agent.name}`} className="flex flex-col gap-2">
-      {config.googleMapsApiKey ? <LiveRoute agent={agent} origin={origin} /> : <SketchRoute agent={agent} origin={origin} distance_m={distance_m} />}
-      <div className="flex gap-2" role="group" aria-label="Directions travel mode">
-        {(['walking', 'driving'] as const).map((mode) => (
-          <button key={mode} type="button" aria-pressed={travelMode === mode} onClick={() => setTravelMode(mode)} className={`h-10 flex-1 rounded-card border text-sm font-semibold capitalize transition-colors ${travelMode === mode ? 'border-brand bg-brand text-ink' : 'border-line bg-paper text-ink'}`}>
-            {mode}
-          </button>
-        ))}
+    <section aria-label={`Way to ${agent.name}`} className={fill ? 'flex h-full min-h-0 flex-col' : 'flex flex-col gap-2'}>
+      <div className={fill ? 'min-h-0 flex-1' : undefined}>
+        {config.googleMapsApiKey ? (
+          <LiveRoute agent={agent} origin={origin} className={fill ? 'h-full w-full' : 'h-56 w-full'} />
+        ) : (
+          <SketchRoute agent={agent} origin={origin} distance_m={distance_m} fill={fill} />
+        )}
       </div>
-      <p className="text-xs text-muted">
+      {!fill && (
+        <div className="flex gap-2" role="group" aria-label="Directions travel mode">
+          {(['walking', 'driving'] as const).map((mode) => (
+            <button key={mode} type="button" aria-pressed={travelMode === mode} onClick={() => setTravelMode(mode)} className={`h-10 flex-1 rounded-card border text-sm font-semibold capitalize transition-colors ${travelMode === mode ? 'border-brand bg-brand text-ink' : 'border-line bg-paper text-ink'}`}>
+              {mode}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className={fill ? 'px-5 pt-3 text-xs text-finder-muted' : 'text-xs text-muted'}>
         {origin ? `${originIsSimulated ? 'Simulated demo location · ' : ''}Straight-line distance, ${distanceText(distance_m)}, ${walkText(distance_m)}.` : 'Your location is not shared, so this shows the agent\'s area.'} Ask when you arrive.
       </p>
-      {onGoing &&
+      {!fill &&
+        onGoing &&
         (going ? (
           <p className="text-sm font-semibold text-success-strong" role="status">
             Noted. We will ask how it went later — only once, and you can skip it.
@@ -155,7 +176,7 @@ export function RouteMap({ agent, origin, distance_m, directions_url, originIsSi
         target="_blank"
         rel="noopener noreferrer"
         onClick={onGoing}
-        className="self-start text-xs font-semibold text-brand-text underline"
+        className={fill ? 'mx-5 self-start text-xs font-semibold text-finder-link underline' : 'self-start text-xs font-semibold text-brand-text underline'}
       >
         Open {travelMode} directions in Maps
       </a>

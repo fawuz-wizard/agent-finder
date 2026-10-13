@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Skeleton } from '@/design'
 import { usePendingVisit } from '@/hooks/usePendingVisit'
@@ -9,10 +10,10 @@ import { PhoneIcon, actionClass } from './components/actions'
 import { requestFrom, useAgentDetail } from './useAgentDetail'
 
 /**
- * The way to the agent, on its own screen: the map and the walk, Walking or Driving,
- * "I'm going there", and Call. The shop's details are the screen before this one, so the
- * customer has read what the agent can do before they set off. Looking at the map is not a
- * visit; only "I'm going there" starts the outcome question.
+ * The way to the agent, on its own screen: the map takes the page, with the shop's name and
+ * distance above it and Call at the foot. The shop's details are the screen before this one,
+ * so the customer has read what the agent can do before they set off. Opening this screen is
+ * the customer setting off: it starts the "how did it go?" question, once, and only here.
  */
 export default function AgentDirectionsPage() {
   const { id = '' } = useParams()
@@ -21,6 +22,12 @@ export default function AgentDirectionsPage() {
   const { agent, error } = useAgentDetail(id, req)
   const { visit, remember } = usePendingVisit()
   const detailsPath = `/agents/${id}${params.toString() ? `?${params.toString()}` : ''}`
+
+  // Taking directions is the visit. Remembered once per agent; the details screen never does this.
+  useEffect(() => {
+    if (agent && visit?.agentId !== agent.id) remember({ agentId: agent.id, agentName: agent.name, transaction: req.tx, amount: req.amount })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent?.id])
 
   if (error) {
     return (
@@ -45,11 +52,11 @@ export default function AgentDirectionsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-finder-bg text-white">
-      <div className="flex flex-1 flex-col px-5 pb-28 pt-4">
+    <div className="flex min-h-0 flex-1 flex-col bg-finder-bg text-white">
+      <div className="px-5 pt-4">
         <FinderHeader back={detailsPath} title="Directions" />
-        <h1 className="mt-4 text-xl font-bold leading-tight">{agent.name}</h1>
-        <p className="mt-1 flex items-center gap-2 text-[0.95rem] font-medium text-finder-muted">
+        <h1 className="mt-3 text-xl font-bold leading-tight">{agent.name}</h1>
+        <p className="mb-3 mt-1 flex items-center gap-2 text-[0.95rem] font-medium text-finder-muted">
           <span aria-hidden="true" className="flex w-5 shrink-0 justify-center">
             <PinIcon size={18} />
           </span>
@@ -57,18 +64,17 @@ export default function AgentDirectionsPage() {
           <span aria-hidden="true">•</span>
           <DistanceLabel metres={agent.distance_m} />
         </p>
+      </div>
 
-        <div className="mt-5">
-          <RouteMap
-            agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }}
-            origin={agent.origin}
-            distance_m={agent.distance_m}
-            originIsSimulated={!req.point}
-            directions_url={agent.directions_url}
-            going={visit?.agentId === agent.id}
-            onGoing={() => remember({ agentId: agent.id, agentName: agent.name, transaction: req.tx, amount: req.amount })}
-          />
-        </div>
+      <div className="min-h-[24rem] flex-1">
+        <RouteMap
+          fill
+          agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }}
+          origin={agent.origin}
+          distance_m={agent.distance_m}
+          originIsSimulated={!req.point}
+          directions_url={agent.directions_url}
+        />
       </div>
 
       {agent.call_url && (
