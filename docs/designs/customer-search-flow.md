@@ -77,6 +77,7 @@ If the only open agent inside 500 metres has weak evidence, show it prominently 
 1. Customer chooses Cash In or Cash Out, enters an amount, and selects an area or simulated location.
 2. Search finds open agents within the 500 metre core area.
 3. Recommended shows agents with the strongest relevant activity evidence and the status “Can likely handle your request.” This is a likelihood statement, not a promise.
+   On the shop's own details page the positive phrase is not repeated: it read like a reputation badge there. The details show the request and how fresh the picture is, and a caution only when there is one.
 4. Nearest shows the open core-area agents in distance order, including agents with unclear or weak evidence. Recommended agents may also appear here.
 5. If no likely core match exists, show a short no-match explanation, preserve the in-radius options, and add up to two farther options in a separate group.
 6. Tapping any agent opens its shop details first. Show name, location, open status, services, hours, distance, request-specific availability wording, and freshness.

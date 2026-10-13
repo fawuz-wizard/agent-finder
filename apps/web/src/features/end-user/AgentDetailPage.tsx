@@ -160,9 +160,11 @@ export default function AgentDetailPage() {
           {agent.call_url && <Row icon={PhoneIcon}>{phoneText(agent.call_url)}</Row>}
         </div>
 
+        {/* The request, how fresh the picture is, and a caution when there is one. No praise:
+            "can likely handle" read like a reputation badge here, so the good case says nothing. */}
         <section className="mt-5 flex flex-col gap-2 rounded-field bg-finder-bg p-4 shadow-inset-finder" aria-label="Your request">
           <p className="text-xs font-bold uppercase tracking-wider text-finder-muted">{agent.request_label}</p>
-          <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} size="lg" />
+          {agent.outcome !== 'likely' && <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} size="lg" />}
           <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
         </section>
 

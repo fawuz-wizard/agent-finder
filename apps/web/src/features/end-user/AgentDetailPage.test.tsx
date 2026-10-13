@@ -100,6 +100,26 @@ describe('distances from the customer\'s own position', () => {
   })
 })
 
+describe('the details carry no praise', () => {
+  it('says nothing when the agent can likely handle the request, only the request and how fresh the picture is', async () => {
+    at('/agents/af-4821?tx=cash_out&amount=2000')
+    await screen.findByText("Fatmata's Shop")
+    const section = screen.getByRole('region', { name: /your request/i })
+    expect(section).toHaveTextContent(/for cash out · SLE 2,000/i)
+    expect(section).toHaveTextContent(/updated/i)
+    expect(screen.queryByText(/can likely handle your request/i)).not.toBeInTheDocument()
+  })
+
+  it('still cautions when the agent may not cover the amount', async () => {
+    const real = await customerApi.agent('af-4821', { transaction: 'cash_out', amount_sle: 2000, area: 'Lumley' })
+    const spy = vi.spyOn(customerApi, 'agent').mockResolvedValue({ ...real, outcome: 'limited', outcome_text: 'Limited — may not cover this amount' })
+    at('/agents/af-4821?tx=cash_out&amount=2000')
+    await screen.findByText("Fatmata's Shop")
+    expect(screen.getByText(/limited — may not cover this amount/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+})
+
 describe('looking at the shop is not a visit', () => {
   it('opening the details remembers nothing', async () => {
     at('/agents/af-4821?tx=cash_out&amount=2000')
