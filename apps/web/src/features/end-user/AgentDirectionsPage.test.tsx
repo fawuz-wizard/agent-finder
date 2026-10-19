@@ -77,12 +77,12 @@ describe('the directions screen', () => {
     expect(screen.queryByText(/Simulated demo location/)).not.toBeInTheDocument()
   })
 
-  it('offers Call in white on orange when the agent takes calls', async () => {
+  it('offers Call in black on orange when the agent takes calls', async () => {
     at('/agents/af-4821/directions?tx=cash_out&amount=2000')
     await screen.findByRole('heading', { name: "Fatmata's Shop" })
     const call = screen.getByRole('link', { name: /^call$/i })
     expect(call).toHaveAttribute('href', expect.stringMatching(/^tel:/))
-    expect(call).toHaveClass('text-white')
+    expect(call).toHaveClass('text-finder-on-orange')
   })
 
   it('leaves Call out when the agent keeps the phone private', async () => {

@@ -42,15 +42,16 @@ export function AmountInput({
           aria-describedby={`${id}-help`}
           onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, '').slice(0, 7))}
           placeholder="0"
-          className="h-full w-full min-w-0 bg-transparent text-3xl font-bold tabular-nums text-white outline-none placeholder:text-finder-muted/50"
+          className="h-full w-full min-w-0 bg-transparent text-3xl font-bold tabular-nums text-white outline-none placeholder:text-finder-muted/80"
         />
       </FinderBox>
       <p id={`${id}-help`} className={`-mt-1 text-[0.95rem] font-medium ${error ? 'text-danger' : 'text-finder-muted'}`}>
         {helper}
       </p>
       {/* The usual amounts, one tap each: the same pills as the transaction choice, smaller. */}
-      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Quick amounts">
-        {QUICK.map((q) => (
+      <div className="relative -mx-5">
+        <div className="flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Quick amounts">
+          {QUICK.map((q) => (
           <button
             key={q}
             type="button"
@@ -63,6 +64,9 @@ export function AmountInput({
             {q.toLocaleString('en-US')}
           </button>
         ))}
+        </div>
+        {/* The strip scrolls sideways; the fade says so on a phone where the last pill is off-screen. */}
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-finder-bg to-transparent" />
       </div>
     </div>
   )

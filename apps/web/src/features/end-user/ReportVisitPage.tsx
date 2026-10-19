@@ -95,7 +95,7 @@ export default function ReportVisitPage() {
                 onChange={(event) => setComment(event.target.value)}
                 rows={7}
                 placeholder="For example: asked to pay extra, had less than I needed, or served quickly."
-                className="block min-h-44 w-full resize-y bg-transparent p-4 text-base font-medium text-white outline-none placeholder:text-finder-muted/60"
+                className="block min-h-44 w-full resize-y bg-transparent p-4 text-base font-medium text-white outline-none placeholder:text-finder-muted/80"
               />
             </FinderBox>
             <span className="text-sm font-medium text-finder-muted">

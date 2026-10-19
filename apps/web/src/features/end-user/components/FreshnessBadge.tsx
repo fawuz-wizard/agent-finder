@@ -6,9 +6,9 @@ import type { FreshnessState } from '@/types/public'
  */
 const FILL: Record<FreshnessState, number> = { fresh: 1, aging: 0.66, may_have_changed: 0.33, expired: 0 }
 const COLOUR: Record<FreshnessState, string> = {
-  fresh: 'text-muted',
-  aging: 'text-warning',
-  may_have_changed: 'text-warning',
+  fresh: 'text-finder-muted',
+  aging: 'text-finder-star',
+  may_have_changed: 'text-finder-star',
   expired: 'text-danger',
 }
 

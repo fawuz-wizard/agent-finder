@@ -106,9 +106,10 @@
   --color-finder-link: #fa7211;        /* text links, pills, Call / Get directions */
   --color-finder-cta: #ff7900;         /* the one big button */
   --color-finder-on-orange: #000000;   /* Orange's rule: black text on orange, never white */
-  --color-finder-likely: #3fa36b;
+  --color-finder-likely: #3fa36b;      /* on the dark surface: 5.3:1 */
+  --color-finder-likely-ink: #27794b;  /* the same green for text on its tint: 4.7:1 (the mid green is 2.8:1 there) */
   --color-finder-likely-tint: #dff5e7;
-  --color-finder-limited: #8a6a1b;     /* file has #d9b26f; darkened to read on the tint */
+  --color-finder-limited: #7a5d14;     /* file has #d9b26f; darkened to read on the tint, 5.0:1 */
   --color-finder-limited-tint: #f4e7b5;
   --color-finder-open: #03ca55;
   --color-finder-star: #ffb84a;

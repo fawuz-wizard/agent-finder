@@ -9,7 +9,7 @@ import { photoSrc } from '@/lib/photo'
 /**
  * One result as a row, not a box: the shop's name and how far, the street, then the figure
  * and its bar, a freshness line only when the picture is not fresh, and Get details. Rows
- * are separated by space and a hairline; the best match keeps the file's orange edge and panel.
+ * are separated by space and a hairline; the best match is the one in the file's orange-edged panel.
  */
 export function AgentResultCard({
   agent,
@@ -24,7 +24,6 @@ export function AgentResultCard({
   const rated = agent.rating_count != null && agent.rating_count >= 3 && agent.rating_average != null
   const body = (
     <>
-      {recommended && <p className="text-xs font-bold uppercase tracking-wider text-finder-link">Best match</p>}
       <div className="flex items-start gap-4">
         {photo && <img src={photo} alt="" className="h-14 w-14 shrink-0 rounded-field object-cover" />}
         <div className="min-w-0 flex-1">

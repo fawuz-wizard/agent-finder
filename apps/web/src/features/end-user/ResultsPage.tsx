@@ -119,12 +119,26 @@ export default function ResultsPage() {
           <>
             {lists.recommended.length > 0 && (
               <>
-                <div role="tablist" aria-label="How to order the agents" className="flex h-[2.5rem] rounded-field bg-finder-line">
+                <div
+                  role="tablist"
+                  aria-label="How to order the agents"
+                  className="flex h-[2.5rem] rounded-field bg-finder-line"
+                  onKeyDown={(e) => {
+                    const keys: Record<string, View> = { ArrowLeft: 'recommended', Home: 'recommended', ArrowRight: 'nearest', End: 'nearest' }
+                    const next = keys[e.key]
+                    if (!next) return
+                    e.preventDefault()
+                    setView(next)
+                    e.currentTarget.querySelector<HTMLButtonElement>(`[data-view="${next}"]`)?.focus()
+                  }}
+                >
                   {(['recommended', 'nearest'] as const).map((v) => (
                     <button
                       key={v}
                       type="button"
                       role="tab"
+                      data-view={v}
+                      tabIndex={view === v ? 0 : -1}
                       aria-selected={view === v}
                       onClick={() => setView(v)}
                       className={`h-full flex-1 rounded-field text-base font-bold ${view === v ? 'bg-finder-bg text-white shadow-inset-finder' : 'text-white/80'}`}

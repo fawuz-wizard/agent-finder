@@ -16,7 +16,7 @@ export function LocationPromptCard({
   onSearchPlace: () => void
 }) {
   return (
-    <div className="mt-4 flex flex-col gap-3 border-l-2 border-finder-star pl-4" role="status">
+    <div className="mt-4 flex flex-col gap-3" role="status">
       <p className="text-base font-bold">{problem.title}</p>
       <p className="text-sm font-medium text-finder-muted">{problem.advice}</p>
       <div className="flex flex-wrap gap-3 pt-1">

@@ -17,7 +17,7 @@ export function ServedLikelihood({ agent, size = 'md' }: { agent: Served; size?:
   const prefix = `${pct}%`
   const caption = sentence.startsWith(prefix) ? sentence.slice(prefix.length).trim() : sentence
   const big = size === 'lg'
-  const tone = good ? 'bg-finder-likely-tint text-finder-likely' : 'bg-finder-limited-tint text-finder-limited'
+  const tone = good ? 'bg-finder-likely-tint text-finder-likely-ink' : 'bg-finder-limited-tint text-finder-limited'
   return (
     <div className={`flex flex-col rounded-tag ${tone} ${big ? 'gap-2 px-4 py-3' : 'gap-1.5 px-3 py-2'}`} role="group" aria-label={sentence}>
       <div className="flex items-baseline gap-2">

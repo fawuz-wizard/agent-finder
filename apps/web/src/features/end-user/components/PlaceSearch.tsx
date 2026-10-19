@@ -50,7 +50,7 @@ export function PlaceSearch({ recents, onPick }: { recents: Place[]; onPick: (pl
           placeholder="e.g. Aberdeen, Kissy Road, Bo"
           autoFocus
           enterKeyHint="search"
-          className="h-full w-full min-w-0 bg-transparent text-base font-bold text-white outline-none placeholder:font-medium placeholder:text-finder-muted/60"
+          className="h-full w-full min-w-0 bg-transparent text-base font-bold text-white outline-none placeholder:font-medium placeholder:text-finder-muted/80"
         />
       </FinderBox>
       <p id={`${id}-h`} className="text-sm font-medium text-finder-muted" aria-live="polite">

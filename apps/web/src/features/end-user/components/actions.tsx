@@ -1,9 +1,10 @@
 /**
- * The two actions at the foot of a shop's screens: Call and Get Directions. Orange, with
- * white text and icon, as the testers asked, so they read at arm's length on a phone.
+ * The two actions at the foot of a shop's screens: Call and Get Directions. Orange with black
+ * text and icon, Orange's own rule: white on this orange measures 2.8:1, black 7.5:1, so black
+ * is what reads at arm's length in sunlight.
  */
 export const actionClass =
-  'flex h-[2.5rem] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-white transition-[filter] hover:brightness-95 active:brightness-90'
+  'flex h-[2.5rem] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
 
 export const PhoneIcon = (
   <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">

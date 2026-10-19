@@ -53,14 +53,14 @@ describe('directions are the next screen, inside the app', () => {
     expect(cta).not.toHaveAttribute('target')
   })
 
-  it('Call and Get Directions read in white on the orange buttons', async () => {
+  it('Call and Get Directions read in black on the orange buttons, as Orange\'s rule and the contrast standard ask', async () => {
     at('/agents/af-4821?tx=cash_out&amount=2000')
     await screen.findByText("Fatmata's Shop")
     const directions = screen.getByRole('link', { name: /get directions/i })
     const call = screen.getByRole('link', { name: /^call$/i })
     for (const el of [directions, call]) {
-      expect(el).toHaveClass('text-white')
-      expect(el).not.toHaveClass('text-finder-on-orange')
+      expect(el).toHaveClass('text-finder-on-orange')
+      expect(el).not.toHaveClass('text-white')
     }
     expect(call).toHaveAttribute('href', expect.stringMatching(/^tel:/))
   })
