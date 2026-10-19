@@ -22,7 +22,7 @@ const PRESENCE: { value: Presence; label: string }[] = [
 function Figure({ label, value, tone = 'text-finder-ink' }: { label: string; value: string; tone?: string }) {
   return (
     <span className="flex flex-1 flex-col items-start gap-1">
-      <span className={`text-3xl font-bold leading-none ${tone}`}>{value}</span>
+      <span className={`whitespace-nowrap text-2xl font-bold leading-none ${tone}`}>{value}</span>
       <span className="text-sm font-medium text-finder-muted">{label}</span>
     </span>
   )

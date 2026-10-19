@@ -206,17 +206,25 @@ export default function ProfilePage() {
       </div>
       <div className="mt-4 flex flex-col">
         <Line
-          label="On the map"
+          label={<span className="whitespace-nowrap">On the map</span>}
           action={
-            <span className="flex min-w-0 items-center gap-3 text-right">
-              <span className={`min-w-0 text-base font-semibold ${data.located && data.location_source !== 'placed' ? 'text-finder-muted' : 'text-warning'}`}>{mapText}</span>
-              <button type="button" onClick={pinHere} disabled={locating} className="shrink-0 text-base font-bold text-finder-link disabled:opacity-45">
-                {locating ? '…' : data.located ? 'Pin again ›' : 'Pin here ›'}
+            <span className="flex min-w-0 flex-col items-end gap-0.5 text-right">
+              <span className={`text-base font-semibold ${data.located && data.location_source !== 'placed' ? 'text-finder-muted' : 'text-warning'}`}>{mapText}</span>
+              <button type="button" onClick={pinHere} disabled={locating} className="text-sm font-bold text-finder-link disabled:opacity-45">
+                {locating ? 'Reading your position…' : data.located ? 'Pin the shop here again ›' : 'Pin the shop here ›'}
               </button>
             </span>
           }
         />
-        <Line label="Working hours" action={<span className="flex items-center gap-3"><span className="text-base font-semibold text-finder-muted">{data.hours_text}</span><Link to="/agent/hours" className="text-base font-bold text-finder-link">Change ›</Link></span>} />
+        <Line
+          label={<span className="whitespace-nowrap">Working hours</span>}
+          action={
+            <span className="flex min-w-0 flex-col items-end gap-0.5 text-right">
+              <span className="text-base font-semibold text-finder-muted">{data.hours_text}</span>
+              <Link to="/agent/hours" className="text-sm font-bold text-finder-link">Change hours ›</Link>
+            </span>
+          }
+        />
         <Line label="Verified" value={<span className={data.verified ? 'text-finder-likely' : 'text-warning'}>{data.verified ? 'Yes · shown to customers' : 'Pending · not shown to customers'}</span>} />
       </div>
       {locError && (
