@@ -103,7 +103,9 @@
   --color-finder-line: #303030;        /* inset glow and the tab track */
   --color-finder-muted: #a8a8a8;
   --color-finder-tab-off: #747474;
-  --color-finder-link: #fa7211;        /* text links, pills, Call / Get directions */
+  --color-finder-link: #fa7211;        /* text links; on the dark surface the same orange fills pills */
+  --color-finder-accent: #fa7211;      /* fills: pills, edges, the Call / Get directions buttons (black text on it) */
+  --color-finder-ink: #ffffff;         /* primary text on the surface: white on the dark file, near-black in daylight */
   --color-finder-cta: #ff7900;         /* the one big button */
   --color-finder-on-orange: #000000;   /* Orange's rule: black text on orange, never white */
   --color-finder-likely: #3fa36b;      /* on the dark surface: 5.3:1 */
@@ -121,6 +123,34 @@
   --radius-tag: 15px;    /* status pills */
   --radius-panel: 20px;  /* result cards, the detail sheet */
   --shadow-inset-finder: inset 0 0 5px 0 #303030;
+}
+
+/* The agent and aggregator platform in daylight. The screens are built from the same tokens as
+   the customer module; this scope re-reads them as white surfaces, dark ink, orange only for
+   actions and accents, so one component serves both. The customer module never carries it. */
+[data-platform='light'] {
+  color-scheme: light;
+  --color-finder-bg: #ffffff;
+  --color-finder-line: #e5e5e5;
+  --color-finder-muted: #6b7280;       /* 5.0:1 on white */
+  --color-finder-tab-off: #9ca3af;
+  --color-finder-link: #c2410c;        /* text links on white: 4.9:1 */
+  --color-finder-accent: #ff7900;      /* fills, with black text: 7.5:1 */
+  --color-finder-cta: #ff7900;
+  --color-finder-ink: #171717;
+  --color-finder-open: #16803c;
+  --color-finder-star: #b7791f;
+  --color-finder-likely: #16803c;
+  --color-finder-likely-ink: #16803c;
+  --color-finder-likely-tint: #e6f4ea;
+  --color-finder-limited: #7a5d14;
+  --color-finder-limited-tint: #fff1e6;
+}
+/* The inset glow of the dark file becomes a hairline ring in daylight. */
+[data-platform='light'] .shadow-inset-finder {
+  --tw-shadow: inset 0 0 0 1px #e5e5e5;
+}
+@theme {
 
   /* Boosted grid breakpoints */
   --breakpoint-sm: 480px;
@@ -152,6 +182,23 @@
     --color-warning-tint: #3a2b0a;
     --color-danger-tint: #3d1512;
   }
+}
+[data-theme='light'] {
+  --color-ink: #000000;
+  --color-paper: #ffffff;
+  --color-canvas: #fafafa;
+  --color-line: #cccccc;
+  --color-muted: #666666;
+  --color-brand-text: #f16e00;
+  --color-brand-light: #fff1e6;
+  --color-brand-faint: #fff8f2;
+  --color-success: #228722;
+  --color-success-strong: #0a6e31;
+  --color-warning: #8f7200;
+  --color-danger: #cd3c14;
+  --color-success-tint: #e8f5ec;
+  --color-warning-tint: #fbf3e2;
+  --color-danger-tint: #fbe9e9;
 }
 :root[data-theme='dark'],
 [data-theme='dark'] {

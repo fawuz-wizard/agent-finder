@@ -55,7 +55,7 @@ export default function HoursPage() {
 
   if (state === 'loading' || !data || !weekly)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader title="Working hours" back={() => history.back()} />
         <p className="text-base font-medium text-finder-muted">Loading…</p>
       </div>
@@ -69,10 +69,10 @@ export default function HoursPage() {
       : t.today === null
         ? 'off'
         : 'half'
-  const timeClass = 'h-10 w-[7.5rem] rounded-field bg-finder-line px-2 text-center text-sm font-bold text-white outline-none focus:outline focus:outline-2 focus:outline-finder-link'
+  const timeClass = 'h-10 w-[7.5rem] rounded-field bg-finder-line px-2 text-center text-sm font-bold text-finder-ink outline-none focus:outline focus:outline-2 focus:outline-finder-link'
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Working hours" back={() => history.back()} />
       <p className="mt-6 text-md font-bold leading-tight">{t.hours_text}</p>
       <p className="mt-1 text-sm font-medium text-finder-muted">Outside these hours customers are told you are closed. Fifteen minutes before closing, the Dashboard asks whether to stay open.</p>

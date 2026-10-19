@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, Card, Sheet, useToast } from '@/design'
+import { useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
 import type { DealerAgentDetail, FloatRequest } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
+import { FinderCta, FinderHeader, FinderSheet } from '@/features/end-user/components/finder'
+import { EdgeCard, FieldLabel, TextField } from '@/features/agent/components/agentChrome'
+import { Line, PillButton, Section } from './components/dealerChrome'
 import { MaskedValue } from './components/MaskedValue'
 
 /**
- * D3 — Float request review. Three outcomes, never a silent one: approve, contact the agent
+ * Float request review. Three outcomes, never a silent one: approve, contact the agent
  * first, or decline with a reason the agent reads in their own app.
  */
 export default function DealerFloatReviewPage() {
@@ -42,12 +45,19 @@ export default function DealerFloatReviewPage() {
     }
   }
 
-  if (list.state === 'loading' && !list.data) return <p className="p-4 text-base text-muted">Loading…</p>
+  if (list.state === 'loading' && !list.data)
+    return (
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
+        <FinderHeader back="/dealer/float" title="Float request" />
+        <p className="text-base font-medium text-finder-muted">Loading…</p>
+      </div>
+    )
   if (!req)
     return (
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
+        <FinderHeader back="/dealer/float" title="Float request" />
         <p className="text-base font-semibold text-danger">That request no longer exists.</p>
-        <Link to="/dealer/float" className="text-base font-bold text-brand-text">
+        <Link to="/dealer/float" className="text-base font-bold text-finder-link">
           Back to float requests
         </Link>
       </div>
@@ -57,65 +67,48 @@ export default function DealerFloatReviewPage() {
   const word = (w: DealerAgentDetail['declaration']['cash_out']) => CAPACITY_RANGES.find((c) => c.word === w)?.label ?? w
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="flex items-center gap-3 border-b border-line bg-paper px-4 py-3">
-        <Link to="/dealer/float" aria-label="Back" className="-ml-2 flex h-control w-control items-center justify-center rounded-card text-2xl leading-none text-muted">
-          ‹
-        </Link>
-        <div>
-          <h1 className="text-lg font-bold leading-tight">Float request</h1>
-          <p className="text-xs text-muted">
-            {req.agent_ref} · requested {new Date(req.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </p>
-        </div>
-      </header>
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
+      <FinderHeader back="/dealer/float" title="Float request" />
+      <p className="mt-4 text-sm font-bold text-finder-muted">
+        {req.agent_name} · {req.agent_ref.replace(/^Agent /, 'Code ')} · requested {new Date(req.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </p>
 
-      <div className="flex flex-col gap-3 p-4 pb-6">
-        <Card className="border-brand-deep bg-brand-faint">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted">Amount requested</p>
-          <p className="text-2xl font-bold">{formatSle(req.amount_sle)}</p>
-          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-muted">Reason given</p>
-          <p className="text-base">“{req.reason}”</p>
+      <div className="mt-4 flex flex-col gap-3">
+        <EdgeCard muted={req.state !== 'pending'}>
+          <p className="text-xs font-bold uppercase tracking-wider text-finder-muted">Amount requested</p>
+          <p className="text-3xl font-bold leading-none">{formatSle(req.amount_sle)}</p>
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-finder-muted">Reason given</p>
+          <p className="text-base font-medium">“{req.reason}”</p>
           {req.state !== 'pending' && (
-            <p className="mt-2 text-sm font-semibold text-muted">
+            <p className="text-sm font-semibold text-finder-muted">
               Already {req.state}
               {req.decision_reason ? ` — “${req.decision_reason}”` : ''}
             </p>
           )}
-        </Card>
+        </EdgeCard>
 
-        <Card>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Context</p>
-          <div className="flex items-baseline justify-between border-b border-line py-2">
-            <span className="text-sm text-muted">Declared now</span>
-            <span className="text-sm font-bold">{a ? `${PRESENCE_LABELS[a.declaration.presence].split(' ·')[0]} · ${word(a.declaration.cash_out)} · ${word(a.declaration.deposit)}` : '…'}</span>
-          </div>
-          <div className="flex items-baseline justify-between border-b border-line py-2">
-            <span className="text-sm text-muted">Transactions today</span>
-            <span className="text-sm font-bold">{a ? (a.today.transactions ?? '—') : '…'}</span>
-          </div>
-          <div className="flex items-baseline justify-between border-b border-line py-2">
-            <span className="text-sm text-muted">Reported problems today</span>
-            <span className="text-sm font-bold">{a ? a.today.reported_problems : '…'}</span>
-          </div>
+        <Section heading="Context">
+          <Line label="Declared now" value={a ? `${PRESENCE_LABELS[a.declaration.presence].split(' ·')[0]} · ${word(a.declaration.cash_out)} · ${word(a.declaration.deposit)}` : '…'} />
+          <Line label="Transactions today" value={a ? (a.today.transactions ?? '—') : '…'} />
+          <Line label="Reported problems today" value={a ? a.today.reported_problems : '…'} tone={a && a.today.reported_problems > 0 ? 'text-danger' : ''} />
           <MaskedValue agentRef={req.agent_ref} field="float" label="Float position" />
-        </Card>
+        </Section>
 
         {req.state === 'pending' && may && (
           <>
-            <Button size="cta" onClick={() => decide('approved')} disabled={busy}>
+            <FinderCta onClick={() => decide('approved')} disabled={busy}>
               Approve
-            </Button>
-            <Button size="cta" variant="secondary" onClick={() => toast.show(`Contact ${req.agent_name} — logged`)} disabled={busy}>
+            </FinderCta>
+            <PillButton className="h-[2.9rem]" onClick={() => toast.show(`Contact ${req.agent_name} — logged`)} disabled={busy}>
               Contact agent first
-            </Button>
-            <Button size="cta" variant="destructive" onClick={() => setDeclining(true)} disabled={busy}>
+            </PillButton>
+            <PillButton tone="danger" className="h-[2.9rem]" onClick={() => setDeclining(true)} disabled={busy}>
               Decline
-            </Button>
-            <p className="text-center text-xs text-muted">A decline needs a reason. The agent reads it in their app — no phone call needed to find out what happened.</p>
+            </PillButton>
+            <p className="text-center text-xs font-medium text-finder-muted">A decline needs a reason. The agent reads it in their app; no phone call is needed to find out what happened.</p>
           </>
         )}
-        {req.state === 'pending' && !may && <p className="text-center text-sm font-semibold text-muted">You can see this request but not decide it.</p>}
+        {req.state === 'pending' && !may && <p className="text-center text-sm font-semibold text-finder-muted">You can see this request but not decide it.</p>}
         {error && (
           <p role="alert" className="text-sm font-semibold text-danger">
             {error}
@@ -123,21 +116,17 @@ export default function DealerFloatReviewPage() {
         )}
       </div>
 
-      <Sheet open={declining} onClose={() => setDeclining(false)} title="Decline this request">
-        <p className="text-sm text-muted">Write it as you would say it to them. They will see these exact words.</p>
-        <input
-          value={reason}
-          onChange={(e) => setReason(e.target.value.slice(0, 160))}
-          placeholder="Too close to your last top-up — call me"
-          className="h-control rounded-card border-2 border-line bg-paper px-3 text-base outline-none focus:border-brand-deep"
-        />
-        <Button size="control" variant="destructive" onClick={() => decide('declined')} disabled={busy || !reason.trim()}>
+      <FinderSheet open={declining} onClose={() => setDeclining(false)} title="Decline this request">
+        <p className="text-sm font-medium text-finder-muted">Write it as you would say it to them. They will see these exact words.</p>
+        <FieldLabel htmlFor="decline-reason">Your reason</FieldLabel>
+        <TextField id="decline-reason" value={reason} onChange={(e) => setReason(e.target.value.slice(0, 160))} placeholder="Too close to your last top-up — call me" />
+        <PillButton tone="danger" className="h-[2.9rem]" onClick={() => decide('declined')} disabled={busy || !reason.trim()}>
           Decline with this reason
-        </Button>
-        <Button size="control" variant="tertiary" onClick={() => setDeclining(false)}>
+        </PillButton>
+        <button type="button" onClick={() => setDeclining(false)} className="h-control text-base font-bold text-finder-link">
           Cancel
-        </Button>
-      </Sheet>
+        </button>
+      </FinderSheet>
     </div>
   )
 }

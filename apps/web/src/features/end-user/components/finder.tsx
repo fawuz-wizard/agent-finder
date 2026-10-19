@@ -10,7 +10,7 @@ import { cn } from '@/design'
 /** The Orange Money app's own top strip. Decorative here: the module is embedded under it. */
 export function HostStrip() {
   return (
-    <div aria-hidden="true" className="flex h-11 items-center gap-4 px-[1.1rem] pt-2 text-base font-semibold text-white">
+    <div aria-hidden="true" className="flex h-11 items-center gap-4 px-[1.1rem] pt-2 text-base font-semibold text-finder-ink">
       <svg width="24" height="18" viewBox="0 0 24 18" className="shrink-0">
         <path d="M1 2h22M1 9h22M1 16h22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
@@ -28,7 +28,7 @@ export function FinderHeader({ title = 'Agent Finder', back, action }: { title?:
       <path d="M12 1L3 9l9 8" fill="currentColor" />
     </svg>
   )
-  const backClass = '-ml-2 flex h-control w-control shrink-0 items-center justify-center text-white'
+  const backClass = '-ml-2 flex h-control w-control shrink-0 items-center justify-center text-finder-ink'
   return (
     <header className="flex h-control items-center gap-2">
       {typeof back === 'string' ? (
@@ -40,7 +40,7 @@ export function FinderHeader({ title = 'Agent Finder', back, action }: { title?:
           {arrow}
         </button>
       ) : null}
-      <p className="truncate text-md font-bold text-white">{title}</p>
+      <p className="truncate text-md font-bold text-finder-ink">{title}</p>
       {action && <span className="ml-auto">{action}</span>}
     </header>
   )
@@ -118,7 +118,7 @@ export function FinderSheet({ open, onClose, title, children }: { open: boolean;
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-[480px] flex-col gap-4 rounded-t-panel bg-finder-bg px-5 pb-8 pt-6 text-white shadow-inset-finder"
+        className="absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-[480px] flex-col gap-4 rounded-t-panel bg-finder-bg px-5 pb-8 pt-6 text-finder-ink shadow-inset-finder"
       >
         <h2 className="text-md font-bold">{title}</h2>
         {children}

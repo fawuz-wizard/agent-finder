@@ -120,9 +120,9 @@ export default function RegisterAgentPage() {
     }
   }
 
-  const select = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-base font-medium text-white shadow-inset-finder outline-none focus:outline focus:outline-2 focus:outline-finder-link'
+  const select = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-base font-medium text-finder-ink shadow-inset-finder outline-none focus:outline focus:outline-2 focus:outline-finder-link'
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader back="/dealer/agents" title="Agents" />
       <h1 className="mt-6 text-xl font-bold leading-tight">Register an agent</h1>
       <p className="mt-1 text-sm font-medium text-finder-muted">Any agent you work with, on Orange's list or not.</p>

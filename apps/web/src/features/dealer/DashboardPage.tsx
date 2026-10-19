@@ -20,10 +20,10 @@ function Tile({ bucket, label, value, sub, tone }: { bucket: DealerBucket; label
 }
 
 /** One thing to do: a row in the finder's frame with the orange edge, the whole row a link. */
-function TodoRow({ to, title, sub, detail, right, tone = 'bg-finder-link' }: { to: string; title: string; sub: string; detail?: string | undefined; right?: string | undefined; tone?: string }) {
+function TodoRow({ to, title, sub, detail, right, tone = 'bg-finder-accent' }: { to: string; title: string; sub: string; detail?: string | undefined; right?: string | undefined; tone?: string }) {
   return (
     <Link to={to} className={`relative block rounded-panel ${tone}`}>
-      <span className="ml-[9px] flex items-center gap-3 rounded-panel bg-finder-bg px-4 py-3 text-white shadow-inset-finder">
+      <span className="ml-[9px] flex items-center gap-3 rounded-panel bg-finder-bg px-4 py-3 text-finder-ink shadow-inset-finder">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-base font-bold leading-tight">{title}</span>
           <span className="block truncate text-sm font-semibold text-finder-muted">{sub}</span>
@@ -50,14 +50,14 @@ export default function DealerDashboardPage() {
 
   if (state === 'loading' && !data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader title="Dashboard" />
         <p className="text-base font-medium text-finder-muted">Loading your agents…</p>
       </div>
     )
   if (!data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader title="Dashboard" />
         <p className="text-base font-semibold text-danger">{error}</p>
         <FinderCta onClick={refresh}>Try again</FinderCta>
@@ -68,7 +68,7 @@ export default function DealerDashboardPage() {
   const today = new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Dashboard" />
 
       <p className="mt-6 text-xl font-bold leading-tight">{data.agent_count} agents</p>
@@ -97,7 +97,7 @@ export default function DealerDashboardPage() {
             sub={`${r.agent_ref.replace(/^Agent /, 'Code ')} · float request`}
             detail={`waiting ${r.waiting_text}${r.ageing ? ' · ageing' : ''}`}
             right={formatSle(r.amount_sle)}
-            tone={r.ageing ? 'bg-warning' : 'bg-finder-link'}
+            tone={r.ageing ? 'bg-warning' : 'bg-finder-accent'}
           />
         ))}
         {data.float_requests.length > 3 && (

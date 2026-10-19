@@ -42,14 +42,14 @@ export default function ChoosePinPage() {
     }
   }
 
-  const input = 'h-full w-full min-w-0 bg-transparent text-md font-bold text-white outline-none placeholder:font-medium placeholder:text-finder-muted/60'
+  const input = 'h-full w-full min-w-0 bg-transparent text-md font-bold text-finder-ink outline-none placeholder:font-medium placeholder:text-finder-muted'
   const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6)
 
   return (
-    <div className="flex flex-1 flex-col text-white">
+    <div className="flex flex-1 flex-col text-finder-ink">
       <div className="flex h-12 items-center justify-between gap-3 px-5">
         <span className="flex items-center gap-2 text-base font-bold">
-          <LogoMark size={20} className="text-white" />
+          <LogoMark size={20} className="text-finder-ink" />
           Agent App
         </span>
         <button type="button" onClick={signOut} className="text-sm font-bold text-finder-muted">

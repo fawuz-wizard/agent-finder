@@ -43,14 +43,14 @@ export default function SignInPage() {
     }
   }
 
-  const input = 'h-full w-full min-w-0 bg-transparent text-md font-bold text-white outline-none placeholder:font-medium placeholder:text-finder-muted/80'
+  const input = 'h-full w-full min-w-0 bg-transparent text-md font-bold text-finder-ink outline-none placeholder:font-medium placeholder:text-finder-muted'
   const field = 'mt-3 flex h-[3.5rem] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link'
 
   return (
-    <div className="flex flex-1 flex-col text-white">
+    <div className="flex flex-1 flex-col text-finder-ink">
       <div className="flex h-12 items-center justify-between gap-3 px-5">
         <span className="flex items-center gap-2 text-base font-bold">
-          <LogoMark size={20} className="text-white" />
+          <LogoMark size={20} className="text-finder-ink" />
           Agent App
         </span>
         {config.surface === 'customer' && (
@@ -67,7 +67,7 @@ export default function SignInPage() {
           void submit()
         }}
       >
-        <span aria-hidden="true" className="mt-10 flex h-16 w-16 items-center justify-center rounded-panel bg-finder-link text-finder-on-orange">
+        <span aria-hidden="true" className="mt-10 flex h-16 w-16 items-center justify-center rounded-panel bg-finder-accent text-finder-on-orange">
           <LogoMark size={36} />
         </span>
         <h1 className="mt-6 text-xl font-bold leading-tight">Sign in</h1>
@@ -130,7 +130,7 @@ export default function SignInPage() {
 
         {config.isDemo && (
           <p className="mt-8 text-center text-sm font-medium text-finder-muted">
-            Demo · PIN <b className="text-white">1234</b> · agents 024, 031, 009, 017, 038 · aggregator <b className="text-white">kissy</b>
+            Demo · PIN <b className="text-finder-ink">1234</b> · agents 024, 031, 009, 017, 038 · aggregator <b className="text-finder-ink">kissy</b>
           </p>
         )}
 

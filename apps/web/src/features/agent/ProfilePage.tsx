@@ -8,6 +8,7 @@ import type { AgentProfile } from '@/types/operator'
 import { locationErrorText } from '@/lib/location'
 import { shrinkPhoto } from '@/lib/photo'
 import { readPrefs, writePrefs, type AgentPrefs } from '@/lib/prefs'
+import { usePlatformTheme } from '@/lib/platformTheme'
 import { FinderBox, FinderCta, FinderHeader, FinderSheet } from '@/features/end-user/components/finder'
 import { EdgeCard, FieldLabel, PILL_OFF, PILL_ON, PlaceRow, Row, SectionLabel, TextField } from './components/agentChrome'
 import pkg from '../../../package.json'
@@ -26,7 +27,7 @@ const MISTAKE_FIELDS = [
 function Switch({ on, label, onChange }: { on: boolean; label: string; onChange: (next: boolean) => void }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} className="-mr-1 flex h-control w-14 items-center justify-center">
-      <span className={`block h-7 w-12 rounded-full p-1 transition-colors ${on ? 'bg-finder-link' : 'bg-finder-line'}`}>
+      <span className={`block h-7 w-12 rounded-full p-1 transition-colors ${on ? 'bg-finder-accent' : 'bg-finder-line'}`}>
         <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${on ? 'translate-x-5' : ''}`} />
       </span>
     </button>
@@ -40,6 +41,7 @@ function Switch({ on, label, onChange }: { on: boolean; label: string; onChange:
  * out); about. One dark surface, no theme switch: one design to keep right.
  */
 export default function ProfilePage() {
+  const [theme, setTheme] = usePlatformTheme()
   const { session, signOut } = useSession()
   const ref = session?.ref ?? 'Agent 024'
   const navigate = useNavigate()
@@ -188,7 +190,7 @@ export default function ProfilePage() {
 
   if (state === 'loading' || !data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader title="Profile" />
         <p className="text-base font-medium text-finder-muted">Loading…</p>
       </div>
@@ -203,10 +205,10 @@ export default function ProfilePage() {
         ? 'Pinned by your aggregator.'
         : 'Placed for a demonstration, not yet checked.'
     : 'Not on the map yet. Customers cannot find you until it is.'
-  const pinField = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-md font-bold tracking-[0.4em] text-white shadow-inset-finder outline-none placeholder:text-finder-muted/50 placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
+  const pinField = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-md font-bold tracking-[0.4em] text-finder-ink shadow-inset-finder outline-none placeholder:text-finder-muted placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Profile" />
 
       <div className="mt-6">
@@ -307,6 +309,16 @@ export default function ProfilePage() {
         <Row label="Ask when I leave the shop" action={<Switch on={prefs.leftShopWatch} label="Ask when I leave the shop" onChange={(next) => setPrefs(writePrefs({ leftShopWatch: next }))} />} />
       </div>
       <p className="mt-2 text-xs font-medium text-finder-muted">Fifteen minutes before you close, and when your phone is far from your pin while you are open. Both on this phone only.</p>
+
+      <SectionLabel className="mt-6">Appearance</SectionLabel>
+      <div role="radiogroup" aria-label="Appearance" className="mt-3 flex gap-3">
+        {(['light', 'dark'] as const).map((t) => (
+          <button key={t} type="button" role="radio" aria-checked={theme === t} onClick={() => setTheme(t)} className={`h-[2.9rem] flex-1 rounded-pill text-base font-bold ${theme === t ? PILL_ON : PILL_OFF}`}>
+            {t === 'light' ? 'Light' : 'Dark'}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs font-medium text-finder-muted">Light reads best at the counter in daylight. Dark is the same screens on the dark surface. On this phone only.</p>
 
       <SectionLabel className="mt-6">Security</SectionLabel>
       <div className="mt-3 flex flex-col gap-2">

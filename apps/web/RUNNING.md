@@ -47,7 +47,7 @@ the permission is granted later in settings, the page asks the phone again by it
 | URL | What it is |
 |---|---|
 | `/agent` | Redirects to sign-in when signed out |
-| `/sign-in` | One sign-in: the number decides whether the Agent App or the aggregator console opens |
+| `/sign-in` | One sign-in: the number decides whether the Agent App or the aggregator console opens. The agent and aggregator screens are light by default; Profile → Appearance switches this phone to the dark design |
 | `/agent/availability` · `/agent/float` · `/agent/dashboard` · `/agent/profile` | The other four modules |
 
 **Demo credentials:** PIN `1234`. Agent numbers: `024`, `031`, `009`, `017`, `038`. The aggregator signs in with `kissy` (Kissy Distribution). Nobody picks a role: an agent code or an agent's line opens the Agent App, an aggregator's line or id opens the console, and the PIN settles a number that could be either.

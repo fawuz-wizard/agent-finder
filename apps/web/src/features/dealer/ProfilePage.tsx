@@ -6,7 +6,8 @@ import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS, RECORD_KINDS } from '@/types/operator'
 import type { AuditEntry, DealerReport, RecordKind } from '@/types/operator'
 import { FinderBox, FinderCta, FinderHeader, FinderSheet } from '@/features/end-user/components/finder'
-import { FieldLabel, PILL_OFF, Row, SectionLabel } from '@/features/agent/components/agentChrome'
+import { FieldLabel, PILL_OFF, PILL_ON, Row, SectionLabel } from '@/features/agent/components/agentChrome'
+import { usePlatformTheme } from '@/lib/platformTheme'
 import { Line, PillButton } from './components/dealerChrome'
 import pkg from '../../../package.json'
 
@@ -28,6 +29,7 @@ const REGION_LABEL: Record<string, string> = { west: 'West', north: 'North', eas
  * rest of the console.
  */
 export default function DealerProfilePage() {
+  const [theme, setTheme] = usePlatformTheme()
   const { session, signOut } = useSession()
   const navigate = useNavigate()
   const audit = useAsync<AuditEntry[]>((s) => operatorApi.audit(s))
@@ -86,11 +88,11 @@ export default function DealerProfilePage() {
   }
 
   const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6)
-  const pinField = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-md font-bold tracking-[0.4em] text-white shadow-inset-finder outline-none placeholder:text-finder-muted/50 placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
+  const pinField = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-md font-bold tracking-[0.4em] text-finder-ink shadow-inset-finder outline-none placeholder:text-finder-muted placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
   const regions = report.data ? Object.entries(report.data.by_region) : []
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Profile" />
 
       <p className="mt-6 text-xl font-bold leading-tight">{session?.name ?? 'Aggregator'}</p>
@@ -152,7 +154,7 @@ export default function DealerProfilePage() {
             key={a.id}
             label={
               <span className="block">
-                <span className="block font-bold text-white">
+                <span className="block font-bold text-finder-ink">
                   {a.field === 'balance' ? 'Balance' : 'Float position'} · {a.agent_ref.replace(/^Agent /, 'Code ')}
                 </span>
                 <span className="block text-xs">“{a.purpose}”</span>
@@ -164,6 +166,16 @@ export default function DealerProfilePage() {
         {audit.state === 'ready' && (audit.data ?? []).length === 0 && <p className="py-2 text-base font-medium text-finder-muted">None yet.</p>}
       </FinderBox>
       <p className="mt-2 text-xs font-medium text-finder-muted">The record keeps which field you saw and why. It never keeps the amount.</p>
+
+      <SectionLabel className="mt-6">Appearance</SectionLabel>
+      <div role="radiogroup" aria-label="Appearance" className="mt-3 flex gap-3">
+        {(['light', 'dark'] as const).map((t) => (
+          <button key={t} type="button" role="radio" aria-checked={theme === t} onClick={() => setTheme(t)} className={`h-[2.9rem] flex-1 rounded-pill text-base font-bold ${theme === t ? PILL_ON : PILL_OFF}`}>
+            {t === 'light' ? 'Light' : 'Dark'}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs font-medium text-finder-muted">Light reads best in daylight. Dark is the same screens on the dark surface. On this phone only.</p>
 
       <SectionLabel className="mt-6">Security</SectionLabel>
       <div className="mt-3 flex flex-col gap-2">

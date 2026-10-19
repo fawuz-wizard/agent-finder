@@ -1,20 +1,23 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, Card, useToast, AppBar } from '@/design'
+import { useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { DealerAction, DealerOverview, Signal, SignalMuteKind } from '@/types/operator'
+import { FinderBox, FinderHeader } from '@/features/end-user/components/finder'
+import { PILL_OFF } from '@/features/agent/components/agentChrome'
+import { Line, PillButton, Section, Tag } from './components/dealerChrome'
 
-const SEV: Record<Signal['severity'], { pill: string; card: string; label: string }> = {
-  high: { pill: 'bg-danger-tint text-danger', card: 'border-danger/40 bg-danger-tint/40', label: 'Investigate today' },
-  medium: { pill: 'bg-warning-tint text-warning', card: 'border-warning/40 bg-warning-tint/40', label: 'Worth a call' },
-  low: { pill: 'bg-canvas text-muted', card: '', label: 'Keep an eye on it' },
+const SEV: Record<Signal['severity'], { tone: 'danger' | 'warning' | 'muted'; edge: string; label: string }> = {
+  high: { tone: 'danger', edge: 'bg-danger', label: 'Investigate today' },
+  medium: { tone: 'warning', edge: 'bg-warning', label: 'Worth a call' },
+  low: { tone: 'muted', edge: 'bg-finder-muted', label: 'Keep an eye on it' },
 }
 
 /**
- * D4 — Needs attention. A signal is a sentence, its evidence and a next action — never a
- * score. Hiding is allowed and is never punished; the point is a dealer who calls the right
+ * Needs attention. A signal is a sentence, its evidence and a next action, never a score.
+ * Hiding is allowed and is never punished; the point is an aggregator who calls the right
  * agent before lunch. There is no automatic suspension and no permanent block.
  */
 export default function DealerAttentionPage() {
@@ -52,9 +55,10 @@ export default function DealerAttentionPage() {
 
   if (id && state === 'ready' && !open)
     return (
-      <div className="flex flex-col gap-3 p-4">
-        <p className="text-base font-semibold text-muted">That signal has been resolved or no longer exists.</p>
-        <Link to="/dealer/attention" className="text-base font-bold text-brand-text">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
+        <FinderHeader back="/dealer/attention" title="Needs attention" />
+        <p className="text-base font-semibold text-finder-muted">That signal has been resolved or no longer exists.</p>
+        <Link to="/dealer/attention" className="text-base font-bold text-finder-link">
           Back to Needs attention
         </Link>
       </div>
@@ -63,113 +67,107 @@ export default function DealerAttentionPage() {
   if (open) {
     const sev = SEV[open.severity]
     return (
-      <div className="flex flex-1 flex-col">
-        <header className="contents">
-          <AppBar onBack={() => navigate('/dealer/attention')} title="Needs attention" subtitle={sev.label} className="-mx-0" />
-        </header>
-        <div className="flex flex-col gap-3 p-4 pb-6">
-          <Card className={sev.card}>
-            <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[0.75rem] font-bold ${sev.pill}`}>{open.title}</span>
-            <p className="mt-1 text-base font-bold leading-tight">{open.agent_name}</p>
-            <p className="text-sm text-muted">{open.agent_ref.replace(/^Agent /, 'Code ')}</p>
-            <p className="text-sm leading-snug">{open.sentence}</p>
-          </Card>
+      <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
+        <FinderHeader back="/dealer/attention" title="Needs attention" />
+        <p className="mt-4 text-sm font-bold text-finder-muted">{sev.label}</p>
 
-          <Card>
-            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted">Evidence</p>
+        <div className="mt-4 flex flex-col gap-3">
+          <div className={`relative rounded-panel ${sev.edge}`}>
+            <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 shadow-inset-finder">
+              <Tag tone={sev.tone}>{open.title}</Tag>
+              <p className="text-md font-bold leading-tight">{open.agent_name}</p>
+              <p className="-mt-1 text-sm font-bold text-finder-muted">{open.agent_ref.replace(/^Agent /, 'Code ')}</p>
+              <p className="text-sm font-medium leading-snug">{open.sentence}</p>
+            </div>
+          </div>
+
+          <Section heading="Evidence">
             {open.evidence.map((e, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
-                <span className="text-sm text-muted">
-                  {e.at_text} · {e.text}
-                </span>
-                <span className="shrink-0 rounded-pill bg-danger-tint px-2 py-0.5 text-[0.75rem] font-bold text-danger">{e.tag}</span>
-              </div>
+              <Line key={i} label={<>{e.at_text} · {e.text}</>} value={<Tag tone="danger">{e.tag}</Tag>} />
             ))}
-            <p className="pt-2 text-xs text-muted">Reports are anonymous. No customer identity is stored against them.</p>
-          </Card>
+            <p className="text-xs font-medium text-finder-muted">Reports are anonymous. No customer identity is stored against them.</p>
+          </Section>
 
           {open.explanation && (
-            <Card>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted">Most likely explanation</p>
-              <p className="mt-1 text-sm">{open.explanation}</p>
-            </Card>
+            <Section heading="Most likely explanation">
+              <p className="text-sm font-medium">{open.explanation}</p>
+            </Section>
           )}
 
-          <div className="flex gap-2">
-            <Button size="control" variant="secondary" className="flex-1" onClick={() => act(open, 'contact')} disabled={busy}>
+          <div className="flex gap-3">
+            <PillButton className="flex-1" onClick={() => act(open, 'contact')} disabled={busy}>
               Contact
-            </Button>
-            <Button size="control" className="flex-1" onClick={() => act(open, 'nudge')} disabled={busy}>
+            </PillButton>
+            <PillButton tone="on" className="flex-1" onClick={() => act(open, 'nudge')} disabled={busy}>
               Nudge to update
-            </Button>
+            </PillButton>
           </div>
-          <div className="flex gap-2">
-            <Link to={`/dealer/agents/${encodeURIComponent(open.agent_ref)}`} className="flex-1">
-              <Button size="control" variant="secondary" block className="w-full">
-                Agent detail
-              </Button>
+          <div className="flex gap-3">
+            <Link to={`/dealer/agents/${encodeURIComponent(open.agent_ref)}`} className={`flex min-h-chip flex-1 items-center justify-center rounded-pill text-base font-bold ${PILL_OFF}`}>
+              Agent detail
             </Link>
-            <Button size="control" variant="destructive" className="flex-1" onClick={() => act(open, 'escalate')} disabled={busy}>
+            <PillButton tone="danger" className="flex-1" onClick={() => act(open, 'escalate')} disabled={busy}>
               Escalate
-            </Button>
+            </PillButton>
           </div>
-          <div className="flex gap-2">
-            <Button size="control" variant="secondary" className="flex-1" onClick={() => mute(open, 'snooze')} disabled={busy}>
+          <div className="flex gap-3">
+            <PillButton className="flex-1" onClick={() => mute(open, 'snooze')} disabled={busy}>
               Snooze 4 h
-            </Button>
-            <Button size="control" variant="secondary" className="flex-1" onClick={() => mute(open, 'resolve')} disabled={busy}>
+            </PillButton>
+            <PillButton className="flex-1" onClick={() => mute(open, 'resolve')} disabled={busy}>
               Resolve for today
-            </Button>
+            </PillButton>
           </div>
-          <p className="text-center text-xs text-muted">No automatic suspension. No permanent block. Snooze and resolve only tidy your queue; the signal returns if the condition is still true.</p>
+          <p className="text-center text-xs font-medium text-finder-muted">No automatic suspension. No permanent block. Snooze and resolve only tidy your queue; the signal returns if the condition is still true.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="border-b-2 border-line bg-paper px-4 py-3">
-        <h1 className="text-xl font-bold leading-tight">Needs attention</h1>
-        <p className="text-xs text-muted">{signals.length} open · investigate, don't punish</p>
-      </header>
-      <div className="flex flex-col gap-3 p-4 pb-6">
-        {state === 'loading' && <p className="text-sm text-muted">Loading…</p>}
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
+      <FinderHeader back="/dealer" title="Needs attention" />
+      <p className="mt-4 text-sm font-medium text-finder-muted">{signals.length} open · look into it, don't punish</p>
+
+      <div className="mt-5 flex flex-col gap-3">
+        {state === 'loading' && <p className="text-base font-medium text-finder-muted">Loading…</p>}
         {signals.map((s) => (
-          <Card key={s.id} className={SEV[s.severity].card}>
-            <Link to={`/dealer/attention/${s.id}`} className="flex flex-col gap-1.5">
-              <span className={`w-fit rounded-pill px-2.5 py-0.5 text-[0.75rem] font-bold ${SEV[s.severity].pill}`}>{s.title}</span>
-              <p className="mt-1 text-base font-bold leading-tight">{s.agent_name}</p>
-              <p className="text-sm text-muted">{s.agent_ref.replace(/^Agent /, 'Code ')}</p>
-              <p className="text-sm text-muted">{s.sentence}</p>
-            </Link>
-            <div className="mt-1 grid grid-cols-4 gap-2" role="group" aria-label={`Actions for ${s.agent_ref}`}>
-              <Button size="control" className="px-0 text-sm" onClick={() => act(s, 'nudge')} disabled={busy}>
-                Nudge
-              </Button>
-              {s.call_url ? (
-                <a
-                  href={s.call_url}
-                  onClick={() => void act(s, 'call')}
-                  className="inline-flex h-control items-center justify-center rounded-card border-2 border-brand-deep px-0 text-sm font-semibold text-brand-text"
-                >
-                  Call
-                </a>
-              ) : (
-                <Button size="control" variant="secondary" className="px-0 text-sm" disabled title="No number on file">
-                  Call
-                </Button>
-              )}
-              <Button size="control" variant="secondary" className="px-0 text-sm" onClick={() => mute(s, 'snooze')} disabled={busy}>
-                Snooze
-              </Button>
-              <Button size="control" variant="secondary" className="px-0 text-sm" onClick={() => mute(s, 'resolve')} disabled={busy}>
-                Resolve
-              </Button>
+          <div key={s.id} className={`relative rounded-panel ${SEV[s.severity].edge}`}>
+            <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 shadow-inset-finder">
+              <Link to={`/dealer/attention/${s.id}`} className="flex flex-col gap-1.5">
+                <Tag tone={SEV[s.severity].tone}>{s.title}</Tag>
+                <span className="mt-1 block text-md font-bold leading-tight">{s.agent_name}</span>
+                <span className="-mt-1 block text-sm font-bold text-finder-muted">{s.agent_ref.replace(/^Agent /, 'Code ')}</span>
+                <span className="block text-sm font-medium text-finder-muted">{s.sentence}</span>
+              </Link>
+              <div className="mt-1 grid grid-cols-2 gap-2" role="group" aria-label={`Actions for ${s.agent_ref}`}>
+                <PillButton tone="on" className="px-0 text-sm" onClick={() => act(s, 'nudge')} disabled={busy}>
+                  Nudge
+                </PillButton>
+                {s.call_url ? (
+                  <a href={s.call_url} onClick={() => void act(s, 'call')} className={`inline-flex min-h-chip items-center justify-center rounded-pill px-0 text-sm font-bold ${PILL_OFF}`}>
+                    Call
+                  </a>
+                ) : (
+                  <PillButton className="px-0 text-sm" disabled title="No number on file">
+                    Call
+                  </PillButton>
+                )}
+                <PillButton className="px-0 text-sm" onClick={() => mute(s, 'snooze')} disabled={busy}>
+                  Snooze
+                </PillButton>
+                <PillButton className="px-0 text-sm" onClick={() => mute(s, 'resolve')} disabled={busy}>
+                  Resolve
+                </PillButton>
+              </div>
             </div>
-          </Card>
+          </div>
         ))}
-        {state === 'ready' && signals.length === 0 && <p className="text-sm text-muted">Nothing needs attention right now.</p>}
+        {state === 'ready' && signals.length === 0 && (
+          <FinderBox className="px-5 py-4">
+            <p className="text-base font-bold">Nothing needs attention right now.</p>
+          </FinderBox>
+        )}
       </div>
     </div>
   )

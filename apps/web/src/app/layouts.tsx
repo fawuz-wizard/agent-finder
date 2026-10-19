@@ -5,6 +5,7 @@ import { AggregatorStrip, DealerTabBar } from '@/features/dealer/components/Deal
 import { Wordmark } from '@/design'
 import { HostStrip } from '@/features/end-user/components/finder'
 import { config } from '@/lib/config'
+import { usePlatformTheme } from '@/lib/platformTheme'
 import { t } from '@/i18n'
 
 function DemoRibbon() {
@@ -34,10 +35,13 @@ export function CustomerLayout() {
 }
 
 
-/** Agent shell: the customer module's dark surface and three tabs that never leave the screen. */
+const PLATFORM_SHELL = 'mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-finder-ink md:min-h-0 md:my-8 md:border-2 md:border-finder-line'
+
+/** Agent shell: the platform surface (light by default, dark on request) and the tabs that never leave the screen. */
 export function AgentLayout() {
+  const [theme] = usePlatformTheme()
   return (
-    <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
+    <div data-theme={theme} data-platform={theme} className={PLATFORM_SHELL}>
       <DemoRibbon />
       <AgentStrip />
       <ShopPresenceWatch />
@@ -47,10 +51,11 @@ export function AgentLayout() {
   )
 }
 
-/** Aggregator shell: the same dark surface as the agent's, its own four tabs. */
+/** Aggregator shell: the same platform surface as the agent's, its own four tabs. */
 export function DealerLayout() {
+  const [theme] = usePlatformTheme()
   return (
-    <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
+    <div data-theme={theme} data-platform={theme} className={PLATFORM_SHELL}>
       <DemoRibbon />
       <AggregatorStrip />
       <Outlet />
@@ -59,11 +64,11 @@ export function DealerLayout() {
   )
 }
 
-/** Sign-in shell: the finder's dark surface, phone-width, no tabs. */
+/** Sign-in shell: the platform surface in both builds, phone-width, no tabs. */
 export function SignInLayout() {
-  if (config.surface !== 'agent') return <CustomerLayout />
+  const [theme] = usePlatformTheme()
   return (
-    <div data-theme="dark" className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-white md:min-h-0 md:my-8 md:border-2 md:border-finder-line">
+    <div data-theme={theme} data-platform={theme} className={PLATFORM_SHELL}>
       <DemoRibbon />
       <Outlet />
     </div>

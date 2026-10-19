@@ -43,7 +43,7 @@ function Progress({ request }: { request: FloatRequest }) {
         const now = current === i
         return (
           <li key={s.state} className={`flex items-center gap-2 text-sm font-bold ${done ? 'text-finder-likely' : now ? 'text-finder-link' : 'text-finder-muted'}`}>
-            <span className={`h-3 w-3 rounded-full ${done ? 'bg-finder-likely' : now ? 'bg-finder-link' : 'bg-finder-line'}`} />
+            <span className={`h-3 w-3 rounded-full ${done ? 'bg-finder-likely' : now ? 'bg-finder-accent' : 'bg-finder-line'}`} />
             {s.label}
           </li>
         )
@@ -159,7 +159,7 @@ export default function ServicesPage() {
   const unlocated = home.data?.customers_see.state === 'unlocated'
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Services" />
 
       {unlocated && (
@@ -174,7 +174,7 @@ export default function ServicesPage() {
 
       <h1 className="mt-6 text-xl font-bold leading-tight">What did you just do?</h1>
       <p className="mt-1 text-sm font-medium text-finder-muted">
-        After you serve someone, the same details Orange asks you for. <span className="font-bold text-white">Logged today: {home.data?.today.logged ?? 0}</span>
+        After you serve someone, the same details Orange asks you for. <span className="font-bold text-finder-ink">Logged today: {home.data?.today.logged ?? 0}</span>
       </p>
       <div role="radiogroup" aria-label="What did you just do?" className="mt-5 flex gap-10">
         {(

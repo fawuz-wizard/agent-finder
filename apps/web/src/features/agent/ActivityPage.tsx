@@ -23,7 +23,7 @@ const RANGE_TEXT: Record<InsightRange, string> = {
 }
 
 const TONE: Record<ActivityEvent['tone'], string> = {
-  neutral: 'text-white',
+  neutral: 'text-finder-ink',
   good: 'text-finder-likely',
   warning: 'text-warning',
   danger: 'text-danger',
@@ -53,7 +53,7 @@ export default function ActivityPage() {
   const shown = allRows ? rows : rows.slice(0, 2)
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Activity" />
 
       <SectionLabel className="mt-6">Today's commission</SectionLabel>
@@ -108,7 +108,7 @@ export default function ActivityPage() {
               role="tab"
               aria-selected={range === r.key}
               onClick={() => setRange(r.key)}
-              className={`h-full flex-1 rounded-field text-sm font-bold ${range === r.key ? 'bg-finder-bg text-white shadow-inset-finder' : 'text-white/80'}`}
+              className={`h-full flex-1 rounded-field text-sm font-bold ${range === r.key ? 'bg-finder-bg text-finder-ink shadow-inset-finder' : 'text-finder-muted'}`}
             >
               {r.label}
             </button>
@@ -119,8 +119,8 @@ export default function ActivityPage() {
         </p>
         {i && (
           <p className="-mt-2 text-sm font-medium text-finder-muted">
-            <span className="font-bold text-white">{i.found_total}</span> found you ({i.found_delta >= 0 ? '+' : ''}
-            {i.found_delta} vs before) · status fresh <span className="font-bold text-white">{i.fresh_pct}%</span> of your open hours
+            <span className="font-bold text-finder-ink">{i.found_total}</span> found you ({i.found_delta >= 0 ? '+' : ''}
+            {i.found_delta} vs before) · status fresh <span className="font-bold text-finder-ink">{i.fresh_pct}%</span> of your open hours
           </p>
         )}
         {insights.state === 'loading' && !i && <p className="py-6 text-center text-sm font-medium text-finder-muted">Loading…</p>}
@@ -129,7 +129,7 @@ export default function ActivityPage() {
             title={`Customers who found you, transactions and status freshness for ${RANGE_TEXT[i.range]}`}
             labels={i.points.map((p) => p.label)}
             series={[
-              { key: 'found', label: 'Found you', values: i.points.map((p) => p.found_you), format: (v) => `${v}`, className: 'text-finder-link bg-finder-link', total: String(i.found_total) },
+              { key: 'found', label: 'Found you', values: i.points.map((p) => p.found_you), format: (v) => `${v}`, className: 'text-finder-link bg-finder-accent', total: String(i.found_total) },
               {
                 key: 'tx',
                 label: 'Transactions',

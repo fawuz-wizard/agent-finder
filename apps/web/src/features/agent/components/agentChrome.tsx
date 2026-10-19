@@ -14,9 +14,9 @@ import { FinderBox, PinIcon } from '@/features/end-user/components/finder'
 export function AgentStrip() {
   const { session } = useSession()
   return (
-    <div className="flex h-12 items-center justify-between gap-3 px-5 text-white">
+    <div className="flex h-12 items-center justify-between gap-3 px-5 text-finder-ink">
       <span className="flex items-center gap-2 text-base font-bold">
-        <LogoMark size={20} className="text-white" />
+        <LogoMark size={20} className="text-finder-ink" />
         Agent App
       </span>
       <span className="min-w-0 truncate text-sm font-semibold text-finder-muted">{session?.name}</span>
@@ -29,11 +29,11 @@ export function PlaceRow({ name, sub, action }: { name: ReactNode; sub?: ReactNo
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-3">
-        <span className="mt-0.5 text-white">
+        <span className="mt-0.5 text-finder-ink">
           <PinIcon />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-md font-bold leading-tight text-white">{name}</p>
+          <p className="truncate text-md font-bold leading-tight text-finder-ink">{name}</p>
           {sub && <p className="mt-0.5 text-sm font-semibold text-finder-muted">{sub}</p>}
         </div>
       </div>
@@ -55,7 +55,7 @@ export function SectionLabel({ id, children, className = '' }: { id?: string | u
 export function Row({ label, value, action, className = '' }: { label: ReactNode; value?: ReactNode; action?: ReactNode; className?: string }) {
   return (
     <FinderBox className={`flex min-h-[3.5rem] items-center justify-between gap-3 px-5 py-2 ${className}`}>
-      <span className="min-w-0 text-base font-bold text-white">{label}</span>
+      <span className="min-w-0 text-base font-bold text-finder-ink">{label}</span>
       {action ?? <span className="min-w-0 text-right text-base font-bold text-finder-muted">{value}</span>}
     </FinderBox>
   )
@@ -64,8 +64,8 @@ export function Row({ label, value, action, className = '' }: { label: ReactNode
 /** The result card's frame: the orange edge on the left, the glow inside. `muted` greys the edge. */
 export function EdgeCard({ children, className = '', muted = false, ...rest }: React.HTMLAttributes<HTMLElement> & { muted?: boolean }) {
   return (
-    <article className={`relative rounded-panel ${muted ? 'bg-finder-muted' : 'bg-finder-link'} ${className}`} {...rest}>
-      <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 text-white shadow-inset-finder">{children}</div>
+    <article className={`relative rounded-panel ${muted ? 'bg-finder-muted' : 'bg-finder-accent'} ${className}`} {...rest}>
+      <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 text-finder-ink shadow-inset-finder">{children}</div>
     </article>
   )
 }
@@ -89,7 +89,7 @@ export function MoneyField({ id, className = '', ...rest }: InputHTMLAttributes<
         inputMode="numeric"
         autoComplete="off"
         placeholder="0"
-        className="h-full w-full min-w-0 bg-transparent text-3xl font-bold tabular-nums text-white outline-none placeholder:text-finder-muted/50"
+        className="h-full w-full min-w-0 bg-transparent text-3xl font-bold tabular-nums text-finder-ink outline-none placeholder:text-finder-muted"
         {...rest}
       />
     </FinderBox>
@@ -100,7 +100,7 @@ export function MoneyField({ id, className = '', ...rest }: InputHTMLAttributes<
 export function TextField({ id, className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <FinderBox className={`flex h-[3.5rem] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
-      <input id={id} autoComplete="off" className="h-full w-full min-w-0 bg-transparent text-base font-medium text-white outline-none placeholder:text-finder-muted/60" {...rest} />
+      <input id={id} autoComplete="off" className="h-full w-full min-w-0 bg-transparent text-base font-medium text-finder-ink outline-none placeholder:text-finder-muted" {...rest} />
     </FinderBox>
   )
 }
@@ -108,15 +108,15 @@ export function TextField({ id, className = '', ...rest }: InputHTMLAttributes<H
 /** The 15 px label above a field. */
 export function FieldLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
   return (
-    <label htmlFor={htmlFor} className="text-[0.95rem] font-medium text-white">
+    <label htmlFor={htmlFor} className="text-[0.95rem] font-medium text-finder-ink">
       {children}
     </label>
   )
 }
 
 /** The finder's two states of a pill. */
-export const PILL_ON = 'bg-finder-link text-finder-on-orange'
-export const PILL_OFF = 'border-2 border-white bg-transparent text-white'
+export const PILL_ON = 'bg-finder-accent text-finder-on-orange'
+export const PILL_OFF = 'border-2 border-finder-ink bg-transparent text-finder-ink'
 
 /* The three tabs: one icon family, 2 px strokes, filled when active. */
 export type IconProps = { active: boolean }

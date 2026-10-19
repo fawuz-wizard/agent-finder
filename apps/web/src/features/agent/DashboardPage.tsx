@@ -22,7 +22,7 @@ const PRESENCE: { value: Presence; label: string }[] = [
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-1 flex-col items-center gap-0.5">
-      <span className="text-3xl font-bold leading-none text-white">{value}</span>
+      <span className="text-3xl font-bold leading-none text-finder-ink">{value}</span>
       <span className="text-center text-sm font-semibold text-finder-muted">{label}</span>
     </div>
   )
@@ -103,14 +103,14 @@ export default function DashboardPage() {
 
   if (home.state === 'loading')
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader title="Dashboard" />
         <p className="text-base font-medium text-finder-muted">Loading your day…</p>
       </div>
     )
   if (home.state === 'error' || !home.data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader title="Dashboard" />
         <p className="text-base font-semibold text-danger">{home.error}</p>
         <FinderCta onClick={home.refresh}>Try again</FinderCta>
@@ -122,7 +122,7 @@ export default function DashboardPage() {
   const presenceTone = d.presence === 'open' ? 'text-finder-likely' : d.presence === 'hidden' ? 'text-warning' : 'text-finder-muted'
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Dashboard" />
 
       <div className="mt-6">

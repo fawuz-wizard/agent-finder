@@ -53,7 +53,7 @@ export default function DealerAgentsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader
         title="Agents"
         action={
@@ -72,7 +72,7 @@ export default function DealerAgentsPage() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Find by name, number or street"
           aria-label="Find an agent"
-          className="h-full w-full min-w-0 bg-transparent text-base font-medium text-white outline-none placeholder:text-finder-muted/60"
+          className="h-full w-full min-w-0 bg-transparent text-base font-medium text-finder-ink outline-none placeholder:text-finder-muted"
         />
       </FinderBox>
 

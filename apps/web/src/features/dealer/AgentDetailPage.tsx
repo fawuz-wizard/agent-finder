@@ -40,14 +40,14 @@ export default function DealerAgentDetailPage() {
 
   if (state === 'loading' && !data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader back="/dealer/agents" title="Agent" />
         <p className="text-base font-medium text-finder-muted">Loading…</p>
       </div>
     )
   if (!data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-white">
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader back="/dealer/agents" title="Agent" />
         <p className="text-base font-semibold text-danger">{error ?? 'We could not find that agent.'}</p>
         <Link to="/dealer/agents" className="text-base font-bold text-finder-link">
@@ -60,7 +60,7 @@ export default function DealerAgentDetailPage() {
   const tone = d.presence === 'open' ? 'text-finder-likely' : d.presence === 'hidden' ? 'text-warning' : 'text-finder-muted'
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader back="/dealer/agents" title={data.shop_name} />
       <p className="mt-4 text-sm font-bold text-finder-muted">
         {data.ref.replace(/^Agent /, 'Code ')} · {data.area}
@@ -75,7 +75,7 @@ export default function DealerAgentDetailPage() {
           <p className="text-sm font-medium text-finder-muted">{data.capacity_text}</p>
           {d.freshness === 'expired' && <p className="text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
           <p className="text-sm font-medium text-finder-muted">
-            <span className="font-bold text-white">{data.reliability.label_text}</span> · {data.reliability.text}
+            <span className="font-bold text-finder-ink">{data.reliability.label_text}</span> · {data.reliability.text}
           </p>
         </Section>
 
@@ -180,7 +180,7 @@ function SignInCard({ detail, initialCode }: { detail: DealerAgentDetail; initia
       {code ? (
         <>
           <p className="text-sm font-medium text-finder-muted">One-time code for {detail.name}. Read it out in person; it is not shown again.</p>
-          <p className="text-center text-3xl font-bold tracking-[0.3em] text-white" aria-label={`One-time code ${code.split('').join(' ')}`}>
+          <p className="text-center text-3xl font-bold tracking-[0.3em] text-finder-ink" aria-label={`One-time code ${code.split('').join(' ')}`}>
             {code.slice(0, 3)} {code.slice(3)}
           </p>
           <p className="text-sm font-medium text-finder-muted">They sign in with their agent number and this code, then choose a PIN only they know. The code works once.</p>

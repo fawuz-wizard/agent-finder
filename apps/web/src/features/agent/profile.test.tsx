@@ -7,6 +7,7 @@ import { SessionProvider } from '@/features/auth/SessionProvider'
 import { SESSION_KEY } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import ProfilePage from './ProfilePage'
+import { AgentLayout } from '@/app/layouts'
 
 const PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
 vi.mock('@/lib/photo', async (orig) => ({ ...(await orig<typeof import('@/lib/photo')>()), shrinkPhoto: vi.fn(async () => PHOTO) }))
@@ -110,5 +111,33 @@ describe('agent profile', () => {
     await user.click(beep)
     expect(screen.getByRole('switch', { name: 'Beep before closing' })).toHaveAttribute('aria-checked', 'false')
     expect(JSON.parse(localStorage.getItem('af.agentPrefs')!)).toMatchObject({ closingBeep: false, leftShopWatch: true })
+  })
+})
+
+
+describe('appearance', () => {
+  it('opens light, and Dark turns the whole agent shell dark on this phone', async () => {
+    const user = userEvent.setup()
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', role: 'agent', name: "Fatmata's Shop", ref: 'Agent 024', permissions: [] }))
+    const { container } = render(
+      <ToastProvider>
+        <SessionProvider>
+          <MemoryRouter initialEntries={['/agent/profile']}>
+            <Routes>
+              <Route element={<AgentLayout />}>
+                <Route path="/agent/profile" element={<ProfilePage />} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </SessionProvider>
+      </ToastProvider>,
+    )
+    const group = await screen.findByRole('radiogroup', { name: 'Appearance' })
+    expect(container.querySelector('[data-platform="light"]')).not.toBeNull()
+    expect(within(group).getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(within(group).getByRole('radio', { name: 'Dark' }))
+    expect(container.querySelector('[data-platform="dark"]')).not.toBeNull()
+    expect(container.querySelector('[data-platform="light"]')).toBeNull()
+    expect(localStorage.getItem('af.platformTheme')).toBe('dark')
   })
 })

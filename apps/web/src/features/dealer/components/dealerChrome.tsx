@@ -36,7 +36,7 @@ export function Tag({ tone, children }: { tone: 'likely' | 'warning' | 'danger' 
         : tone === 'danger'
           ? 'border-danger text-danger'
           : 'border-finder-muted text-finder-muted'
-  return <span className={`inline-flex h-7 items-center rounded-pill border px-2.5 text-xs font-bold ${look}`}>{children}</span>
+  return <span className={`inline-flex h-7 w-fit items-center whitespace-nowrap rounded-pill border px-2.5 text-xs font-bold ${look}`}>{children}</span>
 }
 
 /** A label-value line inside a section. */

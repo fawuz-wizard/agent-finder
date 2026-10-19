@@ -10,9 +10,9 @@ import { DashboardIcon, ProfileIcon, type IconProps } from '@/features/agent/com
 export function AggregatorStrip() {
   const { session } = useSession()
   return (
-    <div className="flex h-12 items-center justify-between gap-3 px-5 text-white">
+    <div className="flex h-12 items-center justify-between gap-3 px-5 text-finder-ink">
       <span className="flex items-center gap-2 text-base font-bold">
-        <LogoMark size={20} className="text-white" />
+        <LogoMark size={20} className="text-finder-ink" />
         Aggregator App
       </span>
       <span className="min-w-0 truncate text-sm font-semibold text-finder-muted">{session?.name}</span>

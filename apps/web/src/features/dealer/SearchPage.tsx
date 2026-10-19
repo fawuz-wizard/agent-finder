@@ -23,7 +23,7 @@ export default function DealerSearchPage() {
   const { keywords } = parseQuery(q)
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Search" />
 
       <FinderBox className="mt-6 flex h-[3.5rem] items-center gap-3 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
@@ -38,7 +38,7 @@ export default function DealerSearchPage() {
           autoFocus
           placeholder="Shop, person, number, code, phone or town"
           aria-label="Search your agents"
-          className="h-full w-full min-w-0 bg-transparent text-base font-medium text-white outline-none placeholder:text-finder-muted/60 [&::-webkit-search-cancel-button]:hidden"
+          className="h-full w-full min-w-0 bg-transparent text-base font-medium text-finder-ink outline-none placeholder:text-finder-muted [&::-webkit-search-cancel-button]:hidden"
         />
         {q && (
           <button type="button" onClick={() => setQuery('')} className="shrink-0 text-sm font-bold text-finder-link">

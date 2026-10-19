@@ -44,7 +44,7 @@ Open http://localhost:5174. Sign in: **Agent**, code `024`, PIN `1234`. Four tab
 | **Profile** | Orange's record (read only, "Report a mistake"), the shop pin, a photo of the shop (the camera on a phone, a file on a laptop; customers see it at once), working hours, the phone switch, alerts, PIN, phones signed in, sign out |
 
 Other demo agents: `031`, `009`, `017`, `038`. Aggregator: sign out, choose **Aggregator**,
-number `kissy`, PIN `1234`: four tabs, Dashboard (counts, then the things to do: float requests, pins to confirm, signals), Agents, Search (names, numbers, phones, places, and words such as `away`, `not on map`, `attention west`), Profile (what you may do, the Global Report and CSV exports, your financial reveals, change PIN, sign out). The float queue and the attention list open from the Dashboard rows.
+number `kissy`, PIN `1234`: four tabs, Dashboard (counts, then the things to do: float requests, pins to confirm, signals), Agents, Search (names, numbers, phones, places, and words such as `away`, `not on map`, `attention west`), Profile (what you may do, the Global Report and CSV exports, your financial reveals, change PIN, sign out). The float queue, the float review and the attention screens open from the Dashboard rows, on the same design.
 
 Everything is simulated and resets when you reload. The commission figures come from an
 indicative table until Orange's tariff is loaded; every screen says so.
