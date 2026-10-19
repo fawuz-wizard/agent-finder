@@ -319,6 +319,28 @@ BLOCKING = {
 }
 
 
+# What an aggregator reads against a row the import could not verify. Clean rows are verified
+# and shown to customers once pinned; rows with any of these wait for someone to check them.
+PENDING_TEXT = {
+    "bad_msisdn": "Orange Money number is not 8 digits",
+    "no_city": "no city",
+    "region_unknown": "region unknown",
+    "no_name": "no name",
+    "bad_status": "status not Y or N",
+    "no_address": "no address",
+    "address_is_city_only": "address is only the city",
+    "short_address": "address too short",
+    "name_has_digits": "name contains digits",
+}
+
+
+def pending_note(issues: list[str]) -> str | None:
+    """None for a clean row; otherwise the reasons, in the file's words, never its values."""
+    if not issues:
+        return None
+    return "Pending: " + "; ".join(PENDING_TEXT.get(i, i.replace("_", " ")) for i in issues)
+
+
 def importable(res: RowResult) -> bool:
     return res.kind in ("agent", "subaggregator") and not (set(res.issues) & BLOCKING)
 
@@ -440,7 +462,6 @@ async def apply(results: list[RowResult]) -> dict:
                     lng=None,
                     pin_hash=hash_pin(secrets.token_hex(4), ref),
                     must_set_pin=True,
-                    verified=True,
                     presence="open",
                     source="orange_file",
                 )
@@ -460,7 +481,10 @@ async def apply(results: list[RowResult]) -> dict:
             existing.region = a["region"] or existing.region
             existing.city = a["city"] or existing.city
             existing.active = a["active"]
-            existing.verified = True
+            # A clean row is verified by the file itself; a row with issues waits, and the
+            # note says why. Every run re-reads the file, so fixing the file fixes the agent.
+            existing.verified = not res.issues
+            existing.verification_note = pending_note(res.issues)
             existing.source_row = a["source_row"]
             existing.orange_cash_in = a["cash_in"]
             existing.orange_cash_out = a["cash_out"]

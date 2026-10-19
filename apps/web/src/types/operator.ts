@@ -396,8 +396,10 @@ export interface DealerAgentRow {
   pending_float: boolean
   /** The agent photographed the shop. */
   photo: boolean
-  /** The aggregator's statement that the agent was checked against Orange's record. */
+  /** The aggregator's statement that the agent was checked against Orange's record. Customers never see an unverified shop. */
   verified: boolean
+  /** Why it is still pending, for the aggregator: the file's reasons, or "not yet checked". Null once verified. */
+  verification_note: string | null
 }
 
 export interface Signal {
@@ -535,6 +537,9 @@ export interface DealerAgentDetail {
   source: 'manual' | 'orange_file'
   /** The shopfront the agent photographed, as a data URL; the aggregator can take it down. */
   photo?: string | null
+  /** Checked against Orange's record; customers never see an unverified shop. */
+  verified: boolean
+  verification_note: string | null
 }
 
 /** What the dealer sends to bring an agent onto the platform. The PIN is never echoed back. */
@@ -578,6 +583,7 @@ export interface RegisteredAgent {
   phone_visible: boolean
   hours_text: string
   verified: boolean
+  verification_note: string | null
   usual: UsualNote
   next_step: string
 }

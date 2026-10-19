@@ -160,7 +160,7 @@ async def seed_if_empty() -> None:
             cash,
             dep,
             mins_ago,
-            verified,
+            _verified,
         ) in AGENTS:
             declared = now - timedelta(minutes=mins_ago)
             db.add(
@@ -176,7 +176,8 @@ async def seed_if_empty() -> None:
                     location_confirmed=True,
                     phone="+23276000000",
                     phone_visible=(ref == "Agent 024"),
-                    verified=verified,
+                    # Unverified shops are never shown to customers; every demo agent is checked.
+                    verified=True,
                     pin_hash=hash_pin(DEMO_PIN, ref),
                     presence=presence,
                     cash_out=cash,

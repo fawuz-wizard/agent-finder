@@ -104,6 +104,8 @@ interface AgentState {
   lat?: number
   lng?: number
   verified?: boolean
+  /** The file's reasons when an imported row could not be verified. */
+  verificationNote?: string
   /** The shopfront the agent photographed in this session, as a data URL. */
   photo?: string | undefined
   photoAt?: string | undefined
@@ -116,11 +118,11 @@ function minutesAgo(min: number): number {
 }
 
 const agents: AgentState[] = [
-  { ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", lat: 8.4405, lng: -13.2795, area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null, history: { visits: 12, failed: 2 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
-  { ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', lat: 8.4842, lng: -13.2711, area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 9, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
-  { ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', lat: 8.4617, lng: -13.2629, area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null, history: { visits: 4, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
-  { ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', lat: 8.4448, lng: -13.2749, area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 6, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
-  { ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', lat: 8.4336, lng: -13.2724, area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 1, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { verified: true, ref: 'Agent 024', name: 'Fatmata Kamara', shop: "Fatmata's Shop", lat: 8.4405, lng: -13.2795, area: 'Lumley Junction', presence: 'open', cash_out: 'most', deposit: 'some', updated_at: minutesAgo(112), night_mode: true, phone_visible: true, phone: '+23276000024', found_you: 14, transactions: 31, successful: 28, problems: 2, cash_out_sle: null, deposit_sle: null, history: { visits: 12, failed: 2 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { verified: true, ref: 'Agent 031', name: 'Sento Bangura', shop: 'Sento Enterprise', lat: 8.4842, lng: -13.2711, area: 'Aberdeen', presence: 'open', cash_out: 'some', deposit: 'small', updated_at: minutesAgo(48), night_mode: false, phone_visible: false, phone: '+23276000031', found_you: 9, transactions: 22, successful: 21, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 9, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { verified: true, ref: 'Agent 009', name: 'Ibrahim Sesay', shop: 'Ibrahim Cash Point', lat: 8.4617, lng: -13.2629, area: 'Wilberforce', presence: 'hidden', cash_out: 'some', deposit: 'some', updated_at: minutesAgo(20), night_mode: false, phone_visible: false, phone: '+23276000009', found_you: 4, transactions: 12, successful: 12, problems: 1, cash_out_sle: null, deposit_sle: null, history: { visits: 4, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { verified: true, ref: 'Agent 017', name: 'Salamatu Turay', shop: 'Salamatu Shop', lat: 8.4448, lng: -13.2749, area: 'Wilkinson Road', presence: 'closed', cash_out: 'most', deposit: 'most', updated_at: minutesAgo(62), night_mode: true, phone_visible: false, phone: '+23276000017', found_you: 6, transactions: 18, successful: 17, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 6, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
+  { verified: true, ref: 'Agent 038', name: 'Amadu Conteh', shop: 'Amadu Corner Shop', lat: 8.4336, lng: -13.2724, area: 'Juba Road', presence: 'open', cash_out: 'none', deposit: 'most', updated_at: minutesAgo(4_300), night_mode: false, phone_visible: false, phone: null, found_you: 0, transactions: 3, successful: 3, problems: 0, cash_out_sle: null, deposit_sle: null, history: { visits: 1, failed: 0 }, weekly: defaultWeekly(), overrides: {}, extendedUntil: null, usual: { usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null } },
 ]
 
 /** Operator-owned values. Present only because the demo adapter is switched on. */
@@ -797,6 +799,12 @@ const DEMO_PIN = '1234'
 /** Demo only: the aggregator's own code-then-PIN state, so the first sign-in can be shown. */
 const dealerSignIn: { pin: string; mustSetPin: boolean } = { pin: DEMO_PIN, mustSetPin: false }
 
+/** Why an agent is not verified yet, as the API words it. Null once verified. */
+const PENDING_UNCHECKED = "Pending: not yet checked against Orange's record"
+function pendingNote(a: AgentState): string | null {
+  return a.verified ? null : (a.verificationNote ?? PENDING_UNCHECKED)
+}
+
 /** A six-digit one-time code, like the API's. */
 function newCode(): string {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')
@@ -894,9 +902,12 @@ function registeredOut(a: AgentState): RegisteredAgent {
     phone: a.phone,
     phone_visible: a.phone_visible,
     hours_text: scheduleState(a).hours_text,
-    verified: a.ref === 'Agent 024' || Boolean(a.verified),
+    verified: Boolean(a.verified),
+    verification_note: pendingNote(a),
     usual: { ...a.usual },
-    next_step: 'Give the agent their number and PIN. Customers see the shop once the agent signs in and sets Open.',
+    next_step: a.verified
+      ? 'Give the agent their number and PIN. Customers see the shop once the agent signs in and sets Open.'
+      : "Give the agent their number and PIN. Customers see the shop only once you tick that you checked the agent against Orange's record.",
   }
 }
 
@@ -993,7 +1004,11 @@ export function demoEditAgent(ref: string, body: Partial<Omit<RegisterAgentBody,
   if (body.street) a.area = body.street.trim()
   if (body.phone !== undefined) a.phone = body.phone ? body.phone.replace(/\s+/g, '') : null
   if (body.phone_visible !== undefined) a.phone_visible = body.phone_visible
-  if (body.verified !== undefined) a.verified = body.verified
+  if (body.verified !== undefined) {
+    a.verified = body.verified
+    // Verified is what lets customers see the shop: the customer network must learn of it too.
+    void import('./demoNetwork').then((m) => m.setDemoAgentVerified(ref.replace('Agent ', 'af-'), Boolean(body.verified)))
+  }
   actions.unshift({ id: `act-${Date.now()}-${actions.length}`, action: 'contact', agent_ref: ref, at: new Date().toISOString(), note: `Kissy Distribution updated ${a.shop}'s record` })
   return registeredOut(a)
 }
@@ -1264,7 +1279,7 @@ export function demoAgentProfile(ref: string): AgentProfile {
     hours_text: scheduleState(a).hours_text,
     dealer_name: 'Kissy Distribution',
     phone_visible: a.phone_visible,
-    verified: a.ref === 'Agent 024',
+    verified: Boolean(a.verified),
     agent_code: null,
     region: 'west',
     city: 'Freetown',
@@ -1561,7 +1576,8 @@ export function demoAgentRows() {
       source: 'manual' as const,
       pending_float: demoFloatRequests(null).some((r) => r.agent_ref === a.ref && r.state === 'pending'),
       photo: Boolean(a.photo),
-      verified: a.ref === 'Agent 024' || Boolean(a.verified),
+      verified: Boolean(a.verified),
+      verification_note: pendingNote(a),
     }
   })
 }
@@ -1779,6 +1795,8 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
     city: 'Freetown',
     agent_code: null,
     source: 'manual',
+    verified: Boolean(a.verified),
+    verification_note: pendingNote(a),
     photo: a.photo ?? null,
   }
 }
@@ -1861,7 +1879,7 @@ export function demoReport(): DealerReport {
       located: r.located,
       location_confirmed: r.location_confirmed,
       active_at_orange: r.active,
-      verified: r.ref === 'Agent 024' || Boolean(a.verified),
+      verified: Boolean(a.verified),
       source: r.source,
       presence: r.presence,
       bucket: r.bucket,

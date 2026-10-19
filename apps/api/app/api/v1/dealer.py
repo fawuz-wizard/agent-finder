@@ -373,6 +373,7 @@ async def agents_list(
                 "pending_float": a.ref in asking,
                 "photo": a.photo_at is not None,
                 "verified": bool(a.verified),
+                "verification_note": _pending_of(a),
             }
         )
     return rows
@@ -474,6 +475,8 @@ async def agent_detail(
         "city": a.city,
         "agent_code": a.agent_code,
         "source": a.source,
+        "verified": bool(a.verified),
+        "verification_note": _pending_of(a),
         # The shopfront the agent photographed; the aggregator can take it down.
         "photo": to_data_url(a.photo),
     }
@@ -723,6 +726,13 @@ async def usage_summary(
 SL_LAT = (6.8, 10.1)
 SL_LNG = (-13.5, -10.2)
 TIME_RE = r"^(?:[01]\d|2[0-3]):[0-5]\d$"
+# What the aggregator reads against an agent nobody has checked yet. Customers never meet an
+# unverified shop, so the register says why and what to do.
+PENDING_UNCHECKED = "Pending: not yet checked against Orange's record"
+
+
+def _pending_of(a: Agent) -> str | None:
+    return None if a.verified else (a.verification_note or PENDING_UNCHECKED)
 
 
 class RegisterBody(BaseModel):
@@ -807,10 +817,14 @@ def registered_out(a: Agent, now: datetime) -> dict:
         "phone_visible": a.phone_visible,
         "hours_text": schedule.hours_text(a, now),
         "verified": a.verified,
+        "verification_note": _pending_of(a),
         "usual": _usual_of(a),
         "next_step": (
             "Give the agent their number and PIN. Customers see the shop once the agent signs "
             "in and sets Open."
+            if a.verified
+            else "Give the agent their number and PIN. Customers see the shop only once you "
+            "tick that you checked the agent against Orange's record."
         ),
     }
 
@@ -914,6 +928,10 @@ async def edit_agent(
         a.phone_visible = body.phone_visible
     if body.verified is not None:
         a.verified = body.verified
+        # The aggregator's word settles it either way: verified clears the note, unticking
+        # leaves the file's reasons if there were any.
+        if body.verified:
+            a.verification_note = None
     db.add(
         Action(
             at=now,

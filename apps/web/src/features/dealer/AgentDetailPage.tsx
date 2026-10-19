@@ -105,6 +105,7 @@ export default function DealerAgentDetailPage() {
           <Line label="Status" value={data.active ? 'Active' : 'Inactive'} tone={data.active ? 'text-finder-likely' : 'text-danger'} />
           <Line label="Region · city" value={<>{data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : '—'} · {data.city ?? '—'}</>} />
           <Line label="On the map" value={data.located ? (data.location_confirmed ? 'Yes' : 'Pinned, not confirmed') : 'No'} />
+          <Line label="Verified" value={data.verified ? 'Yes · shown to customers' : (data.verification_note ?? 'Pending · not shown to customers')} tone={data.verified ? 'text-finder-likely' : 'text-warning'} />
           <Line label="Source" value={data.source === 'orange_file' ? "Orange's file" : 'Registered in the app'} />
         </Section>
 

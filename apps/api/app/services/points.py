@@ -11,12 +11,16 @@ SL_LNG = (-13.5, -10.2)
 
 
 def on_map(agent) -> bool:
-    """Whether a customer may be sent to this shop: a point, confirmed, and active at Orange."""
+    """Whether a customer may be sent to this shop: a point, confirmed, active at Orange, and
+    verified. Verified is the aggregator's statement that the agent was checked against
+    Orange's record, or the import's when the row was clean; until then customers never
+    meet the shop, whatever else is true about it."""
     return (
         agent.lat is not None
         and agent.lng is not None
         and bool(agent.active)
         and bool(agent.location_confirmed)
+        and bool(agent.verified)
     )
 
 

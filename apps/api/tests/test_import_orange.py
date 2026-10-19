@@ -170,7 +170,12 @@ async def test_apply_creates_aggregators_and_unlocated_agents_that_customers_nev
         assert a is not None and a.lat is None and a.dealer_id == "agg-000001"
         assert a.agent_code == "100001" and a.msisdn == "+23276111111"
         assert a.region == "west" and a.city == "Freetown" and a.verified and a.active
+        assert a.verification_note is None
         assert a.orange_cash_out == 3400.0 and a.source_row == "abc123:2"
+        # A row the file itself leaves in doubt is imported but not verified, and says why.
+        pending = await db.get(Agent, "Agent 100003")
+        assert pending is not None and pending.verified is False
+        assert pending.verification_note == "Pending: no city; region unknown; no address"
         inactive = await db.get(Agent, "Agent 100002")
         assert inactive is not None and inactive.active is False
         assert await db.get(Agent, "Agent 100006") is None  # held back: duplicate MSISDN
@@ -186,6 +191,19 @@ async def test_apply_creates_aggregators_and_unlocated_agents_that_customers_nev
     # sign in until someone sets a PIN.
     rows = (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
     assert all(x["ref"] != "Agent 100001" for x in rows)
+    # Pinning and confirming a pending agent still shows nobody: verified is a condition.
+    async with dbsession.get_session_factory()() as db:
+        pending = await db.get(Agent, "Agent 100003")
+        pending.lat, pending.lng, pending.location_confirmed = 8.44, -13.28, True
+        pending.location_source = "dealer"
+        await db.commit()
+    r = await client.post(
+        "/api/v1/search",
+        json={"transaction": "cash_out", "amount_sle": 2000, "area": "Lumley"},
+        headers={"X-Client": "cust-import"},
+    )
+    assert "100003" not in r.text
+    assert (await client.get("/api/v1/agents/af-100003")).status_code == 404
     s = await client.post(
         "/api/v1/auth/sign-in", json={"ref": "agg-000001", "pin": "1234", "role": "dealer"}
     )

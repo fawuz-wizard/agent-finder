@@ -100,6 +100,9 @@ class Agent(Base, TimestampMixin):
     photo: Mapped[bytes | None] = mapped_column(LargeBinary)
     photo_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Why the agent is not verified yet, for the aggregator: "Pending: no city; region unknown".
+    # None once verified. Never shown to customers.
+    verification_note: Mapped[str | None] = mapped_column(String(200))
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     # True while the account holds a one-time sign-in code, not a PIN the person chose.
     must_set_pin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

@@ -74,8 +74,9 @@ Sign in as the dealer, open **Agents → Register agent**. Any agent you work wi
 registered, whether or not Orange's file lists them: shop and person, the agent number (or the
 next free one from 101), the shop's location (stand at the shop and tap *Use my location*, or
 type the coordinates), hours, phone, and what the agent usually handles. Tick
-*checked against Orange's record* only when you did: that alone shows customers the
-"Verified agent" badge. The note on what they usually handle sets what amounts read as likely;
+*checked against Orange's record* only when you did: customers never see an unverified shop,
+and that tick is what makes it visible (and gives it the "Verified agent" badge). Until then the
+agent's page says *Pending* and why. The note on what they usually handle sets what amounts read as likely;
 customers never see the figures.
 
 The answer is a six-digit **one-time code**, shown once on the agent's page for you to read

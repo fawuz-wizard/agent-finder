@@ -7,7 +7,7 @@ const base: DealerAgentRow = {
   presence: 'open', presence_text: 'Open · serving', bucket: 'active', declaration_text: 'Most / Some', freshness_text: '5 min ago', attention: false,
   reliability: { label: 'reliable', label_text: 'Reliable', text: '', score: 1, matched: 1, visits: 1 } as DealerAgentRow['reliability'],
   capacity_text: '', located: true, location_confirmed: true, active: true, region: 'west', city: 'Freetown', source: 'manual',
-  pending_float: false, photo: false, verified: true,
+  pending_float: false, photo: false, verified: true, verification_note: null,
 }
 const away: DealerAgentRow = { ...base, ref: 'Agent 009', name: 'Ibrahim Cash Point', person_name: 'Ibrahim Sesay', area: 'Wilberforce', agent_code: '100309', phone: '+23276000009', presence: 'hidden', bucket: 'hidden', attention: true, pending_float: true, region: 'north', source: 'orange_file', verified: false, photo: true }
 const offMap: DealerAgentRow = { ...base, ref: 'Agent 101', name: 'Hill Top', area: 'Hill Station', located: false, location_confirmed: false, reliability: { ...base.reliability, label: 'new' } }

@@ -35,6 +35,7 @@ interface DemoAgent {
   updated_min_ago: number
   hours_text: string
   can_call: boolean
+  /** Checked against Orange's record. An unverified shop is never shown to customers. */
   verified?: boolean
   lat: number
   lng: number
@@ -56,14 +57,14 @@ const FRESHNESS_WINDOWS = { fresh: 90, aging: 120, may_have_changed: 240 } as co
 
 const AGENTS: DemoAgent[] = [
   { id: 'af-4821', name: "Fatmata's Shop", area: 'Lumley', street: 'Lumley Junction', distance_m: 300, open: true, hidden: false, cash: 'most', float: 'some', updated_min_ago: 6, hours_text: 'Open today 07:00–20:00', can_call: true, verified: true, lat: 8.4405, lng: -13.2795, feed: { balance: 12400, float: 8450 } },
-  { id: 'af-7315', name: "Mohamed's Store", area: 'Lumley', street: 'Lumley Road', distance_m: 120, open: true, hidden: false, cash: 'small', float: 'most', updated_min_ago: 25, hours_text: 'Open today 08:00–19:00', can_call: false, lat: 8.4412, lng: -13.2781 },
-  { id: 'af-1902', name: 'Aminata Trading', area: 'Lumley', street: 'Lumley Junction', distance_m: 210, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 18, hours_text: 'Open today 07:30–20:00', can_call: false, lat: 8.4399, lng: -13.2808 },
-  { id: 'af-6644', name: "Kadiatu's Kiosk", area: 'Lumley', street: 'Lumley Beach Road', distance_m: 340, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 14, hours_text: 'Open today 08:00–21:00', can_call: false, lat: 8.4382, lng: -13.2825 },
-  { id: 'af-2870', name: 'Coco and Sons', area: 'Lumley', street: 'Lumley Market Road', distance_m: 280, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 11, hours_text: 'Open today 08:00–20:00', can_call: false, lat: 8.4392, lng: -13.2765 },
-  { id: 'af-5570', name: 'Sento Enterprise', area: 'Aberdeen', street: 'Sir Samuel Lewis Road', distance_m: 1400, open: true, hidden: false, cash: 'some', float: 'small', updated_min_ago: 48, hours_text: 'Open today 08:00–18:00', can_call: false, lat: 8.4842, lng: -13.2711, feed: { balance: 4900, float: 3100 } },
-  { id: 'af-2210', name: 'Salamatu Shop', area: 'Lumley', street: 'Wilkinson Road', distance_m: 880, open: false, hidden: false, cash: 'most', float: 'most', updated_min_ago: 62, hours_text: 'Opens 07:00', can_call: false, lat: 8.4448, lng: -13.2749, feed: { balance: 7300, float: 6050 } },
-  { id: 'af-3388', name: 'Ibrahim Cash Point', area: 'Wilberforce', street: 'Wilberforce Street', distance_m: 1900, open: true, hidden: true, cash: 'some', float: 'some', updated_min_ago: 20, hours_text: 'Open today 09:00–18:00', can_call: false, lat: 8.4617, lng: -13.2629, feed: { balance: 21000, float: 15600 } },
-  { id: 'af-9042', name: 'Amadu Corner Shop', area: 'Lumley', street: 'Juba Road', distance_m: 1100, open: true, hidden: false, cash: 'none', float: 'most', updated_min_ago: 9, hours_text: 'Open today 07:00–19:00', can_call: false, lat: 8.4336, lng: -13.2724, feed: { balance: 900, float: 400 } },
+  { id: 'af-7315', name: "Mohamed's Store", area: 'Lumley', street: 'Lumley Road', distance_m: 120, open: true, hidden: false, cash: 'small', float: 'most', updated_min_ago: 25, hours_text: 'Open today 08:00–19:00', can_call: false, verified: true, lat: 8.4412, lng: -13.2781 },
+  { id: 'af-1902', name: 'Aminata Trading', area: 'Lumley', street: 'Lumley Junction', distance_m: 210, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 18, hours_text: 'Open today 07:30–20:00', can_call: false, verified: true, lat: 8.4399, lng: -13.2808 },
+  { id: 'af-6644', name: "Kadiatu's Kiosk", area: 'Lumley', street: 'Lumley Beach Road', distance_m: 340, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 14, hours_text: 'Open today 08:00–21:00', can_call: false, verified: true, lat: 8.4382, lng: -13.2825 },
+  { id: 'af-2870', name: 'Coco and Sons', area: 'Lumley', street: 'Lumley Market Road', distance_m: 280, open: true, hidden: false, cash: 'most', float: 'most', updated_min_ago: 11, hours_text: 'Open today 08:00–20:00', can_call: false, verified: true, lat: 8.4392, lng: -13.2765 },
+  { id: 'af-5570', name: 'Sento Enterprise', area: 'Aberdeen', street: 'Sir Samuel Lewis Road', distance_m: 1400, open: true, hidden: false, cash: 'some', float: 'small', updated_min_ago: 48, hours_text: 'Open today 08:00–18:00', can_call: false, verified: true, lat: 8.4842, lng: -13.2711, feed: { balance: 4900, float: 3100 } },
+  { id: 'af-2210', name: 'Salamatu Shop', area: 'Lumley', street: 'Wilkinson Road', distance_m: 880, open: false, hidden: false, cash: 'most', float: 'most', updated_min_ago: 62, hours_text: 'Opens 07:00', can_call: false, verified: true, lat: 8.4448, lng: -13.2749, feed: { balance: 7300, float: 6050 } },
+  { id: 'af-3388', name: 'Ibrahim Cash Point', area: 'Wilberforce', street: 'Wilberforce Street', distance_m: 1900, open: true, hidden: true, cash: 'some', float: 'some', updated_min_ago: 20, hours_text: 'Open today 09:00–18:00', can_call: false, verified: true, lat: 8.4617, lng: -13.2629, feed: { balance: 21000, float: 15600 } },
+  { id: 'af-9042', name: 'Amadu Corner Shop', area: 'Lumley', street: 'Juba Road', distance_m: 1100, open: true, hidden: false, cash: 'none', float: 'most', updated_min_ago: 9, hours_text: 'Open today 07:00–19:00', can_call: false, verified: true, lat: 8.4336, lng: -13.2724, feed: { balance: 900, float: 400 } },
 ]
 
 function freshnessOf(min: number): FreshnessState {
@@ -221,6 +222,12 @@ export function addDemoAgent(a: {
   })
 }
 
+/** Demo only: the aggregator ticked or unticked "checked against Orange's record" (mirrors PUT /dealer/agents/{ref}). */
+export function setDemoAgentVerified(id: string, verified: boolean): void {
+  const a = AGENTS.find((x) => x.id === id)
+  if (a) a.verified = verified
+}
+
 export function demoAgentName(id: string): string | null {
   return AGENTS.find((x) => x.id === id)?.name ?? null
 }
@@ -330,7 +337,7 @@ export function demoSearch(req: SearchRequest): SearchResponse {
   const radius = req.radius_m ?? 500
   const scoped = AGENTS
     .map((a) => ({ ...a, distance_m: distanceBetween(origin, a) }))
-    .filter((a) => !a.hidden && a.open && a.distance_m <= 20_000)
+    .filter((a) => a.verified && !a.hidden && a.open && a.distance_m <= 20_000)
   // The phrase gates; within it, the order is the probability a visit succeeds, computed
   // from activity, not from words. The customer reads it only as the rounded figure.
   const prob = new Map(scoped.map((a) => [a.id, successProbability(a, req.transaction, amount)] as const))
@@ -413,7 +420,8 @@ export function demoAgent(
   lng?: number,
 ): AgentDetail | null {
   const a = AGENTS.find((x) => x.id === id)
-  if (!a) return null
+  // An unverified shop has no page either: the same answer as for one that does not exist.
+  if (!a || !a.verified) return null
   const transaction = tx ?? 'cash_out'
   const origin = lat !== undefined && lng !== undefined ? { lat: Number(lat.toFixed(3)), lng: Number(lng.toFixed(3)) } : originFor(area)
   const base = toResult({ ...a, distance_m: distanceBetween(origin, a) }, transaction, amount)
