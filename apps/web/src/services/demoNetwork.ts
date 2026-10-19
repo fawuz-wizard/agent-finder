@@ -83,7 +83,7 @@ function freshnessText(min: number, source?: string): string {
 }
 
 const OUTCOME_TEXT: Record<PublicOutcome, string> = {
-  likely: 'Can likely handle your request',
+  likely: 'Likely to serve you',
   unknown: 'Not enough recent activity to estimate availability',
   limited: 'Availability uncertain for this request',
   expired: 'Status expired — ask before you go',
@@ -270,10 +270,19 @@ function successProbability(a: DemoAgent, tx: TransactionType, amount: number | 
   return 1 / (1 + Math.exp(-Math.max(-30, Math.min(30, z))))
 }
 
+/** The figure as the customer reads it: the nearest five, never 100 nor 0. Same as the API. */
+export function servedPct(p: number): number {
+  return Math.max(5, Math.min(95, Math.round((p * 100) / 5) * 5))
+}
+
+/** The outcomes on which "how likely am I to be served?" is a question worth answering. */
+const SERVED_OUTCOMES: PublicOutcome[] = ['likely', 'limited', 'unknown']
+
 function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): AgentResult {
   const outcome = outcomeFor(a, tx, amount)
   const feed = feedFor(a)
   const freshnessAge = feed?.ageMin ?? a.updated_min_ago
+  const pct = SERVED_OUTCOMES.includes(outcome) ? servedPct(successProbability(a, tx, amount)) : null
   return {
     id: a.id,
     name: a.name,
@@ -288,6 +297,8 @@ function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): Age
     directions_url: `https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lng}`,
     can_call: a.can_call,
     photo_url: null,
+    served_pct: pct,
+    served_text: pct === null ? null : `${pct}% likely to serve you`,
     ...ratingSummary(a.id),
   }
 }
@@ -321,7 +332,7 @@ export function demoSearch(req: SearchRequest): SearchResponse {
     .map((a) => ({ ...a, distance_m: distanceBetween(origin, a) }))
     .filter((a) => !a.hidden && a.open && a.distance_m <= 20_000)
   // The phrase gates; within it, the order is the probability a visit succeeds, computed
-  // from activity, not from words. Never in the payload.
+  // from activity, not from words. The customer reads it only as the rounded figure.
   const prob = new Map(scoped.map((a) => [a.id, successProbability(a, req.transaction, amount)] as const))
   const ranked = scoped
     .map((a) => toResult(a, req.transaction, amount))
@@ -333,7 +344,7 @@ export function demoSearch(req: SearchRequest): SearchResponse {
     )
 
   // Nearest includes every visible/open nearby agent with its honest public capacity
-  // outcome. Recommended is the subset that can likely handle this request.
+  // outcome. Recommended is the subset likely to serve this request.
   const coreAll = ranked.filter((r) => r.distance_m <= radius)
   const coreNearest = coreAll
     .sort((a, b) => a.distance_m - b.distance_m || a.id.localeCompare(b.id))
@@ -345,8 +356,8 @@ export function demoSearch(req: SearchRequest): SearchResponse {
     ...r,
     why:
       i === 0
-        ? `Recent activity suggests this agent may handle ${amountLabel(amount) ?? 'your request'}.`
-        : 'Another strong activity match for your request.',
+        ? `Best match for ${amountLabel(amount) ?? 'your request'} right now`
+        : 'Also a good match nearby',
   }))
   const recommendedIds = new Set(recommended.map((r) => r.id))
   const rest = likely.filter((r) => !recommendedIds.has(r.id))

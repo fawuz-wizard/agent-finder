@@ -8,6 +8,7 @@ import { config } from '@/lib/config'
 import * as demo from './operatorDemo'
 import type {
   ActivityEvent,
+  AgentFeedback,
   AgentHome,
   AgentInsights,
   AgentProfile,
@@ -173,6 +174,12 @@ export const operatorApi = {
   activity(ref: string, signal?: AbortSignal): Promise<ActivityEvent[]> {
     if (config.useLiveApi) return api.get<ActivityEvent[]>('/api/v1/agent/activity', signal)
     return delay(demo.demoAgentActivity(ref), signal)
+  },
+
+  /** What customers said about the shop, without who said it. */
+  feedback(ref: string, signal?: AbortSignal): Promise<AgentFeedback> {
+    if (config.useLiveApi) return api.get<AgentFeedback>('/api/v1/agent/feedback', signal)
+    return delay(demo.demoAgentFeedback(ref), signal)
   },
 
   profile(ref: string, signal?: AbortSignal): Promise<AgentProfile> {

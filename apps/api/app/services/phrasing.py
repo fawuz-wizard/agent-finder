@@ -15,7 +15,7 @@ NETWORK_RANGES = SideThresholds(some_max_sle=10_000, small_max_sle=500)
 
 TRANSACTION_LABELS = {"cash_out": "Cash out", "deposit": "Cash in", "send": "Send"}
 PUBLIC_TEXT = {
-    "likely": "Can likely handle your request",
+    "likely": "Likely to serve you",
     "limited": "Availability uncertain for this request",
     "expired": "Status expired — ask before you go",
     "closed": "Closed",

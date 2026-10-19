@@ -95,6 +95,37 @@ export interface FloatRequest {
   ageing: boolean
 }
 
+/**
+ * What customers said about the shop, as the agent may read it: failed visits with their
+ * reason, comments, ratings. Never who: no number, device, time of day or amount, only the day.
+ */
+export type FeedbackKind = 'not_served' | 'comment'
+
+export interface FeedbackItem {
+  id: string
+  /** "Today", "Yesterday", "3 days ago", "12 Oct". The hour would say which customer. */
+  day_text: string
+  kind: FeedbackKind
+  transaction_label: string | null
+  reason_text: string | null
+  rating: number | null
+  comment: string | null
+}
+
+export interface AgentFeedback {
+  days: number
+  summary: {
+    served: number
+    not_served: number
+    comments: number
+    ratings: number
+    /** On the customers' rule: three ratings or nothing. */
+    rating_average: number | null
+  }
+  privacy_text: string
+  items: FeedbackItem[]
+}
+
 export type ActivitySource = 'operator' | 'agent_finder'
 
 export interface ActivityEvent {

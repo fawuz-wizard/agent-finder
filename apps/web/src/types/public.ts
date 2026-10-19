@@ -47,6 +47,14 @@ export interface AgentResult {
   rating_count?: number
   /** The shopfront, when the agent has taken one: a path on the API, or data in the demo. */
   photo_url?: string | null
+  /**
+   * How likely this agent is to serve THIS request, as the server rounded it: a multiple of
+   * five from 5 to 95, never 100. Absent where the question does not apply (closed, hidden,
+   * expired, no status) or when the ranker is off; the phrase stands alone then.
+   */
+  served_pct?: number | null
+  /** The figure as a sentence, server-formatted: "85% likely to serve you". */
+  served_text?: string | null
 }
 
 export interface SearchQueryEcho {
@@ -62,7 +70,7 @@ export interface SearchQueryEcho {
 
 export interface SearchResponse {
   query: SearchQueryEcho
-  /** Nearest agents that can likely serve this request (0–2). */
+  /** The agents with the highest likelihood of serving this request (0–2). */
   recommended: AgentResult[]
   /** Open, visible nearby agents whose outcome is not "likely", for the Nearest list. */
   closer_not_serving: AgentResult[]

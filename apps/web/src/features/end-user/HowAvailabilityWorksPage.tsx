@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/design'
 
 const POINTS = [
-  'Agents tell us what they can handle right now, in four words. We never see or show their cash.',
-  'We compare that with your request and show only a phrase, like “Can likely handle your request”.',
-  'Every status has a time. The older it is, the less you should rely on it. After 4 hours we say “ask before you go”.',
-  'The agents shown first are the nearest ones with a fresh status who can likely serve you.',
+  'We look at recent activity at each shop: transactions, visits customers confirmed, and problems they reported. We never see or show an agent’s cash.',
+  'For your request we show how likely you are to be served, as a round figure. It is never 100%: what is in the drawer can change between now and your visit.',
+  'Every figure has a time. The older the picture, the lower the figure. After 4 hours we say “ask before you go”.',
+  'The agents shown first are the ones nearby with the highest figure for your request.',
 ]
 
 /** U4 — the trust explanation. Four sentences, plain language, one way out. */

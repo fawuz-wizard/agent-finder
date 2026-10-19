@@ -10,6 +10,8 @@
  */
 import type {
   ActivityEvent,
+  AgentFeedback,
+  FeedbackItem,
   AgentHome,
   AgentInsights,
   AgentProfile,
@@ -230,7 +232,7 @@ function declarationOf(a: AgentState): Declaration {
 
 /** The six public phrases, exactly as the customer surface renders them. */
 const PUBLIC_TEXT = {
-  likely: 'Can likely handle your request',
+  likely: 'Likely to serve you',
   limited: 'Limited — may not cover this amount',
   expired: 'Status expired — ask before you go',
   closed: 'Closed',
@@ -377,6 +379,105 @@ interface Visit {
 }
 
 const visits: Visit[] = []
+
+/* ---------- customer feedback, as the agent may read it ---------- */
+
+const REASON_TEXT: Record<string, string> = {
+  could_not_complete: 'Could not complete the transaction',
+  less_than_requested: 'Had less than the customer asked for',
+  charged_extra: 'Charged extra on top of the official fee',
+  refused_small: 'Refused to serve a small amount',
+  closed: 'Was closed',
+  unavailable: 'Was unavailable',
+  other: 'Something else went wrong',
+}
+const FEEDBACK_DAYS = 30
+const FEEDBACK_PRIVACY = 'Customers are anonymous. No name, number, time or amount is kept with their words.'
+
+/** One report as the API stores it, minus everything the agent must never learn. */
+interface Feedback {
+  ref: string
+  at: number
+  transaction: 'cash_out' | 'deposit' | null
+  answer: 'yes' | 'no' | 'did_not_go' | 'comment'
+  reason: string | null
+  rating: number | null
+  comment: string | null
+}
+const feedback: Feedback[] = []
+
+/** The demo's main agent starts with the two reported problems the dashboard already counts. */
+const SEEDED_FEEDBACK: Feedback[] = [
+  { ref: 'Agent 024', at: minutesAgo(45), transaction: 'cash_out', answer: 'no', reason: 'could_not_complete', rating: null, comment: null },
+  { ref: 'Agent 024', at: minutesAgo(26 * 60), transaction: 'cash_out', answer: 'no', reason: 'less_than_requested', rating: null, comment: 'I needed 6,000 and was told to come back in the afternoon.' },
+  { ref: 'Agent 024', at: minutesAgo(3 * 24 * 60), transaction: null, answer: 'did_not_go', reason: null, rating: 5, comment: 'Quick service and no extra charge.' },
+  { ref: 'Agent 024', at: minutesAgo(5 * 24 * 60), transaction: 'deposit', answer: 'yes', reason: null, rating: 4, comment: null },
+  { ref: 'Agent 024', at: minutesAgo(9 * 24 * 60), transaction: 'cash_out', answer: 'yes', reason: null, rating: 4, comment: null },
+]
+
+/** A stable, opaque id: the timestamp itself would say when the customer came. */
+function feedbackId(ref: string, at: number, i: number): string {
+  let h = 5381
+  for (const ch of `${ref}|${at}|${i}`) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0
+  return `fb-${h.toString(36)}`
+}
+
+function dayText(at: number): string {
+  const day = (t: number) => Math.floor((t - new Date(t).getTimezoneOffset() * 60_000) / 86_400_000)
+  const days = day(Date.now()) - day(at)
+  if (days <= 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days} days ago`
+  return new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+/**
+ * A customer's report, as the agent side receives it. The demo customer surface records every
+ * report here (through a dynamic import) so the agent's feedback moves as it would against
+ * the live API. The exact amount, the device and the hour never come along.
+ */
+export function demoRecordFeedback(
+  shop: string,
+  r: { transaction: 'cash_out' | 'deposit' | null; answer: Feedback['answer']; reason_code: string | null; rating: number | null; comment: string | null },
+): void {
+  const a = agents.find((x) => x.shop === shop)
+  if (!a) return
+  feedback.push({ ref: a.ref, at: Date.now(), transaction: r.transaction, answer: r.answer, reason: r.reason_code, rating: r.rating, comment: r.comment })
+}
+
+export function demoAgentFeedback(ref: string): AgentFeedback {
+  const a = find(ref)
+  const since = Date.now() - FEEDBACK_DAYS * 86_400_000
+  const rows = [...SEEDED_FEEDBACK, ...feedback].filter((f) => f.ref === a.ref && f.at >= since).sort((x, y) => y.at - x.at)
+  const items: FeedbackItem[] = []
+  rows.forEach((f, i) => {
+    const failed = f.answer === 'no'
+    const comment = (f.comment ?? '').trim() || null
+    if (!failed && comment === null) return
+    items.push({
+      id: feedbackId(a.ref, f.at, i),
+      day_text: dayText(f.at),
+      kind: failed ? 'not_served' : 'comment',
+      transaction_label: f.transaction === 'cash_out' ? 'Cash out' : f.transaction === 'deposit' ? 'Cash in' : null,
+      reason_text: failed ? (REASON_TEXT[f.reason ?? ''] ?? REASON_TEXT.other!) : null,
+      rating: f.rating,
+      comment,
+    })
+  })
+  const ratings = rows.map((f) => f.rating).filter((r): r is number => r !== null)
+  return {
+    days: FEEDBACK_DAYS,
+    summary: {
+      served: rows.filter((f) => f.answer === 'yes').length,
+      not_served: rows.filter((f) => f.answer === 'no').length,
+      comments: rows.filter((f) => (f.comment ?? '').trim()).length,
+      ratings: ratings.length,
+      rating_average: ratings.length >= 3 ? Math.round((ratings.reduce((s, r) => s + r, 0) / ratings.length) * 10) / 10 : null,
+    },
+    privacy_text: FEEDBACK_PRIVACY,
+    items: items.slice(0, 50),
+  }
+}
 const NETWORK = { small: 500, some: 10_000 } as const
 const BANDS: [number, string, number, number][] = [
   // ceiling, text, midpoint, floor — reports keep a band, never the exact amount

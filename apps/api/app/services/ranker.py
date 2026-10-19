@@ -10,7 +10,8 @@ highest probability. The words stay only as the fallback for agents with no feed
 The model is a logistic regression small enough to read. It ships with hand-set weights so
 the order is sensible on day one, and `fit()` re-estimates them from the training log
 (search impressions joined to the visit reports that followed) once the pilot has examples.
-Pure Python: no new library. It never hides anyone and never reaches the customer payload.
+Pure Python: no new library. It never hides anyone. The customer reads it only as a rounded
+likelihood of being served (served_pct), never the features or the weights.
 """
 
 from __future__ import annotations
@@ -95,6 +96,19 @@ def probability(f: dict[str, float], weights: dict[str, float] | None = None) ->
     z = w.get("bias", 0.0) + sum(w.get(k, 0.0) * f.get(k, 0.0) for k in FEATURES)
     z = max(-30.0, min(30.0, z))
     return 1.0 / (1.0 + math.exp(-z))
+
+
+SERVED_PCT_STEP = 5
+SERVED_PCT_MIN = 5
+SERVED_PCT_MAX = 95
+
+
+def served_pct(p: float) -> int:
+    """The probability as a customer reads it. Rounded to the nearest five, because a round
+    figure says "about"; and never 100 (nor 0), because nothing here is a promise: the
+    agent's drawer can change between the search and the visit."""
+    pct = int(round(p * 100 / SERVED_PCT_STEP)) * SERVED_PCT_STEP
+    return max(SERVED_PCT_MIN, min(SERVED_PCT_MAX, pct))
 
 
 def fit(

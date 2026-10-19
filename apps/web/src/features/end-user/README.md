@@ -10,7 +10,10 @@ Screens: `HomePage` (U1), `ResultsPage` (U3), `AgentDetailPage`, `HowAvailabilit
   it never computes an age.
 - **Nothing private reaches the customer.** `types/public.ts` is the whole contract. A private field
   cannot be rendered because it is not in the type. Customer screens may show only an aggregate
-  rating once at least three ratings exist; individual ratings and comments stay private.
+  rating once at least three ratings exist; individual ratings and comments never reach a customer.
+  The agent reads comments and failed-visit reasons through the agent API, without who wrote them.
+- **The figure is the server's.** `served_pct` arrives rounded (fives, 5 to 95, never 100) with
+  its sentence; `ServedLikelihood` draws it and never computes or re-rounds anything.
 - **No customer identity.** Reports carry an agent id, an answer, an optional reason/rating/comment
   and an idempotency token. Comment-only reports are linked to the selected shop without showing
   its agent code. Nothing is remembered about where the customer went, and nothing is asked

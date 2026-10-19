@@ -71,6 +71,17 @@ export const customerApi = {
     // through a dynamic import, so no operator code ships in the customer's bundle.
     recordDemoVisit(body)
     const shop = demoAgentName(body.agent_id)
+    if (shop) {
+      void import('./operatorDemo').then((m) =>
+        m.demoRecordFeedback(shop, {
+          transaction: body.transaction,
+          answer: body.answer,
+          reason_code: body.reason_code ?? null,
+          rating: body.rating ?? null,
+          comment: body.comment ?? null,
+        }),
+      )
+    }
     if (
       shop &&
       (body.answer === 'yes' || body.answer === 'no') &&

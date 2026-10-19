@@ -75,7 +75,7 @@ export default function ReportVisitPage() {
         <div className="flex flex-col gap-4" role="status">
           <h2 className="text-xl font-bold">Thank you for sharing your experience.</h2>
           <p className="text-sm text-white/65">
-            Your comment has been recorded for {target.agentName}. It is private to the Orange network and is never shown to other customers or the agent.
+            Your comment has been recorded for {target.agentName}. The agent can read it, but never who wrote it. Other customers never see it.
           </p>
           <Button
             size="cta"
@@ -111,7 +111,7 @@ export default function ReportVisitPage() {
               className="min-h-48 rounded-card border-2 border-white/15 bg-app-panel p-3 text-base text-white outline-none placeholder:text-white/35 focus:border-brand"
             />
             <span className="text-xs text-white/50">
-              {comment.length}/{COMMENT_MAX_CHARS} characters · Private to the Orange network; never shown to other customers or the agent.
+              {comment.length}/{COMMENT_MAX_CHARS} characters · The agent reads it without your name or number. Other customers never see it.
             </span>
           </label>
 

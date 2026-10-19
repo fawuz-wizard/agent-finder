@@ -112,7 +112,7 @@ describe('agent app', () => {
     // Compact by default: one short pill per side; the full wording on request.
     expect(within(card).getByText('Cash out')).toBeInTheDocument()
     await user.click(within(card).getByRole('button', { name: /what they read/i }))
-    expect(within(card).getAllByText(/can likely handle your request/i).length).toBe(2)
+    expect(within(card).getAllByText(/likely to serve you/i).length).toBe(2)
     expect(within(card).getByText(/^any amount$/)).toBeInTheDocument()
     expect(within(card).getByText(/^up to SLE 10,000$/)).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/SLE 21,000/)

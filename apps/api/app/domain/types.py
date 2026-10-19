@@ -50,7 +50,7 @@ class PublicOutcome(StrEnum):
 
 
 PUBLIC_PHRASES: dict[PublicOutcome, str] = {
-    PublicOutcome.LIKELY: "Can likely handle your request",
+    PublicOutcome.LIKELY: "Likely to serve you",
     PublicOutcome.LIMITED: "Limited — may not cover this amount",
     PublicOutcome.EXPIRED: "Status expired — ask before you go",
     PublicOutcome.CLOSED: "Closed",

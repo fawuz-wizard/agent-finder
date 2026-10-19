@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentDetailPage from './AgentDetailPage'
@@ -74,7 +74,7 @@ describe('directions are the next screen, inside the app', () => {
       lng: -13.2795,
       distance_m: 300,
       outcome: 'likely',
-      outcome_text: 'Can likely handle your request',
+      outcome_text: 'Likely to serve you',
       freshness: 'fresh',
       freshness_text: 'Updated 6 min ago',
       directions_url: 'https://www.google.com/maps/dir/?api=1&destination=8.4405,-13.2795',
@@ -100,18 +100,32 @@ describe('distances from the customer\'s own position', () => {
   })
 })
 
-describe('the details carry no praise', () => {
-  it('shows no verdict and no request line when the agent can likely handle the request', async () => {
+describe('the details answer the request with a figure, never with praise', () => {
+  it('says how likely the customer is to be served for their own request, never 100', async () => {
+    at('/agents/af-4821?tx=cash_out&amount=2000')
+    await screen.findByText("Fatmata's Shop")
+    const section = screen.getByRole('region', { name: /your request/i })
+    const group = within(section).getByRole('group', { name: /% likely to serve you/ })
+    const pct = Number(/^(\d+)%/.exec(group.getAttribute('aria-label') ?? '')![1])
+    expect(pct % 5).toBe(0)
+    expect(pct).toBeLessThanOrEqual(95)
+    expect(section).toHaveTextContent(/for cash out · SLE 2,000/i)
+    expect(section).toHaveTextContent(/updated/i)
+    expect(screen.queryByText(/can likely handle your request/i)).not.toBeInTheDocument()
+  })
+
+  it('shows nothing where no figure applies and there is nothing to caution about', async () => {
+    const real = await customerApi.agent('af-4821', { transaction: 'cash_out', amount_sle: 2000, area: 'Lumley' })
+    const spy = vi.spyOn(customerApi, 'agent').mockResolvedValue({ ...real, served_pct: null, served_text: null })
     at('/agents/af-4821?tx=cash_out&amount=2000')
     await screen.findByText("Fatmata's Shop")
     expect(screen.queryByRole('region', { name: /your request/i })).not.toBeInTheDocument()
-    expect(screen.queryByText(/for cash out/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/can likely handle your request/i)).not.toBeInTheDocument()
+    spy.mockRestore()
   })
 
   it('still cautions when the agent may not cover the amount, with how fresh the picture is', async () => {
     const real = await customerApi.agent('af-4821', { transaction: 'cash_out', amount_sle: 2000, area: 'Lumley' })
-    const spy = vi.spyOn(customerApi, 'agent').mockResolvedValue({ ...real, outcome: 'limited', outcome_text: 'Limited — may not cover this amount' })
+    const spy = vi.spyOn(customerApi, 'agent').mockResolvedValue({ ...real, outcome: 'limited', outcome_text: 'Limited — may not cover this amount', served_pct: null, served_text: null })
     at('/agents/af-4821?tx=cash_out&amount=2000')
     await screen.findByText("Fatmata's Shop")
     const section = screen.getByRole('region', { name: /your request/i })

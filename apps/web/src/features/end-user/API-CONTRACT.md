@@ -27,7 +27,7 @@ Response — the server ranks, phrases and explains; the client only renders:
 {
   "query": { "transaction": "cash_out", "transaction_label": "Cash out", "amount_sle": 2000,
              "amount_label": "SLE 2,000", "area": "Lumley", "radius_m": 500 },
-  "recommended": [ { "...AgentResult": "", "why": "Recent activity suggests this agent may handle your request." } ],
+  "recommended": [ { "...AgentResult": "", "served_pct": 85, "served_text": "85% likely to serve you", "why": "Best match for SLE 2,000 right now" } ],
   "closer_not_serving": [ "...nearby open agents with a public outcome other than likely" ],
   "results": [ "...additional likely AgentResult, nearest first" ],
   "further_away": [ "...up to two open agents between 500 m and the 20 km Freetown cap when no core agent is likely" ],
@@ -41,7 +41,12 @@ Response — the server ranks, phrases and explains; the client only renders:
 (`likely | limited | unknown | expired | closed | hidden | not_set`), `outcome_text` (the exact public phrase,
 localised), `freshness` (`fresh | aging | may_have_changed | expired`), `freshness_text`
 (e.g. "Updated 6 min ago — may have changed"), `directions_url` (maps hand-off built from the coarse
-business point), `can_call`.
+business point), `can_call`, and the likelihood of being served for this request: `served_pct`, a
+multiple of five from 5 to 95 (never 100: nothing here is a promise), with `served_text` as the
+sentence ("85% likely to serve you"). Both are `null` where the question does not apply (closed,
+hidden, expired, no status) or when the activity ranker is off; the phrase stands alone then. The
+figure comes from the ranker's success probability, rounded on the server; the probability itself,
+the features and the weights never appear.
 
 Open, visible agents within 500 metres appear in the Nearest list, including agents whose public
 availability is uncertain. Recommended contains likely matches, ordered by transaction activity
@@ -77,8 +82,10 @@ Request — the entire body, with no customer identity:
 
 `client_token` is an idempotency key: the same token must never create a second report. Ratings do
 not require a completed transaction; the API limits each browser to one rating per agent per 24 hours.
-`comment` is optional, up to 1,000 characters, and network-only — it is never returned on any
-customer endpoint. A `comment` answer is a comment-only report: it requires non-empty comment
+`comment` is optional, up to 1,000 characters, and never returned on any customer endpoint. The
+agent reads it, with the reason for a failed visit, through `GET /api/v1/agent/feedback`, which
+carries the day but never the hour, the amount, the device or any name: the agent learns why
+customers fail, never who said so. A `comment` answer is a comment-only report: it requires non-empty comment
 text, carries no rating or transaction outcome, and is linked to the selected agent internally.
 The customer UI displays the shop name, never the agent code. Comments do not contribute to
 availability evidence or direction counts.

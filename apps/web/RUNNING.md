@@ -157,9 +157,9 @@ Downloads work in a browser; on a phone, use the web app for exports.
 Open two browser windows (or two phones on the same network):
 
 1. **Agent phone** — `/sign-in` → Agent 024 → PIN 1234 → set Cash out to **Most** → Save.
-2. **Customer phone** — `/` → tap Agent Finder → Cash out → 5000 → Find an agent → Fatmata's Shop shows *can likely handle your request*.
+2. **Customer phone** — `/` → tap Agent Finder → Cash out → 5000 → Find an agent → Fatmata's Shop shows a high likelihood of serving you: a round figure, never 100%.
 3. **Agent phone** — Availability → Cash out **Small** → Save.
-4. **Customer phone** — search again → the same agent now reads *limited — may not cover this amount*.
+4. **Customer phone** — search again → the same agent's figure drops and it reads *Availability uncertain for this request*.
 
 To reach it from a phone on the same wifi, run `npm run dev -- --host` and use the Network address Vite prints.
 

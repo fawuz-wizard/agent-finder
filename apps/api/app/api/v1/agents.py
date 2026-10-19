@@ -8,7 +8,14 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.search import AgentResult, Point, rating_summaries, to_result
+from app.api.v1.search import (
+    AgentResult,
+    Point,
+    rating_summaries,
+    say_served,
+    served_for,
+    to_result,
+)
 from app.core.errors import NotFoundError
 from app.db.models import Agent
 from app.db.session import get_session
@@ -65,7 +72,11 @@ async def agent_detail(
         else AREA_POINTS.get(area, AREA_POINTS["Freetown"])
     )
     ledger = (await ledgers_for(db, [a], now))[a.ref]
-    base = to_result(a, tx, amount_sle, haversine_m(olat, olng, a.lat, a.lng), now, ledger)
+    dist = haversine_m(olat, olng, a.lat, a.lng)
+    base = to_result(a, tx, amount_sle, dist, now, ledger)
+    p = await served_for(db, a, tx, amount_sle, dist, now, ledger)
+    if p is not None:
+        say_served(base, p)
     base.rating_average, base.rating_count = (await rating_summaries(db, [a.ref])).get(
         a.ref, (None, 0)
     )

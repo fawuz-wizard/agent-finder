@@ -1,5 +1,6 @@
-"""Public. Transaction-relative nearby-agent search. Returns only the six phrases, a distance,
-a freshness line and a maps URL — never a word, a range or a number tied to an agent."""
+"""Public. Transaction-relative nearby-agent search. Returns the public phrase, a rounded
+likelihood of being served, a distance, a freshness line and a maps URL — never a word, a
+range, a balance or a threshold tied to an agent."""
 
 from __future__ import annotations
 
@@ -35,7 +36,7 @@ from app.services.phrasing import (
     public_outcome,
 )
 from app.services.points import on_map
-from app.services.ranker import current_model, features, probability
+from app.services.ranker import current_model, features, probability, served_pct
 from app.services.trust import RANK_TIER, trust_for
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -94,6 +95,11 @@ class AgentResult(PublicModel):
     rating_count: int = 0
     # The shopfront, when the agent has taken one; fetched by the app, never inlined.
     photo_url: str | None = None
+    # How likely this agent is to serve this request, as the customer reads it: a multiple of
+    # five between 5 and 95, from the activity ranker. Absent where the question does not
+    # apply (closed, hidden, expired, no status) or when the ranker is off.
+    served_pct: int | None = None
+    served_text: str | None = None
 
 
 class QueryEcho(PublicModel):
@@ -137,6 +143,49 @@ def to_result(a: Agent, tx: str, amount: int | None, dist: int, now, ledger=None
         can_call=bool(a.phone_visible and a.phone),
         photo_url=public_photo_url(a),
     )
+
+
+# The outcomes on which "how likely am I to be served?" is a question worth answering.
+SERVED_OUTCOMES = ("likely", "limited", "unknown")
+
+
+def ranker_features(a: Agent, tx: str, amount: int | None, dist: int, now, ledger, t) -> dict:
+    """The ranker's view of one agent for one request. One builder for the search and the
+    agent's own page, so the two can never disagree on the figure."""
+    side = ledger.side(tx)
+    return features(
+        ceiling=side.ceiling(NETWORK_RANGES),
+        amount=amount,
+        live=ledger.live,
+        feed_age_min=ledger.feed_age_min,
+        tx_last_hour=ledger.tx_last_hour,
+        failed_today=ledger.failed_for_float_today if ledger.live else ledger.events,
+        freshness_min=age_minutes(capacity_updated_at(a, ledger, now), now),
+        distance_m=dist,
+        trust_visits=t.visits,
+        trust_matched=t.matched,
+        last_tx_min=age_minutes(ledger.last_tx_at, now),
+    )
+
+
+def say_served(r: AgentResult, p: float) -> None:
+    """Put the likelihood on the result, in the customer's terms."""
+    if r.outcome not in SERVED_OUTCOMES:
+        return
+    r.served_pct = served_pct(p)
+    r.served_text = f"{r.served_pct}% likely to serve you"
+
+
+async def served_for(
+    db: AsyncSession, a: Agent, tx: str, amount: int | None, dist: int, now, ledger
+) -> float | None:
+    """The success probability for one agent and one request, or None when the ranker is
+    off. The agent's own page uses it so the figure there matches the search."""
+    if get_settings().ranker != "activity" or ledger is None:
+        return None
+    model = await current_model(db)
+    t = (await trust_for(db, [a], now))[a.ref]
+    return probability(ranker_features(a, tx, amount, dist, now, ledger, t), model.weights)
 
 
 def origin_for(req: SearchRequest) -> tuple[float, float]:
@@ -197,23 +246,10 @@ async def search(
         r = to_result(a, tx, req.amount_sle, dist, now, ledger)
         scored.append(r)
         if model is not None and ledger is not None:
-            t = trust[a.ref]
-            side = ledger.side(tx)
-            f = features(
-                ceiling=side.ceiling(NETWORK_RANGES),
-                amount=req.amount_sle,
-                live=ledger.live,
-                feed_age_min=ledger.feed_age_min,
-                tx_last_hour=ledger.tx_last_hour,
-                failed_today=ledger.failed_for_float_today if ledger.live else ledger.events,
-                freshness_min=age_minutes(capacity_updated_at(a, ledger, now), now),
-                distance_m=dist,
-                trust_visits=t.visits,
-                trust_matched=t.matched,
-                last_tx_min=age_minutes(ledger.last_tx_at, now),
-            )
+            f = ranker_features(a, tx, req.amount_sle, dist, now, ledger, trust[a.ref])
             feats[r.id] = f
             prob[r.id] = probability(f, model.weights)
+            say_served(r, prob[r.id])
     if model is not None:
         # The phrase still gates: only "likely" agents are recommended. Within a phrase, the
         # order is the probability a visit succeeds, computed from activity, not from words.
@@ -264,9 +300,9 @@ async def search(
     recommended = []
     for i, r in enumerate(likely[:2]):
         r.why = (
-            f"Strong activity match for {amount_label(req.amount_sle) or 'your request'}; availability may change."  # noqa: E501
+            f"Best match for {amount_label(req.amount_sle) or 'your request'} right now"
             if i == 0
-            else "Another strong activity match nearby."
+            else "Also a good match nearby"
         )
         recommended.append(r)
     results = likely[2:10]

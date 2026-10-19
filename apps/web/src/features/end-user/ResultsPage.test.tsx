@@ -48,9 +48,24 @@ describe('U3 — Results', () => {
     const { container } = renderResults()
     await screen.findByText("Fatmata's Shop")
     const text = container.textContent ?? ''
-    for (const forbidden of ['MOST', 'SOME', 'SMALL', 'NONE', 'balance', 'threshold', 'signal', 'rating']) {
+    for (const forbidden of ['MOST', 'SOME', 'SMALL', 'NONE', 'balance', 'threshold', 'signal', 'rating', 'probability']) {
       expect(text.toLowerCase()).not.toContain(forbidden.toLowerCase())
     }
+  })
+
+  it('says how likely each agent is to serve, as a round figure that is never 100', async () => {
+    const { container } = renderResults()
+    await screen.findByText("Fatmata's Shop")
+    const groups = screen.getAllByRole('group', { name: /% likely to serve you/ })
+    expect(groups.length).toBeGreaterThan(0)
+    for (const g of groups) {
+      const pct = Number(/^(\d+)%/.exec(g.getAttribute('aria-label') ?? '')![1])
+      expect(pct % 5).toBe(0)
+      expect(pct).toBeGreaterThanOrEqual(5)
+      expect(pct).toBeLessThanOrEqual(95)
+    }
+    expect(container.textContent).not.toMatch(/can likely handle/i)
+    expect(container.textContent).not.toMatch(/100%/)
   })
 
   it('asks for a transaction when the query is missing', () => {

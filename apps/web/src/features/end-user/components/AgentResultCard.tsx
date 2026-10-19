@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import type { AgentResult } from '@/types/public'
 import { DistanceLabel } from './DistanceLabel'
 import { FreshnessBadge } from './FreshnessBadge'
-import { ServiceStatus } from './ServiceStatus'
+import { ServedLikelihood } from './ServedLikelihood'
 import { WhyLine } from './WhyLine'
 import { ChevronIcon } from './finder'
 import { photoSrc } from '@/lib/photo'
@@ -45,7 +45,7 @@ export function AgentResultCard({
           <p className="mt-1 text-sm font-semibold text-finder-star">★ {agent.rating_average} · {agent.rating_count} ratings</p>
         )}
         <div className="mt-4">
-          <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} />
+          <ServedLikelihood agent={agent} />
         </div>
         {agent.freshness !== 'fresh' && (
           <div className="mt-2">

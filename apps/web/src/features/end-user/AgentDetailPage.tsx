@@ -5,7 +5,7 @@ import { customerApi } from '@/services/customerApi'
 import { ApiRequestError } from '@/lib/api'
 import { rememberRecent } from '@/lib/recent'
 import { TRANSACTION_LABELS, type TransactionType } from '@/types/public'
-import { ServiceStatus } from './components/ServiceStatus'
+import { ServedLikelihood } from './components/ServedLikelihood'
 import { FreshnessBadge } from './components/FreshnessBadge'
 import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
@@ -160,12 +160,16 @@ export default function AgentDetailPage() {
           {agent.call_url && <Row icon={PhoneIcon}>{phoneText(agent.call_url)}</Row>}
         </div>
 
-        {/* No verdict on the details: "can likely handle" and the request line read like a
-            reputation badge here. Only a caution appears, with how fresh the picture is. */}
-        {agent.outcome !== 'likely' && (
-          <section className="mt-5 flex flex-col gap-2 rounded-field bg-finder-bg p-4 shadow-inset-finder" aria-label="Your request">
-            <ServiceStatus outcome={agent.outcome} text={agent.outcome_text} size="lg" />
-            <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
+        {/* The answer to the customer's own request: how likely they are to be served, as a
+            round figure that is never 100, with how fresh the picture is. No figure and nothing
+            to caution about means nothing here: a verdict would read like praise. */}
+        {(agent.served_pct != null || agent.outcome !== 'likely') && (
+          <section className="mt-5 flex flex-col gap-3" aria-label="Your request">
+            <ServedLikelihood agent={agent} size="lg" />
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {agent.served_pct != null && <span className="text-sm font-semibold text-finder-muted">{agent.request_label}</span>}
+              <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
+            </div>
           </section>
         )}
 
@@ -218,7 +222,7 @@ export default function AgentDetailPage() {
         </section>
 
         <p className="mt-6 text-sm font-medium text-finder-muted">
-          We estimate availability from recent transaction activity. It can change, so confirm with the agent when you arrive.
+          The figure comes from recent activity at the shop, never from its cash. It can change before you arrive.
         </p>
         <Link
           to="/report-a-visit"

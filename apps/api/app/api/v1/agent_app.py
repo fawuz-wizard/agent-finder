@@ -607,6 +607,98 @@ async def post_today(
     return _schedule_payload(a, now)
 
 
+# ---- Customer feedback, as the agent may read it -------------------------------------------
+#
+# A customer who could not be served, or who left a comment, is telling the agent why they
+# fail; that is worth more to the agent than to anyone. What the agent must never learn is
+# who said it: no number, no device key, no time of day, no amount, only the day. Comments
+# are shown as written.
+
+FEEDBACK_DAYS = 30
+FEEDBACK_LIMIT = 50
+REASON_TEXT = {
+    "could_not_complete": "Could not complete the transaction",
+    "less_than_requested": "Had less than the customer asked for",
+    "charged_extra": "Charged extra on top of the official fee",
+    "refused_small": "Refused to serve a small amount",
+    "closed": "Was closed",
+    "unavailable": "Was unavailable",
+    "other": "Something else went wrong",
+}
+
+
+def day_text(at: datetime, now: datetime) -> str:
+    """The day only. The hour would tell the agent which customer it was."""
+    days = (now.date() - _aware(at).date()).days
+    if days <= 0:
+        return "Today"
+    if days == 1:
+        return "Yesterday"
+    if days < 7:
+        return f"{days} days ago"
+    return _aware(at).strftime("%-d %b")
+
+
+def feedback_item(r: OutcomeReport, now: datetime) -> dict | None:
+    failed = r.answer == "no"
+    comment = (r.comment or "").strip() or None
+    if not failed and comment is None:
+        return None
+    import hashlib
+
+    return {
+        "id": "fb-" + hashlib.sha256(r.id.encode()).hexdigest()[:10],
+        "day_text": day_text(r.at, now),
+        "kind": "not_served" if failed else "comment",
+        "transaction_label": TRANSACTION_LABELS.get(r.transaction or "", None),
+        "reason_text": (
+            REASON_TEXT.get(r.reason_code or "", REASON_TEXT["other"]) if failed else None
+        ),
+        "rating": r.rating,
+        "comment": comment,
+    }
+
+
+@router.get(
+    "/feedback",
+    summary="What customers said about my shop, without who said it: failed visits with "
+    "their reason, comments, ratings",
+)
+async def feedback(
+    p: Principal = Depends(require_role("agent")), db: AsyncSession = Depends(get_session)
+) -> dict:
+    now = now_utc()
+    start = now - timedelta(days=FEEDBACK_DAYS)
+    rows = (
+        (
+            await db.execute(
+                select(OutcomeReport)
+                .where(OutcomeReport.agent_ref == p.subject, OutcomeReport.at >= start)
+                .order_by(OutcomeReport.at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    items = [x for x in (feedback_item(r, now) for r in rows) if x is not None][:FEEDBACK_LIMIT]
+    ratings = [r.rating for r in rows if r.rating is not None]
+    return {
+        "days": FEEDBACK_DAYS,
+        "summary": {
+            "served": sum(1 for r in rows if r.answer == "yes"),
+            "not_served": sum(1 for r in rows if r.answer == "no"),
+            "comments": sum(1 for r in rows if (r.comment or "").strip()),
+            "ratings": len(ratings),
+            # Shown to the agent on the same rule as to customers: three ratings or nothing.
+            "rating_average": round(sum(ratings) / len(ratings), 1) if len(ratings) >= 3 else None,
+        },
+        "privacy_text": (
+            "Customers are anonymous. No name, number, time or amount is kept with their words."
+        ),
+        "items": items,
+    }
+
+
 @router.get("/activity", summary="Today's timeline: operator rows and ours, each labelled")
 async def activity(
     p: Principal = Depends(require_role("agent")), db: AsyncSession = Depends(get_session)
