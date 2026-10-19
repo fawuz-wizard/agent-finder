@@ -7,6 +7,7 @@ import { SessionProvider } from '@/features/auth/SessionProvider'
 import { SESSION_KEY } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import ProfilePage from './ProfilePage'
+import SettingsPage from './SettingsPage'
 import { AgentLayout } from '@/app/layouts'
 
 const PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
@@ -20,6 +21,23 @@ function renderProfile() {
         <MemoryRouter initialEntries={['/agent/profile']}>
           <Routes>
             <Route path="/agent/profile" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      </SessionProvider>
+    </ToastProvider>,
+  )
+}
+
+function renderSettings() {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', role: 'agent', name: "Fatmata's Shop", ref: 'Agent 024', permissions: [] }))
+  return render(
+    <ToastProvider>
+      <SessionProvider>
+        <MemoryRouter initialEntries={['/agent/settings']}>
+          <Routes>
+            <Route element={<AgentLayout />}>
+              <Route path="/agent/settings" element={<SettingsPage />} />
+            </Route>
           </Routes>
         </MemoryRouter>
       </SessionProvider>
@@ -55,19 +73,20 @@ describe('agent profile', () => {
   })
 
 
-  it('shows four rows of the Orange record, the rest on request, never editable', async () => {
+  it('shows the Orange record in full, never editable, with Settings behind the gear', async () => {
     renderProfile()
-    await screen.findByText('Your Orange record')
-    expect(screen.queryByText('Region')).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: /see full record/i }))
+    await screen.findByText('Orange record')
     expect(screen.getByText('Region')).toBeInTheDocument()
+    expect(screen.getByText('Status at Orange')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/agent/settings')
+    expect(screen.queryByText('Security')).not.toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: /address/i })).not.toBeInTheDocument()
   })
 
   it('sends a wrong record to the aggregator without touching the record', async () => {
     const user = userEvent.setup()
     renderProfile()
-    await screen.findByText('Your Orange record')
+    await screen.findByText('Orange record')
     const before = (await operatorApi.profile('Agent 024')).street
     await user.click(screen.getByRole('button', { name: 'Report a mistake' }))
     const sheet = screen.getByRole('dialog', { name: 'Report a mistake' })
@@ -82,7 +101,7 @@ describe('agent profile', () => {
 
   it('changes the PIN only with the current one, and signs out the other phones', async () => {
     const user = userEvent.setup()
-    renderProfile()
+    renderSettings()
     await screen.findByText('Security')
     await user.click(screen.getByRole('button', { name: /^change/i }))
     const sheet = screen.getByRole('dialog', { name: 'Change PIN' })
@@ -103,14 +122,17 @@ describe('agent profile', () => {
     await waitFor(() => expect(screen.queryByText('Old phone · Tecno')).not.toBeInTheDocument())
   })
 
-  it('keeps the two alert switches on this phone', async () => {
+  it('keeps the notification switches on this phone, all on until turned off', async () => {
     const user = userEvent.setup()
-    renderProfile()
-    const beep = await screen.findByRole('switch', { name: 'Beep before closing' })
-    expect(beep).toHaveAttribute('aria-checked', 'true')
-    await user.click(beep)
+    renderSettings()
+    await screen.findByText('Notifications')
+    for (const name of ['Float request decided', 'A customer reported a problem', 'New customer comment', 'Status needs a check', 'Beep before closing', 'Ask when I leave the shop']) {
+      expect(screen.getByRole('switch', { name })).toHaveAttribute('aria-checked', 'true')
+    }
+    await user.click(screen.getByRole('switch', { name: 'Beep before closing' }))
+    await user.click(screen.getByRole('switch', { name: 'Float request decided' }))
     expect(screen.getByRole('switch', { name: 'Beep before closing' })).toHaveAttribute('aria-checked', 'false')
-    expect(JSON.parse(localStorage.getItem('af.agentPrefs')!)).toMatchObject({ closingBeep: false, leftShopWatch: true })
+    expect(JSON.parse(localStorage.getItem('af.agentPrefs')!)).toMatchObject({ closingBeep: false, floatDecided: false, leftShopWatch: true, customerReport: true })
   })
 })
 
@@ -119,19 +141,7 @@ describe('appearance', () => {
   it('opens light, and Dark turns the whole agent shell dark on this phone', async () => {
     const user = userEvent.setup()
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', role: 'agent', name: "Fatmata's Shop", ref: 'Agent 024', permissions: [] }))
-    const { container } = render(
-      <ToastProvider>
-        <SessionProvider>
-          <MemoryRouter initialEntries={['/agent/profile']}>
-            <Routes>
-              <Route element={<AgentLayout />}>
-                <Route path="/agent/profile" element={<ProfilePage />} />
-              </Route>
-            </Routes>
-          </MemoryRouter>
-        </SessionProvider>
-      </ToastProvider>,
-    )
+    const { container } = renderSettings()
     const group = await screen.findByRole('radiogroup', { name: 'Appearance' })
     expect(container.querySelector('[data-platform="light"]')).not.toBeNull()
     expect(within(group).getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true')

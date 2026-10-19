@@ -114,6 +114,27 @@ export function FieldLabel({ htmlFor, children }: { htmlFor: string; children: R
   )
 }
 
+/** A switch: 44 px tall, the finder's orange when on. The label is for screen readers; the row names it. */
+export function Switch({ on, label, onChange }: { on: boolean; label: string; onChange: (next: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} className="-mr-1 flex h-control w-14 items-center justify-center">
+      <span className={`block h-7 w-12 rounded-full p-1 transition-colors ${on ? 'bg-finder-accent' : 'bg-finder-line'}`}>
+        <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${on ? 'translate-x-5' : ''}`} />
+      </span>
+    </button>
+  )
+}
+
+/** A row without a box: label left, value or action right, a hairline under. For settings and records. */
+export function Line({ label, value, action, className = '' }: { label: ReactNode; value?: ReactNode; action?: ReactNode; className?: string }) {
+  return (
+    <div className={`flex min-h-[3rem] items-center justify-between gap-4 border-b border-finder-line py-1 last:border-b-0 ${className}`}>
+      <span className="min-w-0 text-base font-semibold text-finder-ink">{label}</span>
+      {action ?? <span className="min-w-0 text-right text-base font-semibold text-finder-muted">{value}</span>}
+    </div>
+  )
+}
+
 /** The finder's two states of a pill. */
 export const PILL_ON = 'bg-finder-accent text-finder-on-orange'
 export const PILL_OFF = 'border-2 border-finder-ink bg-transparent text-finder-ink'

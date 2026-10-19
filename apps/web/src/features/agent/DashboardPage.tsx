@@ -5,7 +5,7 @@ import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
 import { PRESENCE_LABELS } from '@/types/operator'
 import type { AgentHome, AgentTransactions, LowLevel, Presence } from '@/types/operator'
-import { FinderBox, FinderCta, FinderHeader } from '@/features/end-user/components/finder'
+import { FinderBox, FinderCta } from '@/features/end-user/components/finder'
 import { EdgeCard, PILL_OFF, PILL_ON, PlaceRow, SectionLabel } from './components/agentChrome'
 import { ListingCard } from './components/ListingCard'
 import { floatRowText } from './floatRow'
@@ -19,19 +19,20 @@ const PRESENCE: { value: Presence; label: string }[] = [
   { value: 'closed', label: 'Closed' },
 ]
 
-function Figure({ label, value }: { label: string; value: string }) {
+function Figure({ label, value, tone = 'text-finder-ink' }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="flex flex-1 flex-col items-center gap-0.5">
-      <span className="text-3xl font-bold leading-none text-finder-ink">{value}</span>
-      <span className="text-center text-sm font-semibold text-finder-muted">{label}</span>
-    </div>
+    <span className="flex flex-1 flex-col items-start gap-1">
+      <span className={`text-3xl font-bold leading-none ${tone}`}>{value}</span>
+      <span className="text-sm font-medium text-finder-muted">{label}</span>
+    </span>
   )
 }
 
 /**
- * Dashboard: the screen the agent opens twenty times a day. Your own listing as customers
- * see it, Open / Away / Closed, alerts only when there is one, today's three figures, and
- * the float request's state. The chart and the timeline live on the Activity tab.
+ * Dashboard: the screen the agent opens twenty times a day, in five blocks and one screen.
+ * The shop and its hours; Are you open?, the one thing they touch, right under it; an alert
+ * only when there is one; what customers see, as the two chips; today's three figures; the
+ * float request. Nothing is said twice. The chart and the timeline live on the Activity tab.
  */
 export default function DashboardPage() {
   const { session } = useSession()
@@ -103,15 +104,13 @@ export default function DashboardPage() {
 
   if (home.state === 'loading')
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
-        <FinderHeader title="Dashboard" />
+      <div className="flex flex-col gap-4 px-5 pb-8 pt-6 text-finder-ink">
         <p className="text-base font-medium text-finder-muted">Loading your day…</p>
       </div>
     )
   if (home.state === 'error' || !home.data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
-        <FinderHeader title="Dashboard" />
+      <div className="flex flex-col gap-4 px-5 pb-8 pt-6 text-finder-ink">
         <p className="text-base font-semibold text-danger">{home.error}</p>
         <FinderCta onClick={home.refresh}>Try again</FinderCta>
       </div>
@@ -120,15 +119,14 @@ export default function DashboardPage() {
   const data = home.data
   const d = data.declaration
   const presenceTone = d.presence === 'open' ? 'text-finder-likely' : d.presence === 'hidden' ? 'text-warning' : 'text-finder-muted'
+  const lowText = data.low.cash_out || data.low.deposit ? 'Low today · change ›' : 'Low on cash out or cash in today? ›'
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader title="Dashboard" />
-
       <div className="mt-6">
         <PlaceRow
           name={data.name}
-          sub={<>{data.ref} · {data.area}</>}
+          sub={<>{data.ref} · {data.area} · {data.schedule.hours_text}</>}
           action={
             <Link to="/agent/hours" aria-label="Working hours" className="flex h-control items-center">
               Hours
@@ -136,10 +134,9 @@ export default function DashboardPage() {
           }
         />
       </div>
-      <p className="mt-1 text-sm font-medium text-finder-muted">{data.schedule.hours_text}</p>
 
       {data.schedule.notice && (
-        <EdgeCard className="mt-4" role="status">
+        <EdgeCard className="mt-5" role="status">
           <p className="text-base font-bold">{data.schedule.notice}</p>
           <button type="button" onClick={stayOpen} disabled={saving !== null} className="h-control self-start text-base font-bold text-finder-link">
             {saving === 'extend' ? 'Saving…' : 'Stay open 1 more hour'}
@@ -147,62 +144,8 @@ export default function DashboardPage() {
         </EdgeCard>
       )}
 
-      <div className="mt-6 flex flex-col gap-3">
-        <SectionLabel id="customers-see">Customers now see</SectionLabel>
-        <ListingCard name={data.name} street={data.area} see={data.customers_see} photoUrl={data.photo_url} compact />
-        <button type="button" onClick={() => setLowOpen((v) => !v)} aria-expanded={lowOpen} className="flex h-control items-center self-start text-base font-bold text-finder-link">
-          {data.low.cash_out || data.low.deposit ? 'Low today · change ›' : 'Low on cash out or cash in today? ›'}
-        </button>
-        {lowOpen && (
-          <FinderBox className="flex flex-col gap-4 px-4 py-4" aria-label="Low today">
-            {(
-              [
-                ['cash_out', 'Cash out', 'the cash you hand over'],
-                ['deposit', 'Cash in', 'the float you credit'],
-              ] as const
-            ).map(([side, label, hint]) => {
-              const current = data.low[side]
-              return (
-                <div key={side} className="flex flex-col gap-2">
-                  <p className="text-sm font-bold">
-                    {label} <span className="font-medium text-finder-muted">{hint}</span>
-                  </p>
-                  <div role="radiogroup" aria-label={`${label} today`} className="flex gap-2">
-                    {(
-                      [
-                        ['ok', 'Fine'],
-                        ['low', 'Low'],
-                        ['none', 'None'],
-                      ] as const
-                    ).map(([level, text]) => {
-                      const on = level === 'ok' ? current === null : current === level
-                      return (
-                        <button
-                          key={level}
-                          type="button"
-                          role="radio"
-                          aria-checked={on}
-                          disabled={lowSaving !== null}
-                          onClick={() => void setLow(side, level)}
-                          className={`h-chip flex-1 rounded-pill text-sm font-bold ${on ? PILL_ON : PILL_OFF}`}
-                        >
-                          {lowSaving === `${side}:${level}` ? '…' : text}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-            <p className="text-xs font-medium text-finder-muted">
-              Low: only small amounts read as likely. None: that side reads as unavailable. Both last {data.low.until_text}; you can only lower what customers read, never raise it.
-            </p>
-          </FinderBox>
-        )}
-      </div>
-
-      <h1 className="mt-6 text-xl font-bold leading-tight">Are you open?</h1>
-      <div role="radiogroup" aria-label="Are you open?" className="mt-5 flex gap-3">
+      <h1 className="mt-8 text-xl font-bold leading-tight">Are you open?</h1>
+      <div role="radiogroup" aria-label="Are you open?" className="mt-4 flex gap-3">
         {PRESENCE.map((p) => (
           <button
             key={p.value}
@@ -217,42 +160,95 @@ export default function DashboardPage() {
           </button>
         ))}
       </div>
-      <p className={`mt-3 text-base font-bold ${presenceTone}`}>{PRESENCE_LABELS[d.presence]}</p>
-      {d.source_text && <p className="mt-0.5 text-sm font-medium text-finder-muted">{d.source_text}</p>}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <p className={`text-base font-bold ${presenceTone}`}>{PRESENCE_LABELS[d.presence]}</p>
+        <button type="button" onClick={() => setLowOpen((v) => !v)} aria-expanded={lowOpen} className="flex h-control items-center text-sm font-bold text-finder-link">
+          {lowText}
+        </button>
+      </div>
+      {d.source_text && <p className="text-sm font-medium text-finder-muted">{d.source_text}</p>}
       {error && (
         <p role="alert" className="mt-2 text-sm font-semibold text-danger">
           {error}
         </p>
       )}
+      {lowOpen && (
+        <FinderBox className="mt-3 flex flex-col gap-4 px-4 py-4" aria-label="Low today">
+          {(
+            [
+              ['cash_out', 'Cash out', 'the cash you hand over'],
+              ['deposit', 'Cash in', 'the float you credit'],
+            ] as const
+          ).map(([side, label, hint]) => {
+            const current = data.low[side]
+            return (
+              <div key={side} className="flex flex-col gap-2">
+                <p className="text-sm font-bold">
+                  {label} <span className="font-medium text-finder-muted">{hint}</span>
+                </p>
+                <div role="radiogroup" aria-label={`${label} today`} className="flex gap-2">
+                  {(
+                    [
+                      ['ok', 'Fine'],
+                      ['low', 'Low'],
+                      ['none', 'None'],
+                    ] as const
+                  ).map(([level, text]) => {
+                    const on = level === 'ok' ? current === null : current === level
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        disabled={lowSaving !== null}
+                        onClick={() => void setLow(side, level)}
+                        className={`h-chip flex-1 rounded-pill text-sm font-bold ${on ? PILL_ON : PILL_OFF}`}
+                      >
+                        {lowSaving === `${side}:${level}` ? '…' : text}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+          <p className="text-xs font-medium text-finder-muted">
+            Low: only small amounts read as likely. None: that side reads as unavailable. Both last {data.low.until_text}; you can only lower what customers read, never raise it.
+          </p>
+        </FinderBox>
+      )}
 
       {data.attention.map((sentence) => (
-        <FinderBox key={sentence} className="mt-4 border-l-4 border-danger px-5 py-4" role="status">
-          <p className="text-base font-bold">{sentence}</p>
-        </FinderBox>
+        <p key={sentence} role="status" className="mt-5 border-l-4 border-danger pl-4 text-base font-bold leading-snug">
+          {sentence}
+        </p>
       ))}
 
-      <SectionLabel className="mt-6">Today</SectionLabel>
-      <FinderBox className="mt-3 flex flex-col gap-4 px-2 py-4">
-        <Link to="/agent/activity" className="flex flex-col items-center gap-0.5" aria-label="Today's commission, see Activity">
-          <span className="text-3xl font-bold leading-none text-finder-likely">
-            {tx.data ? `${tx.data.estimated_any ? '≈ ' : ''}${formatSle(tx.data.commission_total_sle)}` : '—'}
-          </span>
-          <span className="text-sm font-semibold text-finder-muted">Commission earned today ›</span>
-        </Link>
-        <div className="flex items-center divide-x divide-finder-line">
-          <Figure label="Found you" value={String(data.today.found_you)} />
-          <Figure label={data.today.transactions === null ? 'Logged by you' : 'Transactions'} value={String(data.today.transactions ?? data.today.logged)} />
-          <Figure label="Reported a problem" value={String(data.today.reported_problems)} />
-        </div>
-      </FinderBox>
+      <div className="mt-8 flex flex-col gap-3">
+        <SectionLabel id="customers-see">Customers now see</SectionLabel>
+        <ListingCard name={data.name} street={data.area} see={data.customers_see} photoUrl={data.photo_url} compact frame={false} />
+      </div>
 
-      <SectionLabel className="mt-6">Float</SectionLabel>
-      <FinderBox className="mt-3 flex min-h-[3.5rem] items-center justify-between gap-3 px-5 py-2">
+      <SectionLabel className="mt-8">Today</SectionLabel>
+      <div className="mt-3 flex items-start divide-x divide-finder-line [&>*]:px-3 [&>*:first-child]:pl-0">
+        <Link to="/agent/activity" className="flex flex-1" aria-label="Today's commission, see Activity">
+          <Figure
+            label="commission ›"
+            value={tx.data ? `${tx.data.estimated_any ? '≈ ' : ''}${formatSle(tx.data.commission_total_sle)}` : '—'}
+            tone="text-finder-likely"
+          />
+        </Link>
+        <Figure label="found you" value={String(data.today.found_you)} />
+        <Figure label={data.today.transactions === null ? 'logged by you' : 'transactions'} value={String(data.today.transactions ?? data.today.logged)} />
+      </div>
+
+      <div className="mt-8 flex min-h-[3.25rem] items-center justify-between gap-3 border-t border-finder-line pt-3">
         <span className="text-base font-bold">Float request</span>
         <Link to="/agent/services" className="text-base font-bold text-finder-link">
           {floatRowText(data.latest_float)} ›
         </Link>
-      </FinderBox>
+      </div>
     </div>
   )
 }

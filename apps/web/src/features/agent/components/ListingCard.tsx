@@ -12,20 +12,23 @@ import { EdgeCard, PILL_ON } from './agentChrome'
  * not on the map). The ranges line and the explanation are the agent's own; a customer sees
  * neither.
  */
-export function ListingCard({ name, street, see, compact = false, photoUrl = null }: { name: string; street: string; see: CustomersSee; compact?: boolean; photoUrl?: string | null | undefined }) {
+export function ListingCard({ name, street, see, compact = false, photoUrl = null, frame = true }: { name: string; street: string; see: CustomersSee; compact?: boolean; photoUrl?: string | null | undefined; frame?: boolean }) {
   const open = see.state === 'open' && see.sides.length > 0
   // Compact: the name and one short pill per side; the whole card on request.
   const [expanded, setExpanded] = useState(!compact)
   const short = (label: string) => label.replace(/^(Cash out|Cash in).*$/, '$1')
-  return (
-    <EdgeCard muted={!open} data-state={see.state} aria-label={`Your listing: ${open ? 'customers can find you' : see.headline}`}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className={`text-md font-bold leading-tight ${open ? 'text-finder-ink' : 'text-finder-muted'}`}>{name}</p>
-          <p className="text-sm font-bold text-finder-muted">{street}</p>
+  const label = `Your listing: ${open ? 'customers can find you' : see.headline}`
+  const body = (
+    <>
+      {frame && (
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className={`text-md font-bold leading-tight ${open ? 'text-finder-ink' : 'text-finder-muted'}`}>{name}</p>
+            <p className="text-sm font-bold text-finder-muted">{street}</p>
+          </div>
+          {open && photoSrc(photoUrl) && <img src={photoSrc(photoUrl)!} alt="" className="h-12 w-16 shrink-0 rounded-field object-cover" />}
         </div>
-        {open && photoSrc(photoUrl) && <img src={photoSrc(photoUrl)!} alt="" className="h-12 w-16 shrink-0 rounded-field object-cover" />}
-      </div>
+      )}
       {open && !expanded ? (
         <>
           <div className="mt-1 flex flex-wrap gap-2">
@@ -74,6 +77,19 @@ export function ListingCard({ name, street, see, compact = false, photoUrl = nul
           )}
         </>
       )}
+    </>
+  )
+  // Without the frame (the dashboard, where the header already names the shop): the same
+  // content as a plain block, still an article with its state for anyone reading the page.
+  if (!frame)
+    return (
+      <article data-state={see.state} aria-label={label} className="flex flex-col gap-2">
+        {body}
+      </article>
+    )
+  return (
+    <EdgeCard muted={!open} data-state={see.state} aria-label={label}>
+      {body}
     </EdgeCard>
   )
 }
