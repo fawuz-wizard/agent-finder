@@ -67,9 +67,8 @@ describe('U1 — Home', () => {
     expect(screen.queryByTestId('loc')).not.toBeInTheDocument()
     await user.type(screen.getByRole('searchbox', { name: 'Search a place' }), 'Aber')
     await user.click(await screen.findByRole('button', { name: /Aberdeen/ }))
-    expect(screen.getByText(/Searching around Aberdeen/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Find agent' }))
-    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=deposit&area=Aberdeen&amount=2000&lat=8.484&lng=-13.271&by=place')
+    // The pick is the search: the transaction and amount already typed go with the place's point.
+    expect(await screen.findByTestId('loc')).toHaveTextContent('/search?tx=deposit&area=Aberdeen&amount=2000&lat=8.484&lng=-13.271&by=place')
   })
 
   it('shows the old-Leone equivalent, the most common amount error', async () => {
@@ -132,7 +131,7 @@ describe('U1 — Home asks for the live location first', () => {
     expect(screen.getByRole('button', { name: 'Search a place instead' })).toBeInTheDocument()
   })
 
-  it('stops Find agent with the prompt, and searches a place only when the customer picks one', async () => {
+  it('stops Find agent with the prompt, and searches the moment the customer picks a place', async () => {
     const user = userEvent.setup()
     phone((_ok, fail) => fail({ code: 1 }))
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [{ name: 'Aberdeen', lat: '8.4842', lon: '-13.2711', address: { suburb: 'Aberdeen', city: 'Freetown' } }] })))
@@ -144,9 +143,8 @@ describe('U1 — Home asks for the live location first', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Search a place instead' }))
     await user.type(screen.getByRole('searchbox', { name: 'Search a place' }), 'Aberdeen')
     await user.click(await screen.findByRole('button', { name: /Aberdeen/ }))
-    await user.click(screen.getByRole('button', { name: 'Find agent' }))
-    // The chosen place's own point goes with the search, marked as a place, never a guess.
-    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen&lat=8.484&lng=-13.271&by=place')
+    // The pick is the search, no second tap: the chosen place's own point goes with it, marked as a place.
+    expect(await screen.findByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen&lat=8.484&lng=-13.271&by=place')
   })
 
   it('says when the fix is only approximate, and carries that into the results', async () => {
@@ -204,7 +202,7 @@ describe('U1 — Home names where the customer is', () => {
     sessionStorage.clear()
   })
 
-  it('lets the customer search a place by hand, remembers it, then comes back to the live place', async () => {
+  it('lets the customer search a place by hand, searches it at once and remembers it', async () => {
     const user = userEvent.setup()
     phoneAt(8.4701, -13.2609)
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [{ name: 'Aberdeen', lat: '8.4842', lon: '-13.2711', address: { suburb: 'Aberdeen', city: 'Freetown' } }] })))
@@ -216,9 +214,7 @@ describe('U1 — Home names where the customer is', () => {
     const hit = await screen.findByRole('button', { name: /Aberdeen/ })
     expect(hit).toHaveTextContent('Freetown')
     await user.click(hit)
-    expect(screen.getByText(/Searching around Aberdeen/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Find agent' }))
-    expect(screen.getByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen&lat=8.484&lng=-13.271&by=place')
+    expect(await screen.findByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen&lat=8.484&lng=-13.271&by=place')
     // Remembered on this phone for next time.
     expect(JSON.parse(localStorage.getItem('af.places') ?? '[]')).toHaveLength(1)
   })

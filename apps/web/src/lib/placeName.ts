@@ -86,12 +86,26 @@ function placeDetail(address: Record<string, string> | undefined, name: string):
  * knows Freetown's neighbourhoods and roads and the country's towns; a village it has never
  * heard of returns nothing, and the screen says so.
  */
+/** Nominatim answers 403 or 429 when asked too often; one short wait and a second try is its own advice. */
+async function fetchPlaces(url: string, signal?: AbortSignal): Promise<Response> {
+  const res = await fetch(url, { signal: signal ?? null, headers: { Accept: 'application/json' } })
+  if (res.status !== 403 && res.status !== 429) return res
+  await new Promise<void>((resolve, reject) => {
+    const t = setTimeout(resolve, 1200)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t)
+      reject(new DOMException('Aborted', 'AbortError'))
+    })
+  })
+  return fetch(url, { signal: signal ?? null, headers: { Accept: 'application/json' } })
+}
+
 export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
   const q = query.trim()
   if (q.length < 2 || typeof fetch !== 'function') return []
   const url = `${SEARCH}?format=jsonv2&countrycodes=sl&limit=5&addressdetails=1&accept-language=en&q=${encodeURIComponent(q)}`
   try {
-    const res = await fetch(url, { signal: signal ?? null, headers: { Accept: 'application/json' } })
+    const res = await fetchPlaces(url, signal)
     if (!res.ok) return []
     const hits = (await res.json()) as NominatimHit[]
     const out: Place[] = []

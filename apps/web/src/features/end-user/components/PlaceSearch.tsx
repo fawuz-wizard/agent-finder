@@ -28,7 +28,7 @@ export function PlaceSearch({ recents, onPick }: { recents: Place[]; onPick: (pl
         setHits(found)
         setState('done')
       })
-    }, 350)
+    }, 500)
     return () => {
       window.clearTimeout(t)
       ctrl.abort()

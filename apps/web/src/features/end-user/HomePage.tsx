@@ -54,11 +54,11 @@ export default function HomePage() {
   const shownLabel = chosen ? chosen.name : live ? liveLabel : waiting ? 'Finding your location…' : 'Your location'
 
   /** Every search carries a point: the phone's, or the chosen place's. */
-  function go(target: 'live' | 'place') {
+  function go(target: 'live' | 'place', place: Place | null = chosen) {
     if (!transaction) return
-    const point = target === 'live' ? location.point : chosen
+    const point = target === 'live' ? location.point : place
     if (!point) return
-    const q = new URLSearchParams({ tx: transaction, area: target === 'live' ? liveLabel : chosen!.name })
+    const q = new URLSearchParams({ tx: transaction, area: target === 'live' ? liveLabel : place!.name })
     if (amount) q.set('amount', amount)
     q.set('lat', String(point.lat))
     q.set('lng', String(point.lng))
@@ -67,11 +67,20 @@ export default function HomePage() {
     navigate(`/search?${q.toString()}`)
   }
 
+  /** Choosing a place is the search: the customer has said where, so the results open at once.
+   *  Only an amount that cannot be searched holds it back, and the field says why. */
   function choosePlace(p: Place) {
     setChosen(p)
     setPlaces(rememberPlace(p))
     setPickPlace(false)
     setAskLocation(false)
+    setPending(false)
+    if (amount !== '' && Number(amount) <= 0) {
+      setError('Enter an amount above SLE 0.')
+      return
+    }
+    setError(null)
+    go('place', p)
   }
 
   /** The live position first. No position: say how to turn it on, or search a place. */
