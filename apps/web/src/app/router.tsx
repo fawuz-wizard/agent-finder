@@ -20,6 +20,7 @@ const AgentServices = lazy(() => import('@/features/agent/ServicesPage'))
 const AgentActivity = lazy(() => import('@/features/agent/ActivityPage'))
 const AgentProfile = lazy(() => import('@/features/agent/ProfilePage'))
 const AgentSettings = lazy(() => import('@/features/agent/SettingsPage'))
+const AgentNotifications = lazy(() => import('@/features/agent/NotificationsPage'))
 const AgentHours = lazy(() => import('@/features/agent/HoursPage'))
 const DealerDashboard = lazy(() => import('@/features/dealer/DashboardPage'))
 const DealerAgents = lazy(() => import('@/features/dealer/AgentsPage'))
@@ -85,6 +86,7 @@ const router = createBrowserRouter([
           { path: 'float', element: <Navigate to="/agent/services" replace /> },
           { path: 'profile', element: withSuspense(<AgentProfile />) },
           { path: 'settings', element: withSuspense(<AgentSettings />) },
+          { path: 'notifications', element: withSuspense(<AgentNotifications />) },
           { path: 'hours', element: withSuspense(<AgentHours />) },
         ],
       },

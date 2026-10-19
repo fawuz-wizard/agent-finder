@@ -1,8 +1,9 @@
 import type { InputHTMLAttributes, ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { LogoMark } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { FinderBox, PinIcon } from '@/features/end-user/components/finder'
+import { useNotifications } from '../notifications'
 
 /**
  * The Agent App's chrome, built from the customer module's pieces so both apps read as one
@@ -10,7 +11,33 @@ import { FinderBox, PinIcon } from '@/features/end-user/components/finder'
  * rows, the orange-edged card, the 60 px field. Three tabs at the foot.
  */
 
-/** Who is signed in and which app this is: the customer module's host strip, for agents. */
+function BellIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 9a6 6 0 0 1 12 0v4.5l1.8 2.7a1 1 0 0 1-.8 1.5H5a1 1 0 0 1-.8-1.5L6 13.5z" />
+      <path d="M9.5 20a2.5 2.5 0 0 0 5 0" />
+    </svg>
+  )
+}
+
+/** The bell: what is new for this agent, counted, opening the list. */
+function Bell() {
+  const { session } = useSession()
+  const { unseen } = useNotifications(session?.ref ?? 'Agent 024')
+  const label = unseen === 0 ? 'Notifications' : `Notifications, ${unseen} new`
+  return (
+    <Link to="/agent/notifications" aria-label={label} className="relative -mr-2 flex h-control w-control shrink-0 items-center justify-center text-finder-ink">
+      <BellIcon />
+      {unseen > 0 && (
+        <span aria-hidden="true" className="absolute right-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-pill bg-finder-accent px-1 text-xs font-bold text-finder-on-orange">
+          {unseen > 9 ? '9+' : unseen}
+        </span>
+      )}
+    </Link>
+  )
+}
+
+/** Who is signed in and which app this is: the customer module's host strip, for agents, with the bell. */
 export function AgentStrip() {
   const { session } = useSession()
   return (
@@ -19,7 +46,10 @@ export function AgentStrip() {
         <LogoMark size={20} className="text-finder-ink" />
         Agent App
       </span>
-      <span className="min-w-0 truncate text-sm font-semibold text-finder-muted">{session?.name}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 truncate text-sm font-semibold text-finder-muted">{session?.name}</span>
+        <Bell />
+      </span>
     </div>
   )
 }
