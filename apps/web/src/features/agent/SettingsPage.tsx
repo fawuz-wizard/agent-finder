@@ -90,7 +90,7 @@ export default function SettingsPage() {
     }
   }
 
-  const pinField = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-md font-bold tracking-[0.4em] text-finder-ink shadow-inset-finder outline-none placeholder:text-finder-muted placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
+  const pinField = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-lg font-bold tracking-[0.4em] text-finder-ink shadow-inset-finder outline-none placeholder:text-finder-muted placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">

@@ -164,7 +164,7 @@ export default function ServicesPage() {
 
       {unlocated && (
         <EdgeCard className="mt-6">
-          <p className="text-md font-bold leading-tight">Your shop is not on the map yet</p>
+          <p className="text-lg font-bold leading-tight">Your shop is not on the map yet</p>
           <p className="text-sm font-medium text-finder-muted">Customers cannot find you until it is. Stand inside the shop and pin it.</p>
           <Link to="/agent/profile" className={`inline-flex h-chip w-fit items-center rounded-pill px-5 text-base font-bold ${PILL_ON}`}>
             Pin my shop
@@ -172,7 +172,7 @@ export default function ServicesPage() {
         </EdgeCard>
       )}
 
-      <h1 className="mt-6 text-xl font-bold leading-tight">What did you just do?</h1>
+      <h1 className="mt-6 text-lg font-bold leading-tight">What did you just do?</h1>
       <p className="mt-1 text-sm font-medium text-finder-muted">
         After you serve someone, the same details Orange asks you for. <span className="font-bold text-finder-ink">Logged today: {home.data?.today.logged ?? 0}</span>
       </p>
@@ -222,7 +222,7 @@ export default function ServicesPage() {
         <span className="text-base font-bold">Your position</span>
         {position ? (
           <span className="text-right">
-            <span className="block text-md font-bold">{formatSle(position.amount_sle)}</span>
+            <span className="block text-lg font-bold">{formatSle(position.amount_sle)}</span>
             <span className="block text-xs font-semibold text-finder-muted">
               from {position.source} · {new Date(position.read_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
@@ -237,7 +237,7 @@ export default function ServicesPage() {
           <span className="w-fit rounded-tag bg-finder-limited-tint px-3 py-1 text-xs font-bold text-finder-limited">
             {STATE_TEXT[pending.state]} · waiting {pending.waiting_text}
           </span>
-          <p className="text-md font-bold leading-tight">{formatSle(pending.amount_sle)}</p>
+          <p className="text-lg font-bold leading-tight">{formatSle(pending.amount_sle)}</p>
           <Progress request={pending} />
           <p className="text-sm font-medium text-finder-muted">Reason you gave: “{pending.reason}”</p>
           {pending.state === 'pending' && (

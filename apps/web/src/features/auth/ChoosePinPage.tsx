@@ -42,7 +42,7 @@ export default function ChoosePinPage() {
     }
   }
 
-  const input = 'h-full w-full min-w-0 bg-transparent text-md font-bold text-finder-ink outline-none placeholder:font-medium placeholder:text-finder-muted'
+  const input = 'h-full w-full min-w-0 bg-transparent text-lg font-bold text-finder-ink outline-none placeholder:font-medium placeholder:text-finder-muted'
   const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6)
 
   return (
@@ -64,7 +64,7 @@ export default function ChoosePinPage() {
           void submit()
         }}
       >
-        <h1 className="mt-6 text-xl font-bold leading-tight">Choose your PIN</h1>
+        <h1 className="mt-6 text-lg font-bold leading-tight">Choose your PIN</h1>
         <p className="mt-1 text-sm font-medium text-finder-muted">
           Welcome, {session.name}. The code you signed in with works once. Pick 4 to 6 digits that only you know; you will sign in with
           them from now on.

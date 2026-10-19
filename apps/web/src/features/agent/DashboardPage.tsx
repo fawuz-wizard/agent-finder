@@ -144,7 +144,7 @@ export default function DashboardPage() {
         </EdgeCard>
       )}
 
-      <h1 className="mt-8 text-xl font-bold leading-tight">Are you open?</h1>
+      <h1 className="mt-8 text-lg font-bold leading-tight">Are you open?</h1>
       <div role="radiogroup" aria-label="Are you open?" className="mt-4 flex gap-3">
         {PRESENCE.map((p) => (
           <button

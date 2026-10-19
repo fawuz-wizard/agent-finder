@@ -180,7 +180,7 @@ function SignInCard({ detail, initialCode }: { detail: DealerAgentDetail; initia
       {code ? (
         <>
           <p className="text-sm font-medium text-finder-muted">One-time code for {detail.name}. Read it out in person; it is not shown again.</p>
-          <p className="text-center text-3xl font-bold tracking-[0.3em] text-finder-ink" aria-label={`One-time code ${code.split('').join(' ')}`}>
+          <p className="text-center text-2xl font-bold tracking-[0.3em] text-finder-ink" aria-label={`One-time code ${code.split('').join(' ')}`}>
             {code.slice(0, 3)} {code.slice(3)}
           </p>
           <p className="text-sm font-medium text-finder-muted">They sign in with their agent number and this code, then choose a PIN only they know. The code works once.</p>

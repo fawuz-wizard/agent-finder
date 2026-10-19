@@ -88,14 +88,14 @@ export default function DealerProfilePage() {
   }
 
   const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6)
-  const pinField = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-md font-bold tracking-[0.4em] text-finder-ink shadow-inset-finder outline-none placeholder:text-finder-muted placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
+  const pinField = 'h-[3.5rem] w-full rounded-field bg-finder-bg px-4 text-lg font-bold tracking-[0.4em] text-finder-ink shadow-inset-finder outline-none placeholder:text-finder-muted placeholder:tracking-normal focus:outline focus:outline-2 focus:outline-finder-link'
   const regions = report.data ? Object.entries(report.data.by_region) : []
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Profile" />
 
-      <p className="mt-6 text-xl font-bold leading-tight">{session?.name ?? 'Aggregator'}</p>
+      <p className="mt-6 text-lg font-bold leading-tight">{session?.name ?? 'Aggregator'}</p>
       <p className="mt-1 text-sm font-medium text-finder-muted">
         Aggregator account{report.data ? ` · ${report.data.agents} agents` : ''}
       </p>

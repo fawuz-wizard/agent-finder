@@ -12,7 +12,7 @@ function Tile({ bucket, label, value, sub, tone }: { bucket: DealerBucket; label
     <Link to={`/dealer/agents?filter=${bucket}`} className="flex flex-1" aria-label={`${label}: ${value} — see these agents`}>
       <FinderBox className="flex flex-1 flex-col gap-0.5 px-4 py-3">
         <span className="text-sm font-bold uppercase text-finder-muted">{label}</span>
-        <span className={`text-3xl font-bold leading-none ${tone}`}>{value}</span>
+        <span className={`text-2xl font-bold leading-none ${tone}`}>{value}</span>
         <span className="text-xs font-semibold text-finder-muted">{sub}</span>
       </FinderBox>
     </Link>
@@ -71,7 +71,7 @@ export default function DealerDashboardPage() {
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Dashboard" />
 
-      <p className="mt-6 text-xl font-bold leading-tight">{data.agent_count} agents</p>
+      <p className="mt-6 text-lg font-bold leading-tight">{data.agent_count} agents</p>
       <p className="mt-1 text-sm font-medium text-finder-muted">
         {today} · {data.on_map} of {data.agent_count} on the map for customers
       </p>

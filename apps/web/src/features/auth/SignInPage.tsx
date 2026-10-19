@@ -44,7 +44,7 @@ export default function SignInPage() {
     }
   }
 
-  const input = 'h-full w-full min-w-0 bg-transparent text-md font-bold text-finder-ink outline-none placeholder:font-medium placeholder:text-finder-muted'
+  const input = 'h-full w-full min-w-0 bg-transparent text-lg font-bold text-finder-ink outline-none placeholder:font-medium placeholder:text-finder-muted'
   const field = 'mt-3 flex h-[3.5rem] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link'
 
   return (
@@ -76,7 +76,7 @@ export default function SignInPage() {
         {/* One number, no words around it: every agent and every aggregator has their own, and
             the server knows whose it is. The label exists for screen readers only. */}
         <FinderBox className={`${field} mt-10 gap-3`}>
-          <span aria-hidden="true" className="shrink-0 text-md font-bold text-finder-muted">+232</span>
+          <span aria-hidden="true" className="shrink-0 text-lg font-bold text-finder-muted">+232</span>
           <input
             id="sign-in-ref"
             aria-label="Your number"

@@ -147,7 +147,7 @@ export default function ProfilePage() {
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <div className="mt-6 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold leading-tight">{data.shop_name}</h1>
+          <h1 className="text-lg font-bold leading-tight">{data.shop_name}</h1>
           <p className="mt-1 text-sm font-medium text-finder-muted">
             {data.name} · {data.ref}
             {data.dealer_name ? ` · ${data.dealer_name}` : ''}

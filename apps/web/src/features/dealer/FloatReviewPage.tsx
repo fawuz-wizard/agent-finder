@@ -76,7 +76,7 @@ export default function DealerFloatReviewPage() {
       <div className="mt-4 flex flex-col gap-3">
         <EdgeCard muted={req.state !== 'pending'}>
           <p className="text-xs font-bold uppercase tracking-wider text-finder-muted">Amount requested</p>
-          <p className="text-3xl font-bold leading-none">{formatSle(req.amount_sle)}</p>
+          <p className="text-2xl font-bold leading-none">{formatSle(req.amount_sle)}</p>
           <p className="mt-2 text-xs font-bold uppercase tracking-wider text-finder-muted">Reason given</p>
           <p className="text-base font-medium">“{req.reason}”</p>
           {req.state !== 'pending' && (

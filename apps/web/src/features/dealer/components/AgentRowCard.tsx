@@ -23,7 +23,7 @@ export function AgentRowCard({ agent: a, onOpen }: { agent: DealerAgentRow; onOp
       <EdgeCard muted={!onMap} className={a.attention ? '!bg-warning' : ''}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className={`truncate text-md font-bold leading-tight ${onMap ? 'text-finder-ink' : 'text-finder-muted'}`}>{a.name}</p>
+            <p className={`truncate text-lg font-bold leading-tight ${onMap ? 'text-finder-ink' : 'text-finder-muted'}`}>{a.name}</p>
             <p className="truncate text-sm font-bold text-finder-muted">
               {a.ref.replace(/^Agent /, 'Code ')} · {a.area}
             </p>

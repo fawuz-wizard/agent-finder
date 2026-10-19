@@ -23,7 +23,7 @@ export function ListingCard({ name, street, see, compact = false, photoUrl = nul
       {frame && (
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <p className={`text-md font-bold leading-tight ${open ? 'text-finder-ink' : 'text-finder-muted'}`}>{name}</p>
+            <p className={`text-lg font-bold leading-tight ${open ? 'text-finder-ink' : 'text-finder-muted'}`}>{name}</p>
             <p className="text-sm font-bold text-finder-muted">{street}</p>
           </div>
           {open && photoSrc(photoUrl) && <img src={photoSrc(photoUrl)!} alt="" className="h-12 w-16 shrink-0 rounded-field object-cover" />}

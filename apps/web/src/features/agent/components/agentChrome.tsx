@@ -33,11 +33,11 @@ export function PlaceRow({ name, sub, action }: { name: ReactNode; sub?: ReactNo
           <PinIcon />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-md font-bold leading-tight text-finder-ink">{name}</p>
+          <p className="truncate text-lg font-bold leading-tight text-finder-ink">{name}</p>
           {sub && <p className="mt-0.5 text-sm font-semibold text-finder-muted">{sub}</p>}
         </div>
       </div>
-      {action && <span className="shrink-0 text-md font-bold text-finder-link">{action}</span>}
+      {action && <span className="shrink-0 text-lg font-bold text-finder-link">{action}</span>}
     </div>
   )
 }
@@ -45,7 +45,7 @@ export function PlaceRow({ name, sub, action }: { name: ReactNode; sub?: ReactNo
 /** "RECENT": the finder's section label. */
 export function SectionLabel({ id, children, className = '' }: { id?: string | undefined; children: ReactNode; className?: string }) {
   return (
-    <h2 id={id} className={`text-base font-bold uppercase text-finder-muted ${className}`}>
+    <h2 id={id} className={`text-sm font-bold uppercase tracking-wider text-finder-muted ${className}`}>
       {children}
     </h2>
   )
@@ -83,13 +83,13 @@ export function Panel({ className = '', children, ...rest }: React.HTMLAttribute
 export function MoneyField({ id, className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <FinderBox className={`flex h-[3.5rem] items-center gap-4 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link ${className}`}>
-      <span className="text-md font-bold text-finder-muted">SLE</span>
+      <span className="text-lg font-bold text-finder-muted">SLE</span>
       <input
         id={id}
         inputMode="numeric"
         autoComplete="off"
         placeholder="0"
-        className="h-full w-full min-w-0 bg-transparent text-3xl font-bold tabular-nums text-finder-ink outline-none placeholder:text-finder-muted"
+        className="h-full w-full min-w-0 bg-transparent text-2xl font-bold tabular-nums text-finder-ink outline-none placeholder:text-finder-muted"
         {...rest}
       />
     </FinderBox>

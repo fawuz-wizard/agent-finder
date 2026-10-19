@@ -74,7 +74,7 @@ export default function HoursPage() {
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader title="Working hours" back={() => history.back()} />
-      <p className="mt-6 text-md font-bold leading-tight">{t.hours_text}</p>
+      <p className="mt-6 text-lg font-bold leading-tight">{t.hours_text}</p>
       <p className="mt-1 text-sm font-medium text-finder-muted">Outside these hours customers are told you are closed. Fifteen minutes before closing, the Dashboard asks whether to stay open.</p>
 
       <SectionLabel className="mt-6">Today only</SectionLabel>

@@ -124,7 +124,7 @@ export default function RegisterAgentPage() {
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <FinderHeader back="/dealer/agents" title="Agents" />
-      <h1 className="mt-6 text-xl font-bold leading-tight">Register an agent</h1>
+      <h1 className="mt-6 text-lg font-bold leading-tight">Register an agent</h1>
       <p className="mt-1 text-sm font-medium text-finder-muted">Any agent you work with, on Orange's list or not.</p>
 
       <div className="mt-5 flex flex-col gap-3">

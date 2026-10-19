@@ -75,7 +75,7 @@ export default function DealerAttentionPage() {
           <div className={`relative rounded-panel ${sev.edge}`}>
             <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 shadow-inset-finder">
               <Tag tone={sev.tone}>{open.title}</Tag>
-              <p className="text-md font-bold leading-tight">{open.agent_name}</p>
+              <p className="text-lg font-bold leading-tight">{open.agent_name}</p>
               <p className="-mt-1 text-sm font-bold text-finder-muted">{open.agent_ref.replace(/^Agent /, 'Code ')}</p>
               <p className="text-sm font-medium leading-snug">{open.sentence}</p>
             </div>
@@ -136,7 +136,7 @@ export default function DealerAttentionPage() {
             <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 shadow-inset-finder">
               <Link to={`/dealer/attention/${s.id}`} className="flex flex-col gap-1.5">
                 <Tag tone={SEV[s.severity].tone}>{s.title}</Tag>
-                <span className="mt-1 block text-md font-bold leading-tight">{s.agent_name}</span>
+                <span className="mt-1 block text-lg font-bold leading-tight">{s.agent_name}</span>
                 <span className="-mt-1 block text-sm font-bold text-finder-muted">{s.agent_ref.replace(/^Agent /, 'Code ')}</span>
                 <span className="block text-sm font-medium text-finder-muted">{s.sentence}</span>
               </Link>

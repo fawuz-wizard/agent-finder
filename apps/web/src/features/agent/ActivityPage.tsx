@@ -54,7 +54,7 @@ export default function ActivityPage() {
       <div className="mt-3 flex flex-col gap-1" aria-label="Today's commission">
         {t ? (
           <>
-            <p className="text-3xl font-bold leading-none text-finder-likely">
+            <p className="text-2xl font-bold leading-none text-finder-likely">
               {t.estimated_any && <span className="text-finder-muted">≈ </span>}
               {formatSle(t.commission_total_sle)}
             </p>
