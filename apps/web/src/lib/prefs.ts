@@ -1,27 +1,14 @@
 /**
- * The agent's own switches for this phone: what the app tells them about, and the two alerts
- * (the closing beep and the "have you left the shop?" watch). All on by default. Kept on the
- * phone, not the server: they are about this device. Until a notification service is
- * connected they fire while the app is open; the same switches drive phone alerts later.
+ * The agent's own switches for this phone: the closing beep and the "have you left the shop?"
+ * watch. Both on by default. Kept on the phone, not the server: they are about this device.
  */
 export interface AgentPrefs {
-  floatDecided: boolean
-  customerReport: boolean
-  newComment: boolean
-  statusCheck: boolean
   closingBeep: boolean
   leftShopWatch: boolean
 }
 
 const KEY = 'af.agentPrefs'
-const DEFAULTS: AgentPrefs = {
-  floatDecided: true,
-  customerReport: true,
-  newComment: true,
-  statusCheck: true,
-  closingBeep: true,
-  leftShopWatch: true,
-}
+const DEFAULTS: AgentPrefs = { closingBeep: true, leftShopWatch: true }
 
 export function readPrefs(): AgentPrefs {
   try {

@@ -11,20 +11,16 @@ import { FinderCta, FinderHeader, FinderSheet } from '@/features/end-user/compon
 import { FieldLabel, Line, PILL_OFF, PILL_ON, SectionLabel, Switch } from './components/agentChrome'
 import pkg from '../../../package.json'
 
-const NOTIFICATIONS: { key: keyof AgentPrefs; label: string }[] = [
-  { key: 'floatDecided', label: 'Float request decided' },
-  { key: 'customerReport', label: 'A customer reported a problem' },
-  { key: 'newComment', label: 'New customer comment' },
-  { key: 'statusCheck', label: 'Status needs a check' },
+const ALERTS: { key: keyof AgentPrefs; label: string }[] = [
   { key: 'closingBeep', label: 'Beep before closing' },
   { key: 'leftShopWatch', label: 'Ask when I leave the shop' },
 ]
 
 /**
- * Settings: the agent's own choices, reached from the gear on Profile. What the app tells
- * them about, whether customers see their phone, light or dark, the PIN and the phones signed
- * in, about, sign out. Notifications are kept on this phone; until a notification service is
- * connected they fire while the app is open, and the same switches drive phone alerts later.
+ * Settings: the agent's own choices, reached from the gear on Profile. The two alerts the
+ * phone can give today, whether customers see their phone, light or dark, the PIN and the
+ * phones signed in, about, sign out. No notification centre: nothing is promised that the
+ * phone cannot deliver without a notification service.
  */
 export default function SettingsPage() {
   const [theme, setTheme] = usePlatformTheme()
@@ -98,13 +94,13 @@ export default function SettingsPage() {
         <FinderHeader back="/agent/profile" title="Settings" />
       </div>
 
-      <SectionLabel className="mt-6">Notifications</SectionLabel>
+      <SectionLabel className="mt-6">Alerts</SectionLabel>
       <div className="mt-2 flex flex-col">
-        {NOTIFICATIONS.map((n) => (
+        {ALERTS.map((n) => (
           <Line key={n.key} label={n.label} action={<Switch on={prefs[n.key]} label={n.label} onChange={(next) => setPrefs(writePrefs({ [n.key]: next }))} />} />
         ))}
       </div>
-      <p className="mt-2 text-xs font-medium text-finder-muted">Shown while the app is open, and as phone alerts once the pilot's notification service is connected. On this phone only.</p>
+      <p className="mt-2 text-xs font-medium text-finder-muted">Fifteen minutes before you close, and when your phone is far from your pin while you are open. Both on this phone only.</p>
 
       <SectionLabel className="mt-8">Customers</SectionLabel>
       <div className="mt-2 flex flex-col">

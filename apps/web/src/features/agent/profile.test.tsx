@@ -122,17 +122,17 @@ describe('agent profile', () => {
     await waitFor(() => expect(screen.queryByText('Old phone · Tecno')).not.toBeInTheDocument())
   })
 
-  it('keeps the notification switches on this phone, all on until turned off', async () => {
+  it('keeps the two alert switches on this phone, and promises no notifications', async () => {
     const user = userEvent.setup()
     renderSettings()
-    await screen.findByText('Notifications')
-    for (const name of ['Float request decided', 'A customer reported a problem', 'New customer comment', 'Status needs a check', 'Beep before closing', 'Ask when I leave the shop']) {
-      expect(screen.getByRole('switch', { name })).toHaveAttribute('aria-checked', 'true')
-    }
-    await user.click(screen.getByRole('switch', { name: 'Beep before closing' }))
-    await user.click(screen.getByRole('switch', { name: 'Float request decided' }))
+    await screen.findByText('Alerts')
+    expect(screen.queryByText('Notifications')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('switch')).toHaveLength(3) // two alerts and the phone switch
+    const beep = screen.getByRole('switch', { name: 'Beep before closing' })
+    expect(beep).toHaveAttribute('aria-checked', 'true')
+    await user.click(beep)
     expect(screen.getByRole('switch', { name: 'Beep before closing' })).toHaveAttribute('aria-checked', 'false')
-    expect(JSON.parse(localStorage.getItem('af.agentPrefs')!)).toMatchObject({ closingBeep: false, floatDecided: false, leftShopWatch: true, customerReport: true })
+    expect(JSON.parse(localStorage.getItem('af.agentPrefs')!)).toMatchObject({ closingBeep: false, leftShopWatch: true })
   })
 })
 
