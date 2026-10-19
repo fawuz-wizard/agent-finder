@@ -6,9 +6,10 @@ import { FinderBox, FinderCta } from '@/features/end-user/components/finder'
 import { useSession } from './session'
 
 /**
- * Sign in, on the finder's design. Nobody is asked who they are: the number decides. An
- * agent code or an agent's Orange Money line opens the Agent App, an aggregator's line opens
- * the console, and the server is the authority on which. One number, one PIN, one button.
+ * Sign in. Nobody is asked who they are and nothing is explained: every agent and every
+ * aggregator has their own number, the server knows whose it is, and the PIN settles the
+ * rest. The mark, the word, one number, one PIN, one button. The first-time code and the
+ * demo credentials are told in person and written in RUNNING.md, not on the screen.
  */
 export default function SignInPage() {
   const { signIn } = useSession()
@@ -71,28 +72,24 @@ export default function SignInPage() {
           <LogoMark size={36} />
         </span>
         <h1 className="mt-6 text-xl font-bold leading-tight">Sign in</h1>
-        <p className="mt-2 text-base font-medium text-finder-muted">
-          Agents and the aggregators who manage them. Your number says who you are: no need to choose.
-        </p>
 
-        <label htmlFor="sign-in-ref" className="mt-10 text-[0.95rem] font-medium">
-          Agent code or Orange Money number
-        </label>
-        <FinderBox className={field}>
+        {/* One number, no words around it: every agent and every aggregator has their own, and
+            the server knows whose it is. The label exists for screen readers only. */}
+        <FinderBox className={`${field} mt-10 gap-3`}>
+          <span aria-hidden="true" className="shrink-0 text-md font-bold text-finder-muted">+232</span>
           <input
             id="sign-in-ref"
+            aria-label="Your number"
             value={ref}
             onChange={(e) => setRef(e.target.value)}
             autoComplete="username"
             autoCapitalize="off"
             spellCheck={false}
-            placeholder="e.g. 100245 or 076 000 000"
+            inputMode="tel"
+            placeholder="Your number"
             className={input}
           />
         </FinderBox>
-        <p className="mt-2 text-sm font-medium text-finder-muted">
-          Agents: the code on your Orange record, or your own line. Aggregators: the line Orange has for your account.
-        </p>
 
         <div className="mt-6 flex items-center justify-between">
           <label htmlFor="sign-in-pin" className="text-[0.95rem] font-medium">
@@ -123,25 +120,6 @@ export default function SignInPage() {
         <FinderCta type="submit" className="mt-8" disabled={busy || !ready}>
           {busy ? 'Signing in…' : 'Sign in'}
         </FinderCta>
-
-        <p className="mt-6 text-center text-sm font-medium text-finder-muted">
-          First time, or forgot your PIN? Sign in with the one-time code you were given and choose your own PIN.
-        </p>
-
-        {config.isDemo && (
-          <p className="mt-8 text-center text-sm font-medium text-finder-muted">
-            Demo · PIN <b className="text-finder-ink">1234</b> · agents 024, 031, 009, 017, 038 · aggregator <b className="text-finder-ink">kissy</b>
-          </p>
-        )}
-
-        {config.surface === 'customer' && (
-          <p className="mt-auto pt-6 text-center text-sm font-medium text-finder-muted">
-            Looking for an agent?{' '}
-            <Link to="/find" className="font-bold text-finder-link">
-              Open Agent Finder
-            </Link>
-          </p>
-        )}
       </form>
     </div>
   )
