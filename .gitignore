@@ -41,3 +41,6 @@ apps/api/*.db-wal
 *.p12
 *.jks
 *.keystore
+
+# pilot data with real phone numbers never enters the repository
+apps/api/data/agents-pilot.csv
