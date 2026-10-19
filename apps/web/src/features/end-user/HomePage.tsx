@@ -8,7 +8,7 @@ import { usePlaceName } from '@/hooks/usePlaceName'
 import type { TransactionType } from '@/types/public'
 import { TransactionTypeSelector } from './components/TransactionTypeSelector'
 import { AmountInput } from './components/AmountInput'
-import { FinderBox, FinderCta, FinderHeader, PinIcon } from './components/finder'
+import { ChevronIcon, FinderCta, FinderHeader, PinIcon } from './components/finder'
 import { LocationPromptCard, LocationPromptSheet } from './components/LocationPrompt'
 import { PlaceSearch } from './components/PlaceSearch'
 import { pointFrom } from './searchPoint'
@@ -168,14 +168,14 @@ export default function HomePage() {
 
       {pickPlace && <PlaceSearch recents={places} onPick={choosePlace} />}
 
-      <h1 className="mt-5 text-xl font-bold leading-tight">What do you need?</h1>
+      <h1 className="mt-8 text-xl font-bold leading-tight">What do you need?</h1>
       <div className="mt-5">
         <TransactionTypeSelector value={transaction} onChange={setTransaction} />
       </div>
-      <div className="mt-4">
+      <div className="mt-6">
         <AmountInput value={amount} onChange={setAmount} error={error} />
       </div>
-      <FinderCta className="mt-5" onClick={submit} disabled={pending}>
+      <FinderCta className="mt-6" onClick={submit} disabled={pending}>
         {pending ? 'Waiting for your location…' : 'Find agent'}
       </FinderCta>
       <LocationPromptSheet
@@ -193,24 +193,29 @@ export default function HomePage() {
       />
 
       {recent.length > 0 && (
-        <section className="mt-6 flex flex-col gap-2" aria-labelledby="recent-heading">
-          <h2 id="recent-heading" className="text-base font-bold uppercase text-finder-muted">
+        <section className="mt-10 flex flex-col" aria-labelledby="recent-heading">
+          <h2 id="recent-heading" className="text-xs font-bold uppercase tracking-wider text-finder-muted">
             Recent
           </h2>
           {recent.map((r) => (
-            <FinderBox key={r.id} className="flex min-h-[3.5rem] flex-col justify-center gap-0.5 px-5 py-2">
-              <Link to={`/agents/${r.id}?area=${encodeURIComponent(r.area)}`} className="truncate text-base font-bold">
-                {r.name}
-              </Link>
-              <span className="truncate text-sm font-semibold text-finder-muted">
-                {r.area} · {whenLabel(r.at)}
+            <div key={r.id} className="relative flex min-h-[3.5rem] items-center gap-3 border-b border-finder-line py-3 last:border-b-0">
+              <span className="flex min-w-0 flex-1 flex-col">
+                <Link to={`/agents/${r.id}?area=${encodeURIComponent(r.area)}`} className="truncate text-base font-bold after:absolute after:inset-0 after:content-['']">
+                  {r.name}
+                </Link>
+                <span className="truncate text-sm font-medium text-finder-muted">
+                  {r.area} · {whenLabel(r.at)}
+                </span>
               </span>
-            </FinderBox>
+              <span aria-hidden="true" className="shrink-0 text-finder-link">
+                <ChevronIcon />
+              </span>
+            </div>
           ))}
         </section>
       )}
 
-      <nav className="mt-auto flex w-full items-center justify-between gap-2 pt-8 text-base font-bold text-finder-link">
+      <nav className="mt-auto flex w-full items-center justify-between gap-2 pt-10 text-base font-bold text-finder-link">
         <Link to="/how-availability-works" className="flex h-control items-center">
           How availability works
         </Link>

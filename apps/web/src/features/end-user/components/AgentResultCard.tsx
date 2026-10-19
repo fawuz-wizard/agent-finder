@@ -3,13 +3,13 @@ import type { AgentResult } from '@/types/public'
 import { DistanceLabel } from './DistanceLabel'
 import { FreshnessBadge } from './FreshnessBadge'
 import { ServedLikelihood } from './ServedLikelihood'
-import { WhyLine } from './WhyLine'
 import { ChevronIcon } from './finder'
 import { photoSrc } from '@/lib/photo'
 
 /**
- * One result, as the file draws it: a rounded panel with an orange edge on the left, the
- * shop's name and distance on one line, its street under, the status pill, "Get details".
+ * One result as a row, not a box: the shop's name and how far, the street, then the figure
+ * and its bar, a freshness line only when the picture is not fresh, and Get details. Rows
+ * are separated by space and a hairline; the recommendation is named, not framed.
  */
 export function AgentResultCard({
   agent,
@@ -20,50 +20,42 @@ export function AgentResultCard({
   to: string
   recommended?: boolean
 }) {
+  const photo = photoSrc(agent.photo_url)
+  const rated = agent.rating_count != null && agent.rating_count >= 3 && agent.rating_average != null
   return (
-    <article className="relative rounded-panel bg-finder-link">
-      <div className="ml-[9px] flex flex-col rounded-panel bg-finder-bg px-4 pb-4 pt-4 text-white shadow-inset-finder">
-        <div className="flex items-start gap-3">
-          {photoSrc(agent.photo_url) && (
-            <img src={photoSrc(agent.photo_url)!} alt="" className="h-12 w-16 shrink-0 rounded-field object-cover" />
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-3">
-              <h3 className="min-w-0 text-md font-bold leading-tight">
-                <Link to={to} className="after:absolute after:inset-0 after:content-['']">
-                  {agent.name}
-                </Link>
-              </h3>
-              <span className="ml-auto text-md font-bold text-finder-muted">
-                <DistanceLabel metres={agent.distance_m} />
-              </span>
-            </div>
-            <p className="mt-0.5 text-sm font-bold text-finder-muted">{agent.area}</p>
+    <article className="relative flex flex-col gap-4 border-b border-finder-line py-6 last:border-b-0">
+      {recommended && <p className="text-xs font-bold uppercase tracking-wider text-finder-link">Best match</p>}
+      <div className="flex items-start gap-4">
+        {photo && <img src={photo} alt="" className="h-14 w-14 shrink-0 rounded-field object-cover" />}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3 className="min-w-0 truncate text-md font-bold leading-tight">
+              <Link to={to} className="after:absolute after:inset-0 after:content-['']">
+                {agent.name}
+              </Link>
+            </h3>
+            <span className="shrink-0 text-base font-semibold text-finder-muted">
+              <DistanceLabel metres={agent.distance_m} />
+            </span>
           </div>
-        </div>
-        {agent.rating_count != null && agent.rating_count >= 3 && agent.rating_average != null && (
-          <p className="mt-1 text-sm font-semibold text-finder-star">★ {agent.rating_average} · {agent.rating_count} ratings</p>
-        )}
-        <div className="mt-4">
-          <ServedLikelihood agent={agent} />
-        </div>
-        {agent.freshness !== 'fresh' && (
-          <div className="mt-2">
-            <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />
-          </div>
-        )}
-        {recommended && agent.why && (
-          <div className="mt-2">
-            <WhyLine text={agent.why} />
-          </div>
-        )}
-        <div className="relative z-10 mt-3 flex">
-          <Link to={to} className="inline-flex h-control items-center gap-1 text-base font-bold text-finder-link">
-            Get details
-            <ChevronIcon />
-          </Link>
+          <p className="mt-1 text-sm font-medium text-finder-muted">
+            {agent.area}
+            {rated && (
+              <>
+                {' · '}
+                <span className="text-finder-star">★ {agent.rating_average}</span> ({agent.rating_count})
+              </>
+            )}
+          </p>
         </div>
       </div>
+      <ServedLikelihood agent={agent} />
+      {agent.freshness !== 'fresh' && <FreshnessBadge state={agent.freshness} text={agent.freshness_text} />}
+      {recommended && agent.why && <p className="text-sm font-medium text-finder-muted">{agent.why}</p>}
+      <Link to={to} className="relative z-10 inline-flex h-control items-center gap-1 self-start text-base font-bold text-finder-link">
+        Get details
+        <ChevronIcon />
+      </Link>
     </article>
   )
 }

@@ -1,5 +1,5 @@
 import type { LocationProblem } from '@/lib/location'
-import { FinderBox, FinderCta, FinderSheet } from './finder'
+import { FinderCta, FinderSheet } from './finder'
 
 /**
  * The platform searches around the phone's live position. When the phone will not give
@@ -16,10 +16,10 @@ export function LocationPromptCard({
   onSearchPlace: () => void
 }) {
   return (
-    <FinderBox className="mt-3 flex flex-col gap-3 px-4 py-4" role="status">
+    <div className="mt-4 flex flex-col gap-3 border-l-2 border-finder-star pl-4" role="status">
       <p className="text-base font-bold">{problem.title}</p>
       <p className="text-sm font-medium text-finder-muted">{problem.advice}</p>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 pt-1">
         {problem.reason !== 'unsupported' && (
           <button
             type="button"
@@ -33,7 +33,7 @@ export function LocationPromptCard({
           Search a place instead
         </button>
       </div>
-    </FinderBox>
+    </div>
   )
 }
 

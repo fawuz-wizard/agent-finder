@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { Button } from '@/design'
+import { FinderCta, FinderHeader } from './components/finder'
+import { ServedLikelihood } from './components/ServedLikelihood'
 
 const POINTS = [
   'We look at recent activity at each shop: transactions, visits customers confirmed, and problems they reported. We never see or show an agent’s cash.',
@@ -8,37 +9,45 @@ const POINTS = [
   'The agents shown first are the ones nearby with the highest figure for your request.',
 ]
 
-/** U4 — the trust explanation. Four sentences, plain language, one way out. */
+/** The two figures a customer will meet, drawn exactly as the results draw them. */
+const EXAMPLES = [
+  { outcome: 'likely' as const, outcome_text: 'Likely to serve you', served_pct: 85, served_text: '85% likely to serve you' },
+  { outcome: 'limited' as const, outcome_text: 'Availability uncertain for this request', served_pct: 30, served_text: '30% likely to serve you' },
+]
+
+/** U4 — the trust explanation. Four sentences, the figure itself, one way out. */
 export default function HowAvailabilityWorksPage() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 bg-app-bg p-4 text-white">
-      <header className="flex items-center gap-3">
-        <button type="button" onClick={() => history.back()} aria-label="Back" className="-ml-2 flex h-control w-control items-center justify-center rounded-card text-2xl leading-none text-white/70 transition-colors hover:bg-white/10">
-          ‹
-        </button>
-        <h1 className="text-xl font-bold">How availability works</h1>
-      </header>
+    <div className="flex flex-1 flex-col px-5 pb-8 text-white">
+      <FinderHeader back={() => history.back()} title="How availability works" />
 
-      <p className="text-sm text-white/60">A quick guide to what the availability message means.</p>
+      <h1 className="mt-8 text-xl font-bold leading-tight">A figure, not a promise</h1>
+      <p className="mt-2 text-base font-medium text-finder-muted">What the number next to each shop means, and what it does not.</p>
 
-      <ol className="flex flex-col gap-3">
+      <ol className="mt-8 flex flex-col gap-7">
         {POINTS.map((p, i) => (
-          <li key={p} className="flex gap-3 rounded-card border border-white/10 bg-app-panel p-4">
-            <span
-              aria-hidden="true"
-              className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-brand text-sm font-bold text-ink"
-            >
+          <li key={p} className="flex gap-5">
+            <span aria-hidden="true" className="w-7 shrink-0 text-3xl font-bold leading-none text-finder-link tabular-nums">
               {i + 1}
             </span>
-            <p className="text-base leading-relaxed text-white/85">{p}</p>
+            <p className="pt-1 text-base font-medium leading-relaxed">{p}</p>
           </li>
         ))}
       </ol>
 
-      <p className="rounded-card bg-app-surface p-3 text-sm leading-relaxed text-white/65">Availability is hidden overnight (20:00–07:00) for agents’ safety.</p>
+      <h2 className="mt-10 text-xs font-bold uppercase tracking-wider text-finder-muted">What it looks like</h2>
+      <ul className="mt-4 flex flex-col gap-6">
+        {EXAMPLES.map((e) => (
+          <li key={e.served_pct}>
+            <ServedLikelihood agent={e} />
+          </li>
+        ))}
+      </ul>
 
-      <Link to="/find" className="mt-auto">
-        <Button size="cta">Got it</Button>
+      <p className="mt-10 text-sm font-medium text-finder-muted">Availability is hidden overnight (20:00–07:00) for agents’ safety.</p>
+
+      <Link to="/find" className="mt-auto pt-10">
+        <FinderCta>Got it</FinderCta>
       </Link>
     </div>
   )

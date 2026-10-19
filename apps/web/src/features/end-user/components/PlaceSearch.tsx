@@ -57,13 +57,13 @@ export function PlaceSearch({ recents, onPick }: { recents: Place[]; onPick: (pl
         {heading}
       </p>
       {shown.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col">
           {shown.map((p) => (
-            <li key={`${p.name}:${p.lat}:${p.lng}`}>
+            <li key={`${p.name}:${p.lat}:${p.lng}`} className="border-b border-finder-line last:border-b-0">
               <button
                 type="button"
                 onClick={() => onPick(p)}
-                className="flex min-h-[3.5rem] w-full flex-col justify-center rounded-field bg-finder-bg px-5 py-2 text-left shadow-inset-finder"
+                className="flex min-h-[3.5rem] w-full flex-col justify-center py-3 text-left"
               >
                 <span className="block truncate text-base font-bold text-white">{p.name}</span>
                 {p.detail && <span className="block truncate text-sm font-semibold text-finder-muted">{p.detail}</span>}

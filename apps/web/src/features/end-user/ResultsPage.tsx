@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Banner } from '@/design'
 import { useSearch } from '@/hooks/useSearch'
 import type { SearchRequest, TransactionType } from '@/types/public'
 import { AgentResultCard } from './components/AgentResultCard'
-import { EmptyState, ErrorState, LoadingResults, OfflineBanner } from './components/states'
+import { EmptyState, ErrorState, LoadingResults, Notice, OfflineBanner } from './components/states'
 import { FinderCta, FinderHeader } from './components/finder'
 import { pointFrom } from './searchPoint'
 
@@ -90,17 +89,17 @@ export default function ResultsPage() {
     <div className="flex flex-1 flex-col px-5 pb-6 text-white">
       <FinderHeader back="/find" />
 
-      <div className="mt-6 flex items-baseline justify-between gap-3">
-        <p className="min-w-0 text-md font-bold leading-tight">{summary}</p>
+      <div className="mt-8 flex items-baseline justify-between gap-4">
+        <h1 className="min-w-0 text-xl font-bold leading-tight">{summary}</h1>
         <button
           type="button"
           onClick={() => navigate(`/find?${params.toString()}`)}
-          className="shrink-0 text-md font-bold text-finder-link"
+          className="shrink-0 text-base font-bold text-finder-link"
         >
           Edit
         </button>
       </div>
-      <p className="mt-1 text-sm font-medium text-finder-muted">
+      <p className="mt-2 text-sm font-medium text-finder-muted">
         {req.lat === undefined || params.get('by') === 'place'
           ? `Distances from around ${req.area}, within 500 m`
           : params.get('rough') === '1'
@@ -108,9 +107,9 @@ export default function ResultsPage() {
             : 'Distances from your location, within 500 m'}
       </p>
 
-      <div className="mt-4 flex flex-col gap-4">
+      <div className="mt-6 flex flex-col gap-5">
         {stale && <OfflineBanner since={lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null} />}
-        {data?.banner && <Banner tone="warning">{data.banner}</Banner>}
+        {data?.banner && <Notice>{data.banner}</Notice>}
 
         {state === 'loading' && <LoadingResults />}
         {state === 'error' && error && <ErrorState message={error} onRetry={refresh} />}
@@ -119,7 +118,7 @@ export default function ResultsPage() {
           <>
             {lists.recommended.length > 0 && (
               <>
-                <div role="tablist" aria-label="How to order the agents" className="flex h-[2.5rem] rounded-field bg-finder-line">
+                <div role="tablist" aria-label="How to order the agents" className="flex h-[2.75rem] rounded-field bg-finder-line p-[3px]">
                   {(['recommended', 'nearest'] as const).map((v) => (
                     <button
                       key={v}
@@ -127,7 +126,7 @@ export default function ResultsPage() {
                       role="tab"
                       aria-selected={view === v}
                       onClick={() => setView(v)}
-                      className={`h-full flex-1 rounded-field text-base font-bold ${view === v ? 'bg-finder-bg text-white shadow-inset-finder' : 'text-white/80'}`}
+                      className={`h-full flex-1 rounded-[5px] text-base font-bold transition-colors ${view === v ? 'bg-finder-bg text-white' : 'text-finder-muted'}`}
                     >
                       {v === 'recommended' ? `Recommended (${lists.recommended.length})` : `Nearest (${lists.nearest.length})`}
                     </button>
@@ -137,26 +136,26 @@ export default function ResultsPage() {
                   <button
                     type="button"
                     onClick={() => setView('nearest')}
-                    className="-mt-1 text-left text-sm font-semibold text-finder-muted"
+                    className="-mt-2 text-left text-sm font-medium text-finder-muted"
                   >
-                    Closer open agents may have uncertain availability · <span className="text-finder-link">See Nearest ›</span>
+                    Closer open agents may have uncertain availability · <span className="font-bold text-finder-link">See Nearest ›</span>
                   </button>
                 )}
               </>
             )}
 
             {lists.recommended.length === 0 && lists.nearest.length > 0 && (
-              <Banner tone="warning">
+              <Notice>
                 No likely match within 500 m. Nearby open agents are shown by distance; activity cannot confirm they can serve this request.
-              </Banner>
+              </Notice>
             )}
 
             {lists.recommended.length === 0 && lists.nearest.length === 0 && (data.further_away?.length ?? 0) > 0 && (
-              <Banner tone="warning">No open agents within 500 m. These open options are further away.</Banner>
+              <Notice>No open agents within 500 m. These open options are further away.</Notice>
             )}
 
             {shown.length > 0 && (
-              <section className="flex flex-col gap-4" aria-labelledby="sec-best">
+              <section className="-mt-2 flex flex-col" aria-labelledby="sec-best">
                 <h2 id="sec-best" className="sr-only">
                   {view === 'recommended'
                     ? 'Recommended agents'
@@ -171,8 +170,8 @@ export default function ResultsPage() {
             )}
 
             {(data.further_away?.length ?? 0) > 0 && (
-              <section className="flex flex-col gap-4" aria-labelledby="sec-further-away">
-                <h2 id="sec-further-away" className="text-base font-bold uppercase text-finder-muted">
+              <section className="mt-4 flex flex-col" aria-labelledby="sec-further-away">
+                <h2 id="sec-further-away" className="text-xs font-bold uppercase tracking-wider text-finder-muted">
                   Further away
                 </h2>
                 {data.further_away!.map((a) => (
@@ -189,7 +188,7 @@ export default function ResultsPage() {
               />
             )}
 
-            <p className="pb-2 text-center text-sm font-medium text-finder-muted" aria-live="polite">
+            <p className="pb-2 pt-2 text-center text-sm font-medium text-finder-muted" aria-live="polite">
               {state === 'refreshing' ? 'Refreshing…' : `Updated ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) ?? 'just now'}`}
             </p>
           </>

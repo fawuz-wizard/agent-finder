@@ -141,7 +141,7 @@ export default function AgentDetailPage() {
 
       <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-bg px-5 pb-28 pt-6 shadow-inset-finder">
         <h1 className="text-xl font-bold leading-tight">{agent.name}</h1>
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="mt-4 flex flex-col gap-2">
           <Row icon={ClockIcon}>
             <DistanceLabel metres={agent.distance_m} />
             <span aria-hidden="true">•</span>
@@ -164,7 +164,7 @@ export default function AgentDetailPage() {
             round figure that is never 100, with how fresh the picture is. No figure and nothing
             to caution about means nothing here: a verdict would read like praise. */}
         {(agent.served_pct != null || agent.outcome !== 'likely') && (
-          <section className="mt-5 flex flex-col gap-3" aria-label="Your request">
+          <section className="mt-8 flex flex-col gap-3" aria-label="Your request">
             <ServedLikelihood agent={agent} size="lg" />
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               {agent.served_pct != null && <span className="text-sm font-semibold text-finder-muted">{agent.request_label}</span>}
@@ -173,26 +173,26 @@ export default function AgentDetailPage() {
           </section>
         )}
 
-        <h2 className="mt-6 text-xl font-bold">Services</h2>
-        <ul className="mt-3 flex flex-wrap gap-3">
+        <h2 className="mt-10 text-xl font-bold">Services</h2>
+        <ul className="mt-4 flex flex-wrap gap-3">
           {services.map((s) => (
-            <li key={s} className="flex h-10 items-center rounded-field bg-finder-line px-4 text-[0.95rem] font-semibold text-white">
+            <li key={s} className="flex h-chip items-center rounded-pill border-2 border-finder-line px-4 text-[0.95rem] font-semibold text-white">
               {s}
             </li>
           ))}
         </ul>
 
-        <h2 className="mt-6 text-xl font-bold">Opening Hours</h2>
+        <h2 className="mt-10 text-xl font-bold">Opening hours</h2>
         <p className="mt-3 text-base font-medium text-finder-muted">{agent.hours_text}</p>
 
-        <section className="mt-6 rounded-field bg-finder-bg p-4 shadow-inset-finder">
-          <h2 className="text-base font-bold">Rate this agent</h2>
-          <p className="mt-1 text-sm font-medium text-finder-muted">Any Max it user can rate. You do not need a completed transaction.</p>
+        <section className="mt-10" aria-labelledby="rate-heading">
+          <h2 id="rate-heading" className="text-xl font-bold">Rate this agent</h2>
+          <p className="mt-2 text-sm font-medium text-finder-muted">Any Max it user can rate. You do not need a completed transaction.</p>
           {ratingState === 'sent' ? (
-            <p className="mt-3 text-sm font-semibold text-finder-likely" role="status">Thanks. Your rating was submitted.</p>
+            <p className="mt-4 text-base font-semibold text-finder-likely" role="status">Thanks. Your rating was submitted.</p>
           ) : (
             <>
-              <div role="radiogroup" aria-label="Rating out of five" className="mt-3 flex gap-2">
+              <div role="radiogroup" aria-label="Rating out of five" className="mt-4 flex gap-3">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
                     key={n}
@@ -201,36 +201,38 @@ export default function AgentDetailPage() {
                     aria-checked={rating === n}
                     aria-label={`${n} out of 5`}
                     onClick={() => setRating((current) => (current === n ? (n === 1 ? null : n - 1) : n))}
-                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-finder-on-orange' : 'bg-finder-line text-finder-muted'}`}
+                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-finder-on-orange' : 'border-2 border-finder-line text-finder-muted'}`}
                   >
                     ★
                   </button>
                 ))}
               </div>
-              {ratingError && <p className="mt-2 text-sm font-semibold text-danger" role="alert">{ratingError}</p>}
+              {ratingError && <p className="mt-3 text-sm font-semibold text-danger" role="alert">{ratingError}</p>}
               <button
                 type="button"
                 onClick={() => void submitRating()}
                 disabled={!rating || ratingState === 'sending'}
-                className="mt-3 h-[2.5rem] w-full rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-opacity disabled:opacity-40"
+                className="mt-4 h-chip rounded-pill bg-finder-link px-6 text-base font-bold text-finder-on-orange transition-opacity disabled:opacity-40"
               >
                 {ratingState === 'sending' ? 'Submitting…' : 'Submit rating'}
               </button>
             </>
           )}
-          <p className="mt-2 text-xs font-medium text-finder-muted">One rating per agent per browser every 24 hours.</p>
+          <p className="mt-3 text-xs font-medium text-finder-muted">One rating per agent per browser every 24 hours.</p>
         </section>
 
-        <p className="mt-6 text-sm font-medium text-finder-muted">
-          The figure comes from recent activity at the shop, never from its cash. It can change before you arrive.
-        </p>
-        <Link
-          to="/report-a-visit"
-          state={{ agentId: agent.id, agentName: agent.name }}
-          className="mt-2 flex h-control items-center self-start text-base font-bold text-finder-link"
-        >
-          Report a visit
-        </Link>
+        <div className="mt-10 border-t border-finder-line pt-6">
+          <p className="text-sm font-medium text-finder-muted">
+            The figure comes from recent activity at the shop, never from its cash. It can change before you arrive.
+          </p>
+          <Link
+            to="/report-a-visit"
+            state={{ agentId: agent.id, agentName: agent.name }}
+            className="mt-1 flex h-control items-center self-start text-base font-bold text-finder-link"
+          >
+            Report a visit
+          </Link>
+        </div>
       </div>
 
       <div className="sticky bottom-0 mx-auto flex w-full max-w-[480px] gap-5 bg-finder-bg px-5 pb-6 pt-3">
