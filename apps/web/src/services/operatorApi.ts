@@ -67,8 +67,9 @@ function agentRefOfSignal(id: string): string {
 }
 
 export const operatorApi = {
-  signIn(ref: string, pin: string, role: Role): Promise<Session> {
-    if (config.useLiveApi) return api.post<Session>('/api/v1/auth/sign-in', { ref, pin, role })
+  /** The number decides who signs in; `role` is only a hint an older caller may still pass. */
+  signIn(ref: string, pin: string, role?: Role): Promise<Session> {
+    if (config.useLiveApi) return api.post<Session>('/api/v1/auth/sign-in', role ? { ref, pin, role } : { ref, pin })
     try {
       return delay(demo.demoSignIn(ref, pin, role))
     } catch (e) {

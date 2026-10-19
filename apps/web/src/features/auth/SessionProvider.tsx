@@ -5,7 +5,7 @@ import { SessionContext, readStoredSession, writeStoredSession } from './session
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(() => readStoredSession())
 
-  const signIn = useCallback(async (ref: string, pin: string, role: Role) => {
+  const signIn = useCallback(async (ref: string, pin: string, role?: Role) => {
     // Imported here, not at module scope: the provider wraps every route, and a static
     // import would put the whole operator service — and the seeded operator data with it —
     // into the customer's first payload.

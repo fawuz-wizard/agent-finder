@@ -3,7 +3,8 @@ import type { Role, Session } from '@/types/operator'
 
 export interface SessionContextValue {
   session: Session | null
-  signIn: (ref: string, pin: string, role: Role) => Promise<Session>
+  /** The number decides who signs in; `role` is only an older caller's hint. */
+  signIn: (ref: string, pin: string, role?: Role) => Promise<Session>
   /** The one-time code has been replaced by a PIN: the session is settled from here on. */
   pinChosen: () => void
   signOut: () => void

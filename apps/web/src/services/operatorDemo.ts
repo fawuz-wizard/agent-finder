@@ -810,11 +810,22 @@ function newCode(): string {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')
 }
 
-export function demoSignIn(ref: string, pin: string, role: Role): Session {
-  const wanted = agents.find((x) => x.ref.toLowerCase() === normaliseRef(ref).toLowerCase())
-  const expected = role === 'dealer' ? dealerSignIn.pin : (wanted?.pin ?? DEMO_PIN)
-  if (pin !== expected) throw new Error('That PIN is not correct.')
-  if (role === 'dealer') {
+/** Demo: the aggregator's own identifiers, as the API would match them by id or line. */
+const DEALER_IDENTS = new Set(['kissy', 'kissy distribution', 'agg-kissy'])
+
+/**
+ * Nobody chooses who they are: the number decides, as on the API. An agent code or the
+ * number the app gave them opens the Agent App; the aggregator's id opens the console; the
+ * PIN settles the rest. A wrong PIN and an unknown number get the same sentence.
+ */
+export function demoSignIn(ref: string, pin: string, role?: Role): Session {
+  const ident = ref.trim()
+  const agent = role === 'dealer' ? undefined : agents.find((x) => x.ref.toLowerCase() === normaliseRef(ident).toLowerCase())
+  const dealer = role === 'agent' ? false : ident === '' ? !agent : DEALER_IDENTS.has(ident.toLowerCase())
+  if (agent && pin === (agent.pin ?? DEMO_PIN)) {
+    return { token: 'demo-agent-token', role: 'agent', name: agent.shop, ref: agent.ref, permissions: [], must_set_pin: Boolean(agent.mustSetPin) }
+  }
+  if (dealer && pin === dealerSignIn.pin) {
     return {
       token: 'demo-dealer-token',
       role: 'dealer',
@@ -832,8 +843,7 @@ export function demoSignIn(ref: string, pin: string, role: Role): Session {
       ],
     }
   }
-  const a = wanted ?? agents[0]!
-  return { token: 'demo-agent-token', role: 'agent', name: a.shop, ref: a.ref, permissions: [], must_set_pin: Boolean(a.mustSetPin) }
+  throw new Error('That PIN is not correct.')
 }
 
 /** The aggregator's own PIN change: the current one first, like the API. */

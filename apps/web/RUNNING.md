@@ -47,10 +47,10 @@ the permission is granted later in settings, the page asks the phone again by it
 | URL | What it is |
 |---|---|
 | `/agent` | Redirects to sign-in when signed out |
-| `/sign-in` | Choose **Agent** or **Dealer** |
+| `/sign-in` | One sign-in: the number decides whether the Agent App or the aggregator console opens |
 | `/agent/availability` · `/agent/float` · `/agent/dashboard` · `/agent/profile` | The other four modules |
 
-**Demo credentials:** PIN `1234`. Agent numbers: `Agent 024`, `Agent 031`, `Agent 009`, `Agent 017`, `Agent 038`. Choosing **Dealer** signs you in as Kissy Distribution.
+**Demo credentials:** PIN `1234`. Agent numbers: `024`, `031`, `009`, `017`, `038`. The aggregator signs in with `kissy` (Kissy Distribution). Nobody picks a role: an agent code or an agent's line opens the Agent App, an aggregator's line or id opens the console, and the PIN settles a number that could be either.
 
 | URL | What it is |
 |---|---|

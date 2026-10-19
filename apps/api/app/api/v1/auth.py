@@ -1,5 +1,7 @@
-"""One sign-in for agents and dealers. The role in the request only says which experience to
-open; the server resolves the real role from the credential and is the authority on it."""
+"""One sign-in for agents and dealers. Nobody chooses who they are: the number decides. An
+agent code or an agent's Orange Money line opens the Agent App; an aggregator's line or
+account id opens the console. The server resolves the account from the credential and the
+PIN, and is the authority on the role; an older client may still send a role as a hint."""
 
 from __future__ import annotations
 
@@ -32,7 +34,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class SignInRequest(BaseModel):
     ref: str = Field(default="", max_length=60)
     pin: str = Field(max_length=64)
-    role: Literal["agent", "dealer"]
+    # Optional hint from older clients. Without it the number decides: the agent is tried
+    # first, then the aggregator, and the PIN settles a number that could be either.
+    role: Literal["agent", "dealer"] | None = None
 
 
 class SessionOut(BaseModel):
@@ -106,20 +110,32 @@ async def sign_in(
     db: AsyncSession = Depends(get_session),
     user_agent: str | None = Header(default=None),
 ) -> SessionOut:
-    if body.role == "dealer":
-        dealer_id = body.ref.strip().lower()
-        check_sign_in_allowed(f"dealer:{dealer_id or '-'}")
-        dealer = await find_dealer(db, dealer_id)
-        if dealer is None or not verify_pin(body.pin, dealer.id, dealer.pin_hash):
-            note_sign_in_failure(f"dealer:{dealer_id or '-'}")
-            raise UnauthorizedError("That PIN is not correct.")
-        clear_sign_in_failures(f"dealer:{dealer_id or '-'}")
+    ident = body.ref.strip()
+    key = f"sign-in:{ident.lower() or '-'}"
+    check_sign_in_allowed(key)
+    agent = await find_agent(db, ident) if body.role != "dealer" else None
+    dealer = await find_dealer(db, ident.lower()) if body.role != "agent" else None
+    device = (user_agent or "")[:80]
+    # The same number may be an agent's line and an aggregator's: the PIN says which one is
+    # signing in. Whoever the number is not, the answer is the same wrong-PIN sentence, so a
+    # guess learns nothing about who exists.
+    if agent is not None and verify_pin(body.pin, agent.ref, agent.pin_hash):
+        clear_sign_in_failures(key)
         token = new_token()
-        db.add(
-            Session(
-                token=token, role="dealer", subject=dealer.id, device_label=(user_agent or "")[:80]
-            )
+        db.add(Session(token=token, role="agent", subject=agent.ref, device_label=device))
+        await db.commit()
+        return SessionOut(
+            token=token,
+            role="agent",
+            name=agent.shop_name,
+            ref=agent.ref,
+            permissions=[],
+            must_set_pin=agent.must_set_pin,
         )
+    if dealer is not None and verify_pin(body.pin, dealer.id, dealer.pin_hash):
+        clear_sign_in_failures(key)
+        token = new_token()
+        db.add(Session(token=token, role="dealer", subject=dealer.id, device_label=device))
         await db.commit()
         return SessionOut(
             token=token,
@@ -129,27 +145,8 @@ async def sign_in(
             permissions=[p for p in dealer.permissions.split(",") if p],
             must_set_pin=dealer.must_set_pin,
         )
-
-    ref = body.ref.strip()
-    check_sign_in_allowed(f"agent:{ref}")
-    agent = await find_agent(db, ref)
-    if agent is None or not verify_pin(body.pin, agent.ref, agent.pin_hash):
-        note_sign_in_failure(f"agent:{ref}")
-        raise UnauthorizedError("That PIN is not correct.")
-    clear_sign_in_failures(f"agent:{ref}")
-    token = new_token()
-    db.add(
-        Session(token=token, role="agent", subject=agent.ref, device_label=(user_agent or "")[:80])
-    )
-    await db.commit()
-    return SessionOut(
-        token=token,
-        role="agent",
-        name=agent.shop_name,
-        ref=agent.ref,
-        permissions=[],
-        must_set_pin=agent.must_set_pin,
-    )
+    note_sign_in_failure(key)
+    raise UnauthorizedError("That PIN is not correct.")
 
 
 @router.post("/pin", summary="Choose my PIN after signing in with a one-time code")
