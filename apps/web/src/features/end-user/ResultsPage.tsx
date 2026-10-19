@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Banner } from '@/design'
 import { useSearch } from '@/hooks/useSearch'
 import type { SearchRequest, TransactionType } from '@/types/public'
 import { AgentResultCard } from './components/AgentResultCard'
-import { EmptyState, ErrorState, LoadingResults, Notice, OfflineBanner } from './components/states'
+import { EmptyState, ErrorState, LoadingResults, OfflineBanner } from './components/states'
 import { FinderCta, FinderHeader } from './components/finder'
 import { pointFrom } from './searchPoint'
 
@@ -109,7 +110,7 @@ export default function ResultsPage() {
 
       <div className="mt-6 flex flex-col gap-5">
         {stale && <OfflineBanner since={lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null} />}
-        {data?.banner && <Notice>{data.banner}</Notice>}
+        {data?.banner && <Banner tone="warning">{data.banner}</Banner>}
 
         {state === 'loading' && <LoadingResults />}
         {state === 'error' && error && <ErrorState message={error} onRetry={refresh} />}
@@ -118,7 +119,7 @@ export default function ResultsPage() {
           <>
             {lists.recommended.length > 0 && (
               <>
-                <div role="tablist" aria-label="How to order the agents" className="flex h-[2.75rem] rounded-field bg-finder-line p-[3px]">
+                <div role="tablist" aria-label="How to order the agents" className="flex h-[2.5rem] rounded-field bg-finder-line">
                   {(['recommended', 'nearest'] as const).map((v) => (
                     <button
                       key={v}
@@ -126,7 +127,7 @@ export default function ResultsPage() {
                       role="tab"
                       aria-selected={view === v}
                       onClick={() => setView(v)}
-                      className={`h-full flex-1 rounded-[5px] text-base font-bold transition-colors ${view === v ? 'bg-finder-bg text-white' : 'text-finder-muted'}`}
+                      className={`h-full flex-1 rounded-field text-base font-bold ${view === v ? 'bg-finder-bg text-white shadow-inset-finder' : 'text-white/80'}`}
                     >
                       {v === 'recommended' ? `Recommended (${lists.recommended.length})` : `Nearest (${lists.nearest.length})`}
                     </button>
@@ -145,13 +146,13 @@ export default function ResultsPage() {
             )}
 
             {lists.recommended.length === 0 && lists.nearest.length > 0 && (
-              <Notice>
+              <Banner tone="warning">
                 No likely match within 500 m. Nearby open agents are shown by distance; activity cannot confirm they can serve this request.
-              </Notice>
+              </Banner>
             )}
 
             {lists.recommended.length === 0 && lists.nearest.length === 0 && (data.further_away?.length ?? 0) > 0 && (
-              <Notice>No open agents within 500 m. These open options are further away.</Notice>
+              <Banner tone="warning">No open agents within 500 m. These open options are further away.</Banner>
             )}
 
             {shown.length > 0 && (

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Button } from '@/design'
 
 /** Three rows of grey bars in the shape of a result, on the dark surface. No shimmer (cheap CPUs). */
 export function LoadingResults({ label = 'Finding available agents…' }: { label?: string }) {
@@ -36,27 +37,20 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       <h2 className="text-xl font-bold leading-tight">Something went wrong</h2>
       <p className="text-base font-medium text-finder-muted">{message}</p>
       {onRetry && (
-        <button type="button" onClick={onRetry} className="h-chip rounded-pill border-2 border-white px-5 text-base font-bold text-white">
+        <Button variant="secondary" size="control" block={false} onClick={onRetry}>
           Try again
-        </button>
+        </Button>
       )}
     </div>
   )
 }
 
-/** One sentence the customer should read before the list: a dot and the words, no box. */
-export function Notice({ children, tone = 'warning' }: { children: ReactNode; tone?: 'warning' | 'quiet' }) {
-  return (
-    <p role="status" className="flex gap-3 text-sm font-medium text-finder-muted">
-      <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-pill ${tone === 'warning' ? 'bg-finder-star' : 'bg-finder-muted'}`} />
-      <span>{children}</span>
-    </p>
-  )
-}
-
 export function OfflineBanner({ since }: { since?: string | null }) {
   return (
-    <p role="status" className="flex items-center gap-3 text-sm font-medium text-finder-muted">
+    <p
+      role="status"
+      className="flex items-center gap-2 rounded-field bg-finder-line px-3 py-2 text-sm font-medium text-finder-muted"
+    >
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0">
         <path d="M2 2l12 12M8 12h.01M4.5 8.5a5 5 0 016 0M2 6a9 9 0 0112 0" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />
       </svg>

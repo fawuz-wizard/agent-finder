@@ -176,7 +176,7 @@ export default function AgentDetailPage() {
         <h2 className="mt-10 text-xl font-bold">Services</h2>
         <ul className="mt-4 flex flex-wrap gap-3">
           {services.map((s) => (
-            <li key={s} className="flex h-chip items-center rounded-pill border-2 border-finder-line px-4 text-[0.95rem] font-semibold text-white">
+            <li key={s} className="flex h-10 items-center rounded-field bg-finder-line px-4 text-[0.95rem] font-semibold text-white">
               {s}
             </li>
           ))}
@@ -201,7 +201,7 @@ export default function AgentDetailPage() {
                     aria-checked={rating === n}
                     aria-label={`${n} out of 5`}
                     onClick={() => setRating((current) => (current === n ? (n === 1 ? null : n - 1) : n))}
-                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-finder-on-orange' : 'border-2 border-finder-line text-finder-muted'}`}
+                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-finder-on-orange' : 'bg-finder-line text-finder-muted'}`}
                   >
                     ★
                   </button>

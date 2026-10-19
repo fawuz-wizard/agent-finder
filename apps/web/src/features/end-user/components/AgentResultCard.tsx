@@ -9,7 +9,7 @@ import { photoSrc } from '@/lib/photo'
 /**
  * One result as a row, not a box: the shop's name and how far, the street, then the figure
  * and its bar, a freshness line only when the picture is not fresh, and Get details. Rows
- * are separated by space and a hairline; the recommendation is named, not framed.
+ * are separated by space and a hairline; the best match keeps the file's orange edge and panel.
  */
 export function AgentResultCard({
   agent,
@@ -22,8 +22,8 @@ export function AgentResultCard({
 }) {
   const photo = photoSrc(agent.photo_url)
   const rated = agent.rating_count != null && agent.rating_count >= 3 && agent.rating_average != null
-  return (
-    <article className="relative flex flex-col gap-4 border-b border-finder-line py-6 last:border-b-0">
+  const body = (
+    <>
       {recommended && <p className="text-xs font-bold uppercase tracking-wider text-finder-link">Best match</p>}
       <div className="flex items-start gap-4">
         {photo && <img src={photo} alt="" className="h-14 w-14 shrink-0 rounded-field object-cover" />}
@@ -56,6 +56,13 @@ export function AgentResultCard({
         Get details
         <ChevronIcon />
       </Link>
-    </article>
+    </>
   )
+  if (recommended)
+    return (
+      <article className="relative my-2 rounded-panel bg-finder-link">
+        <div className="ml-[9px] flex flex-col gap-4 rounded-panel bg-finder-bg px-4 py-5 shadow-inset-finder">{body}</div>
+      </article>
+    )
+  return <article className="relative flex flex-col gap-4 border-b border-finder-line py-6 last:border-b-0">{body}</article>
 }
