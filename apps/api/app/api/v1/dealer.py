@@ -356,14 +356,17 @@ async def agents_list(
                 "agent_code": a.agent_code,
                 "phone": a.phone,
                 "presence": a.presence,
-                "presence_text": PRESENCE_LABEL[a.presence],
+                "presence_text": "Not signed in yet"
+                if a.declared_at is None
+                else PRESENCE_LABEL[a.presence],
                 "bucket": bucket_of(a, now, ledger),
                 "declaration_text": f"{CAPACITY_LABEL.get(d.cash_out, '—')} / {CAPACITY_LABEL.get(d.deposit, '—')}",  # noqa: E501
                 "capacity_text": capacity_text(ledger),
                 "capacity_source": d.capacity_source,
                 "freshness_text": age_text(d.age_min if d.age_min < 10**6 else None),
+                # An agent who never declared has nothing stale: no attention until they start.
                 "attention": int(problems) > 1
-                or d.freshness == "expired"
+                or (d.freshness == "expired" and a.declared_at is not None)
                 or a.presence == "hidden"
                 or trust[a.ref].label == "unreliable",
                 "reliability": trust[a.ref].as_dict(),
@@ -869,7 +872,7 @@ async def register_agent(
         verified=body.verified,
         pin_hash=hash_pin(code, ref),
         must_set_pin=True,
-        presence="open",
+        presence="closed",  # until the agent signs in and taps Open
         open_hour=o // 60,
         close_hour=max(o // 60 + 1, c // 60),
         usual_max_sle=body.usual_max_sle,

@@ -188,3 +188,10 @@ async def test_an_agent_who_never_declared_is_counted_not_flagged(client, dealer
     o = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
     assert o["not_signed_in"] >= 1
     assert not any(s["agent_ref"] == "Agent 160" for s in o["signals"])
+    row = [
+        x
+        for x in (await client.get("/api/v1/dealer/agents", headers=dealer)).json()
+        if x["ref"] == "Agent 160"
+    ][0]
+    assert row["presence"] == "closed" and row["presence_text"] == "Not signed in yet"
+    assert row["attention"] is False

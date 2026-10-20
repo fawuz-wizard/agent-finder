@@ -170,6 +170,7 @@ async def test_apply_creates_aggregators_and_unlocated_agents_that_customers_nev
         assert a is not None and a.lat is None and a.dealer_id == "agg-000001"
         assert a.agent_code == "100001" and a.msisdn == "+23276111111"
         assert a.region == "west" and a.city == "Freetown" and a.verified and a.active
+        assert a.presence == "closed"  # nobody has signed in: not open until they say so
         assert a.verification_note is None
         assert a.orange_cash_out == 3400.0 and a.source_row == "abc123:2"
         # A row the file itself leaves in doubt is imported but not verified, and says why.

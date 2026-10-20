@@ -469,7 +469,8 @@ async def apply(results: list[RowResult]) -> dict:
                     lng=None,
                     pin_hash=hash_pin(secrets.token_hex(4), ref),
                     must_set_pin=True,
-                    presence="open",
+                    # Not open until the agent says so: nobody has signed in yet.
+                    presence="closed",
                     source="orange_file",
                 )
                 db.add(existing)
@@ -488,6 +489,10 @@ async def apply(results: list[RowResult]) -> dict:
             existing.region = a["region"] or existing.region
             existing.city = a["city"] or existing.city
             existing.active = a["active"]
+            if existing.declared_at is None:
+                existing.presence = (
+                    "closed"  # never declared: not open, whatever an older import wrote
+                )
             # A clean row is verified by the file itself; a row with issues waits, and the
             # note says why. Every run re-reads the file, so fixing the file fixes the agent.
             existing.verified = not res.issues
