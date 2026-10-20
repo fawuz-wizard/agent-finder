@@ -120,6 +120,12 @@ def region_for(city: str) -> str | None:
     return None
 
 
+def readable(text: str) -> str:
+    """Orange's export shouts some addresses (KISSI TOWN WATERLOO). Customers and aggregators
+    read them the way a person writes them; a mixed-case address is left exactly as given."""
+    return text.title() if text and text == text.upper() else text
+
+
 def clean_city(city: str) -> str | None:
     c = " ".join(city.strip().split())
     if not c or re.search(r"\d", c) or c.lower() in ("sierra leone", "sl", "city"):
@@ -296,7 +302,8 @@ def validate(rows: list[dict[str, str]], file_tag: str) -> list[RowResult]:
             "agent_code": code if re.fullmatch(r"\d{6}", code) else None,
             "msisdn": msisdn,
             "person_name": once(f"{first} {last}".strip()),
-            "street": " ".join(r.get("ADDRESS1", "").split())[:120] or (city or "Unknown"),
+            "street": readable(" ".join(r.get("ADDRESS1", "").split()))[:120]
+            or (city or "Unknown"),
             "city": city,
             "region": region,
             "active": status == "Y",

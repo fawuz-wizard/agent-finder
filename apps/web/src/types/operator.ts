@@ -440,6 +440,8 @@ export interface DealerOverview {
   counts: DealerCounts
   /** Shops customers can be sent to: confirmed point, active at Orange. */
   on_map: number
+  /** Imported from Orange's file and never opened the app: no status to expire, nothing to act on yet. */
+  not_signed_in: number
   /** Shops the agent pinned from the phone, waiting for this aggregator to confirm. */
   pins_waiting: { ref: string; name: string; person_name: string; area: string }[]
   float_requests: FloatRequest[]

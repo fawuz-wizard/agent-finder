@@ -192,7 +192,9 @@ async def signals_for(
                 }
             )
         updated = capacity_updated_at(a, ledgers[a.ref], now)
-        if not live and freshness_of(updated, now) == "expired":
+        # An agent who has never declared has nothing to expire: they have not started. The
+        # overview counts them as not signed in instead of raising a signal per agent.
+        if not live and updated is not None and freshness_of(updated, now) == "expired":
             mins = age_minutes(updated, now)
             out.append(
                 {
@@ -284,6 +286,9 @@ async def overview(
         "agent_count": len(agents),
         "counts": counts,
         "on_map": sum(1 for a in agents if on_map(a)),
+        # Imported from Orange's file and never opened the app: nothing to act on yet, and
+        # not a signal each. One line on the dashboard says how many.
+        "not_signed_in": sum(1 for a in agents if a.declared_at is None),
         "pins_waiting": pins_waiting,
         "float_requests": [
             float_out(r, names.get(r.agent_ref, r.agent_ref), now).model_dump() for r in pending

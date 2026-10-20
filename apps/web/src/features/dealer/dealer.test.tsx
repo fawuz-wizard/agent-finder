@@ -59,6 +59,16 @@ describe('dealer', () => {
     expect(container.textContent).not.toMatch(/balance/i)
   })
 
+  it('says how many agents have not signed in yet, instead of a signal for each', async () => {
+    const real = await operatorApi.dealerOverview()
+    const spy = vi.spyOn(operatorApi, 'dealerOverview').mockResolvedValue({ ...real, not_signed_in: 44, signals: [] })
+    signIn(ALL)
+    render(<App start="/dealer" />)
+    expect(await screen.findByText(/44 agents have not signed in yet/i)).toBeInTheDocument()
+    expect(screen.queryByText(/status expired/i)).not.toBeInTheDocument()
+    spy.mockRestore()
+  })
+
   it('lists a pin waiting for confirmation as a thing to do, leading to the agent', async () => {
     signIn(ALL)
     const real = await operatorApi.dealerOverview()

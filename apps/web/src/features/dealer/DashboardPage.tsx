@@ -67,6 +67,11 @@ export default function DealerDashboardPage() {
       <p className="mt-1 text-sm font-medium text-finder-muted">
         {today} · {data.on_map} of {data.agent_count} on the map for customers
       </p>
+      {data.not_signed_in > 0 && (
+        <p className="mt-1 text-sm font-medium text-warning">
+          {data.not_signed_in} {data.not_signed_in === 1 ? 'agent has' : 'agents have'} not signed in yet. Give them their code; customers see them once they are pinned and open.
+        </p>
+      )}
 
       <div className="mt-5 flex">
         <Count bucket="active" label="Active" value={data.counts.active} tone="text-finder-likely" />

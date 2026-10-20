@@ -70,7 +70,7 @@ def sample(tmp_path: Path) -> Path:
                 USER_FIRST_NAME="Mariama",
                 USER_LAST_NAME="Sesay",
                 CITY="FREETOWN",
-                ADDRESS1="12 Lumley Road",
+                ADDRESS1="12 LUMLEY ROAD",  # the export shouts; the app reads it as written
                 **{"APR CI": "1200", "APR CO": "3400", "TRNX COUNT": "88"},
             ),  # noqa: E501
             row(

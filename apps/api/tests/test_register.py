@@ -173,3 +173,18 @@ async def test_dealer_can_correct_the_record_and_reset_the_pin(client, dealer):
     await _first_sign_in(client, ref, issued.json()["code"], "9753")
     acts = (await client.get(f"/api/v1/actions?agent={ref}", headers=dealer)).json()
     assert any("issued a new sign-in code" in a["note"] for a in acts)
+
+
+@pytest.mark.asyncio
+async def test_an_agent_who_never_declared_is_counted_not_flagged(client, dealer):
+    """Imported agents have no declaration. That is not an expired status: the overview says
+    how many have not signed in, and raises no signal for each of them."""
+    r = await client.post(
+        "/api/v1/dealer/agents",
+        json={**NEW, **VENUE, "ref": "Agent 160", "shop_name": "Quiet Corner", "verified": True},
+        headers=dealer,
+    )
+    assert r.status_code == 201, r.text
+    o = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
+    assert o["not_signed_in"] >= 1
+    assert not any(s["agent_ref"] == "Agent 160" for s in o["signals"])

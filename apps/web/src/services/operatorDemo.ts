@@ -1449,6 +1449,7 @@ export function demoDealerOverview(): DealerOverview {
     agent_count: agents.length,
     counts,
     on_map: agents.filter((a) => customersSee(a).state !== 'unlocated').length,
+    not_signed_in: 0,
     // The demo's pins are confirmed the moment they are made, so nothing ever waits here.
     pins_waiting: [],
     float_requests: demoFloatRequests(null).filter((r) => r.state === 'pending'),
