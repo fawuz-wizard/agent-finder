@@ -9,7 +9,7 @@ export default function DealerRevealsPage() {
   const audit = useAsync<AuditEntry[]>((s) => operatorApi.audit(s))
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader back="/dealer/profile" title="Your financial reveals" />
+      <FinderHeader back="/dealer/settings" title="Your financial reveals" />
       <div className="mt-4 flex flex-col">
         {audit.state === 'loading' && <p className="py-2 text-base font-medium text-finder-muted">Loading…</p>}
         {(audit.data ?? []).map((a) => (

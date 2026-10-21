@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
@@ -23,6 +24,7 @@ from app.db.models import (
     AgentTransaction,
     AuditLog,
     AvailabilityEvent,
+    Dealer,
     FloatRequest,
     OutcomeReport,
     SearchImpression,
@@ -250,6 +252,44 @@ def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     if word in ("none", "small"):
         return "limited"
     return "active"
+
+
+def mask_msisdn(msisdn: str | None) -> str | None:
+    """The aggregator's own line, shown to them with the last three digits only: enough to
+    recognise, not enough to copy. +232 •• ••• •23."""
+    digits = re.sub(r"\D", "", msisdn or "")
+    if not digits:
+        return None
+    local = digits[3:] if digits.startswith("232") else digits
+    shown = "•" * max(0, len(local) - 3) + local[-3:]
+    if len(shown) == 8:
+        shown = f"{shown[:2]} {shown[2:5]} {shown[5:]}"
+    return f"+232 {shown}"
+
+
+@router.get("/dealer/me", summary="My own record, as Orange holds it, and my network in figures")
+async def dealer_me(
+    p: Principal = Depends(require_role("dealer")), db: AsyncSession = Depends(get_session)
+) -> dict:
+    d = await db.get(Dealer, p.subject)
+    if d is None:
+        raise NotFoundError("Not found.")
+    agents = await my_agents(db, p.subject)
+    subs = (
+        await db.execute(select(func.count()).select_from(Dealer).where(Dealer.parent_id == d.id))
+    ).scalar_one()
+    return {
+        "name": d.name,
+        "region": d.region,
+        "msisdn_masked": mask_msisdn(d.msisdn),
+        "source": d.source,
+        "since_text": d.created_at.strftime("%b %Y") if d.created_at else None,
+        "agents": len(agents),
+        "verified": sum(1 for a in agents if a.verified),
+        "on_map": sum(1 for a in agents if on_map(a)),
+        "signed_in": sum(1 for a in agents if a.declared_at is not None),
+        "subaggregators": int(subs),
+    }
 
 
 @router.get("/dealer/overview", summary="What is happening with all my agents")

@@ -146,6 +146,8 @@ async def seed_if_empty() -> None:
                 name="Kissy Distribution",
                 pin_hash=hash_pin(DEMO_PIN, "kissy"),
                 permissions=ALL_PERMS,
+                region="west",
+                msisdn="+23276000123",  # fictional, like everything in the demo
             )
         )
         for (

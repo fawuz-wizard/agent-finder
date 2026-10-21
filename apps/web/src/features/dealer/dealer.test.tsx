@@ -456,17 +456,31 @@ describe('report and records', () => {
     await operatorApi.changeDealerPin('5566', '1234')
   })
 
-  it('the profile is who you are and two doors; the gear opens Settings', async () => {
+  it('the profile is who you are: the masked line, the region, the network in figures; the gear opens Settings', async () => {
     const user = userEvent.setup()
     signIn(ALL)
     render(<App start="/dealer/profile" />)
-    expect(await screen.findByText('Kissy Distribution')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Report and records' })).toHaveAttribute('href', '/dealer/records')
-    expect(screen.getByRole('link', { name: 'Your financial reveals' })).toHaveAttribute('href', '/dealer/reveals')
-    expect(screen.queryByText(/csv/i)).not.toBeInTheDocument()
+    expect(await screen.findByText('+232 •• ••• 123')).toBeInTheDocument()
+    expect(screen.getByText('Aggregator · West')).toBeInTheDocument()
+    // Other tests register demo agents, so the total is read, not assumed.
+    const total = screen.getByText('Agents').nextSibling!.textContent
+    expect(screen.getByText('Verified').nextSibling).toHaveTextContent(new RegExp(`^\\d+ of ${total}$`))
+    expect(screen.getByText('Signed in to the app').nextSibling).toHaveTextContent(new RegExp(`^${total} of ${total}$`))
+    // Reporting, the reveal log and the permission list are not identity: none of them is here.
+    expect(screen.queryByText(/report and records/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/financial reveals/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/decide float requests/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('link', { name: 'Settings' }))
     expect(await screen.findByRole('radiogroup', { name: 'Appearance' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Your financial reveals' })).toHaveAttribute('href', '/dealer/reveals')
+    expect(screen.getByText('Decide float requests')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+  })
+
+  it('the dashboard ends on the door to Report and records', async () => {
+    signIn(ALL)
+    render(<App start="/dealer" />)
+    expect(await screen.findByRole('link', { name: 'Report and records' })).toHaveAttribute('href', '/dealer/records')
   })
 
   it('the records screen shows the Global Report figures and exports CSVs of my agents, never money', async () => {

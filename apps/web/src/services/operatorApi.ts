@@ -14,6 +14,7 @@ import type {
   AgentProfile,
   AgentTransactions,
   DealerAgentRow,
+  DealerMe,
   DealerOverview,
   Declaration,
   FloatRequest,
@@ -372,6 +373,12 @@ export const operatorApi = {
     } catch (e) {
       return Promise.reject(e instanceof Error ? e : new Error('That value is not available.'))
     }
+  },
+
+  /** My own record, as Orange holds it, and my network in figures. */
+  me(signal?: AbortSignal): Promise<DealerMe> {
+    if (config.useLiveApi) return api.get<DealerMe>('/api/v1/dealer/me', signal)
+    return delay(demo.demoDealerMe(), signal)
   },
 
   /** The Global Report for my agents: status, location, activity — never money. */

@@ -49,7 +49,7 @@ export default function DealerRecordsPage() {
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader back="/dealer/profile" title="Report and records" />
+      <FinderHeader back="/dealer" title="Report and records" />
 
       {report.state === 'loading' && <p className="mt-6 text-base font-medium text-finder-muted">Loading…</p>}
       {report.data && (

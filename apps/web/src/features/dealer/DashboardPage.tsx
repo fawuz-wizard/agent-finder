@@ -138,6 +138,11 @@ export default function DealerDashboardPage() {
           sub={`${data.forecast_counts.medium} to watch · from confirmed visits and the agents' own words`}
         />
       </div>
+
+      <Link to="/dealer/records" className="mt-8 flex min-h-[3.25rem] items-center justify-between gap-4 border-t border-finder-line pt-3 text-base font-bold text-finder-ink">
+        <span>Report and records</span>
+        <span aria-hidden="true">›</span>
+      </Link>
     </div>
   )
 }

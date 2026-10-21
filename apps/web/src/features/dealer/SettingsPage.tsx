@@ -1,16 +1,31 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
+import { PERMISSIONS } from '@/types/operator'
 import { FinderCta, FinderHeader, FinderSheet } from '@/features/end-user/components/finder'
 import { FieldLabel, Line, PILL_OFF, PILL_ON, SectionLabel } from '@/features/agent/components/agentChrome'
 import { usePlatformTheme } from '@/lib/platformTheme'
 import pkg from '../../../package.json'
 
-/** Settings: the aggregator's own choices, reached from the gear on Profile. Appearance, PIN, about, sign out. */
+const PERMISSION_TEXT: Record<string, string> = {
+  [PERMISSIONS.viewAgent]: 'See your agents',
+  [PERMISSIONS.viewFinancial]: 'Reveal financial detail (recorded)',
+  [PERMISSIONS.manageFloat]: 'Decide float requests',
+  [PERMISSIONS.viewHistory]: 'See agent history',
+  [PERMISSIONS.contact]: 'Contact agents',
+  [PERMISSIONS.escalate]: 'Escalate to Orange',
+  [PERMISSIONS.manageAgent]: 'Register agents and pin their shops',
+}
+
+/**
+ * Settings: the aggregator's own choices, reached from the gear on Profile. Appearance;
+ * security, the PIN and the record of financial reveals; access, what this account may do;
+ * about; sign out.
+ */
 export default function DealerSettingsPage() {
   const [theme, setTheme] = usePlatformTheme()
-  const { signOut } = useSession()
+  const { session, signOut } = useSession()
   const navigate = useNavigate()
   // Change PIN: the current one first.
   const [pinOpen, setPinOpen] = useState(false)
@@ -76,6 +91,20 @@ export default function DealerSettingsPage() {
         </p>
       )}
       <p className="mt-2 text-xs font-medium text-finder-muted">Forgot it? The Agent Finder team gives you a one-time code; you choose a new PIN when you sign in with it.</p>
+      <div className="mt-2 flex flex-col">
+        <Link to="/dealer/reveals" className="flex min-h-[3rem] items-center justify-between gap-4 border-b border-finder-line py-1 text-base font-semibold text-finder-ink last:border-b-0">
+          <span>Your financial reveals</span>
+          <span aria-hidden="true">›</span>
+        </Link>
+      </div>
+
+      <SectionLabel className="mt-8">Access</SectionLabel>
+      <div className="mt-2 flex flex-col">
+        {(session?.permissions ?? []).map((p) => (
+          <Line key={p} label={PERMISSION_TEXT[p] ?? p} value="" />
+        ))}
+      </div>
+      <p className="mt-2 text-xs font-medium text-finder-muted">Granted one by one. The server checks every request; this list only decides what the app offers.</p>
 
       <SectionLabel className="mt-8">About</SectionLabel>
       <div className="mt-2 flex flex-col">

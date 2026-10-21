@@ -434,6 +434,21 @@ export interface FloatForecast {
   call_url: string | null
 }
 
+/** The aggregator's own record, as Orange holds it, and the network in figures. The line is masked. */
+export interface DealerMe {
+  name: string
+  region: 'east' | 'north' | 'west' | 'south' | null
+  /** +232 •• ••• •23: the last three digits only. Null when the record has no line. */
+  msisdn_masked: string | null
+  source: 'manual' | 'orange_file'
+  since_text: string | null
+  agents: number
+  verified: number
+  on_map: number
+  signed_in: number
+  subaggregators: number
+}
+
 export interface DealerOverview {
   dealer_name: string
   agent_count: number

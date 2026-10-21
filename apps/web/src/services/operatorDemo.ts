@@ -24,6 +24,7 @@ import type {
   InsightPoint,
   InsightRange,
   CapacityWord,
+  DealerMe,
   DealerOverview,
   Declaration,
   FloatRequest,
@@ -1437,6 +1438,22 @@ function bucketOf(a: AgentState): DealerBucket {
   if (a.presence === 'closed' || !isOpenNow(a) || (!ledger.live && freshnessOf(ageMin(a)) === 'expired')) return 'closed'
   if (word === 'none' || word === 'small') return 'limited'
   return 'active'
+}
+
+/** The demo aggregator's own record: fictional line, west, every seeded agent verified and declared. */
+export function demoDealerMe(): DealerMe {
+  return {
+    name: 'Kissy Distribution',
+    region: 'west',
+    msisdn_masked: '+232 •• ••• 123',
+    source: 'manual',
+    since_text: 'Sep 2026',
+    agents: agents.length,
+    verified: agents.filter((a) => a.verified).length,
+    on_map: agents.filter((a) => customersSee(a).state !== 'unlocated').length,
+    signed_in: agents.length,
+    subaggregators: 0,
+  }
 }
 
 export function demoDealerOverview(): DealerOverview {

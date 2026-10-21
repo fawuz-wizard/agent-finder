@@ -2,62 +2,57 @@ import { Link } from 'react-router-dom'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import { PERMISSIONS } from '@/types/operator'
-import type { DealerReport } from '@/types/operator'
+import type { DealerMe } from '@/types/operator'
 import { GearIcon, Line, SectionLabel } from '@/features/agent/components/agentChrome'
 
-const PERMISSION_TEXT: Record<string, string> = {
-  [PERMISSIONS.viewAgent]: 'See your agents',
-  [PERMISSIONS.viewFinancial]: 'Reveal financial detail (recorded)',
-  [PERMISSIONS.manageFloat]: 'Decide float requests',
-  [PERMISSIONS.viewHistory]: 'See agent history',
-  [PERMISSIONS.contact]: 'Contact agents',
-  [PERMISSIONS.escalate]: 'Escalate to Orange',
-  [PERMISSIONS.manageAgent]: 'Register agents and pin their shops',
-}
-
-const chevron = <span aria-hidden="true">›</span>
+const REGION: Record<string, string> = { west: 'West', north: 'North', east: 'East', south: 'South' }
 
 /**
- * Profile: who you are and what you may do, then two doors: the report with its records,
- * and the financial reveals you made. Your own choices, appearance, PIN, about, sign out,
- * live under the gear, on Settings.
+ * Profile: who you are on the network. Orange's record of you, read only, and your network
+ * in five figures. Your own choices, appearance, PIN, access, about, sign out, live under the
+ * gear, on Settings. Reporting lives on the Dashboard.
  */
 export default function DealerProfilePage() {
   const { session } = useSession()
-  const report = useAsync<DealerReport>((s) => operatorApi.report(s))
-  const door = 'flex min-h-[3rem] items-center justify-between gap-4 border-b border-finder-line py-1 text-base font-semibold text-finder-ink last:border-b-0'
+  const me = useAsync<DealerMe>((s) => operatorApi.me(s))
+  const d = me.data
+  const of = (n: number) => (d ? `${n} of ${d.agents}` : '')
+  const warn = (n: number) => (d && n < d.agents ? 'text-warning' : 'text-finder-likely')
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
       <div className="mt-6 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold leading-tight">{session?.name ?? 'Aggregator'}</h1>
-          <p className="mt-1 text-sm font-medium text-finder-muted">Aggregator account{report.data ? ` · ${report.data.agents} agents` : ''}</p>
+          <h1 className="text-lg font-bold leading-tight">{d?.name ?? session?.name ?? 'Aggregator'}</h1>
+          <p className="mt-1 text-sm font-medium text-finder-muted">Aggregator{d?.region ? ` · ${REGION[d.region] ?? d.region}` : ''}</p>
         </div>
         <Link to="/dealer/settings" aria-label="Settings" className="flex h-control w-control shrink-0 items-center justify-center rounded-pill border-2 border-finder-ink text-finder-ink">
           <GearIcon />
         </Link>
       </div>
 
-      <SectionLabel className="mt-8">What you may do</SectionLabel>
-      <div className="mt-2 flex flex-col">
-        {(session?.permissions ?? []).map((p) => (
-          <Line key={p} label={PERMISSION_TEXT[p] ?? p} value="" />
-        ))}
-      </div>
-      <p className="mt-2 text-xs font-medium text-finder-muted">Granted one by one. The server checks every request; this list only decides what the app offers.</p>
+      {me.state === 'loading' && <p className="mt-6 text-base font-medium text-finder-muted">Loading…</p>}
+      {me.state === 'error' && <p className="mt-6 text-base font-semibold text-danger">{me.error}</p>}
+      {d && (
+        <>
+          <SectionLabel className="mt-8">Orange record</SectionLabel>
+          <div className="mt-2 flex flex-col">
+            <Line label="Orange Money number" value={d.msisdn_masked ?? '—'} />
+            <Line label="Region" value={d.region ? (REGION[d.region] ?? d.region) : '—'} />
+            <Line label="On Orange's list" value={`${d.source === 'orange_file' ? "Orange's file" : 'Registered in the app'}${d.since_text ? ` · ${d.since_text}` : ''}`} />
+          </div>
 
-      <div className="mt-8 flex flex-col">
-        <Link to="/dealer/records" className={door}>
-          <span>Report and records</span>
-          {chevron}
-        </Link>
-        <Link to="/dealer/reveals" className={door}>
-          <span>Your financial reveals</span>
-          {chevron}
-        </Link>
-      </div>
+          <SectionLabel className="mt-8">Your network</SectionLabel>
+          <div className="mt-2 flex flex-col">
+            <Line label="Agents" value={d.agents} />
+            <Line label="Verified" value={<span className={warn(d.verified)}>{of(d.verified)}</span>} />
+            <Line label="On the map for customers" value={<span className={warn(d.on_map)}>{of(d.on_map)}</span>} />
+            <Line label="Signed in to the app" value={<span className={warn(d.signed_in)}>{of(d.signed_in)}</span>} />
+            <Line label="Sub-aggregators" value={d.subaggregators} />
+          </div>
+          <p className="mt-2 text-xs font-medium text-finder-muted">Orange's record is read only. If something here is wrong, tell the Agent Finder team.</p>
+        </>
+      )}
     </div>
   )
 }
