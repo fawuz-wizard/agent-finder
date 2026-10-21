@@ -10,7 +10,7 @@ const REGION: Record<string, string> = { west: 'West', north: 'North', east: 'Ea
 /**
  * Profile: who you are on the network. Orange's record of you, read only, and your network
  * in five figures. Your own choices, appearance, PIN, access, about, sign out, live under the
- * gear, on Settings. Reporting lives on the Dashboard.
+ * gear, on Settings. Download a report is the last row: you tick what you want.
  */
 export default function DealerProfilePage() {
   const { session } = useSession()
@@ -51,6 +51,13 @@ export default function DealerProfilePage() {
             <Line label="Sub-aggregators" value={d.subaggregators} />
           </div>
           <p className="mt-2 text-xs font-medium text-finder-muted">Orange's record is read only. If something here is wrong, tell the Agent Finder team.</p>
+
+          <div className="mt-8 flex flex-col">
+            <Link to="/dealer/records" className="flex min-h-[3rem] items-center justify-between gap-4 border-b border-finder-line py-1 text-base font-semibold text-finder-ink last:border-b-0">
+              <span>Download a report</span>
+              <span aria-hidden="true">›</span>
+            </Link>
+          </div>
         </>
       )}
     </div>

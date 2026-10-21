@@ -1943,13 +1943,16 @@ function csvOf<T extends object>(rows: T[]): string {
   return [keys.join(','), ...rows.map((r) => keys.map((k) => cell(r[k])).join(','))].join('\n') + '\n'
 }
 
-export function demoRecordsCsv(kind: RecordKind | 'report'): string {
+export function demoRecordsCsv(kind: RecordKind | 'report', since?: string): string {
+  // The same period rule as the API: rows at or after the start of `since`, 30 days by default.
+  const start = since ? new Date(`${since}T00:00:00`).getTime() : Date.now() - 30 * 24 * 60 * 60 * 1000
+  const recent = <T extends { at: string }>(rows: T[]) => rows.filter((r) => new Date(r.at).getTime() >= start)
   if (kind === 'report') return csvOf(demoReport().rows)
-  if (kind === 'actions') return csvOf(actions.map((x) => ({ at: x.at, agent_ref: x.agent_ref, action: x.action, note: x.note, signal_id: x.signal_id ?? '' })))
-  if (kind === 'audit') return csvOf(audit.map((x) => ({ at: x.at, agent_ref: x.agent_ref, actor: x.actor, field: x.field, purpose: x.purpose })))
+  if (kind === 'actions') return csvOf(recent(actions.map((x) => ({ at: x.at, agent_ref: x.agent_ref, action: x.action, note: x.note, signal_id: x.signal_id ?? '' }))))
+  if (kind === 'audit') return csvOf(recent(audit.map((x) => ({ at: x.at, agent_ref: x.agent_ref, actor: x.actor, field: x.field, purpose: x.purpose }))))
   if (kind === 'transactions')
-    return csvOf(agents.flatMap((a) => (a.txLog ?? []).map((t) => ({ at: new Date(t.at).toISOString(), agent_ref: a.ref, transaction: t.tx, amount_band: t.band, source: 'agent' }))))
+    return csvOf(recent(agents.flatMap((a) => (a.txLog ?? []).map((t) => ({ at: new Date(t.at).toISOString(), agent_ref: a.ref, transaction: t.tx, amount_band: t.band, source: 'agent' })))))
   if (kind === 'reports')
-    return csvOf(visits.map((v) => ({ at: new Date(v.at).toISOString(), agent_ref: v.ref, transaction: v.tx, amount_band: '', answer: v.answer, reason_code: v.reason ?? '', source: 'search' })))
+    return csvOf(recent(visits.map((v) => ({ at: new Date(v.at).toISOString(), agent_ref: v.ref, transaction: v.tx, amount_band: '', answer: v.answer, reason_code: v.reason ?? '', source: 'search' }))))
   return csvOf([])
 }

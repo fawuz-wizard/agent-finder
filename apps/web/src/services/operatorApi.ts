@@ -387,13 +387,13 @@ export const operatorApi = {
     return delay(demo.demoReport(), signal)
   },
 
-  /** One record table as CSV text, for the team to study. */
-  async recordsCsv(kind: RecordKind | 'report'): Promise<string> {
+  /** One record table as CSV text, from `since` (an ISO date) onwards; the agent report is a snapshot. */
+  async recordsCsv(kind: RecordKind | 'report', since?: string): Promise<string> {
     if (config.useLiveApi) {
-      const path = kind === 'report' ? '/api/v1/dealer/report.csv' : `/api/v1/dealer/records/${kind}.csv`
+      const path = kind === 'report' ? '/api/v1/dealer/report.csv' : `/api/v1/dealer/records/${kind}.csv${since ? `?since=${since}` : ''}`
       return api.text(path)
     }
-    return delay(demo.demoRecordsCsv(kind))
+    return delay(demo.demoRecordsCsv(kind, since))
   },
 
   audit(signal?: AbortSignal): Promise<AuditEntry[]> {
