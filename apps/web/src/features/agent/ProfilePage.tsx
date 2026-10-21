@@ -8,7 +8,7 @@ import type { AgentProfile } from '@/types/operator'
 import { locationErrorText } from '@/lib/location'
 import { shrinkPhoto } from '@/lib/photo'
 import { FinderCta, FinderSheet } from '@/features/end-user/components/finder'
-import { FieldLabel, Line, PILL_OFF, PILL_ON, SectionLabel, TextField } from './components/agentChrome'
+import { FieldLabel, Line, PILL_OFF, PILL_ON, SectionLabel, TextField, GearIcon } from './components/agentChrome'
 
 const MISTAKE_FIELDS = [
   ['name', 'Name'],
@@ -21,14 +21,6 @@ const MISTAKE_FIELDS = [
   ['other', 'Something else'],
 ] as const
 
-function GearIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
-    </svg>
-  )
-}
 
 /**
  * Profile: who the agent is. Orange's record, read only, with a way to report a mistake to

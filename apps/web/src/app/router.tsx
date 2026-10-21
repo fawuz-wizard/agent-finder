@@ -31,6 +31,9 @@ const DealerFloatQueue = lazy(() => import('@/features/dealer/FloatQueuePage'))
 const DealerFloatReview = lazy(() => import('@/features/dealer/FloatReviewPage'))
 const DealerAttention = lazy(() => import('@/features/dealer/AttentionPage'))
 const DealerProfile = lazy(() => import('@/features/dealer/ProfilePage'))
+const DealerSettings = lazy(() => import('@/features/dealer/SettingsPage'))
+const DealerRecords = lazy(() => import('@/features/dealer/RecordsPage'))
+const DealerReveals = lazy(() => import('@/features/dealer/RevealsPage'))
 const NotFound = lazy(() => import('./NotFound'))
 
 function Fallback() {
@@ -109,6 +112,9 @@ const router = createBrowserRouter([
           { path: 'attention', element: withSuspense(<DealerAttention />) },
           { path: 'attention/:id', element: withSuspense(<DealerAttention />) },
           { path: 'profile', element: withSuspense(<DealerProfile />) },
+          { path: 'settings', element: withSuspense(<DealerSettings />) },
+          { path: 'records', element: withSuspense(<DealerRecords />) },
+          { path: 'reveals', element: withSuspense(<DealerReveals />) },
         ],
       },
     ],

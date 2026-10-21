@@ -14,6 +14,9 @@ import DealerAttentionPage from './AttentionPage'
 import DealerAgentsPage from './AgentsPage'
 import DealerFloatQueuePage from './FloatQueuePage'
 import DealerProfilePage from './ProfilePage'
+import DealerSettingsPage from './SettingsPage'
+import DealerRecordsPage from './RecordsPage'
+import DealerRevealsPage from './RevealsPage'
 import RegisterAgentPage from './RegisterAgentPage'
 import DealerSearchPage from './SearchPage'
 
@@ -39,6 +42,9 @@ function App({ start }: { start: string }) {
             <Route path="/dealer/attention" element={<DealerAttentionPage />} />
             <Route path="/dealer/attention/:id" element={<DealerAttentionPage />} />
             <Route path="/dealer/profile" element={<DealerProfilePage />} />
+            <Route path="/dealer/settings" element={<DealerSettingsPage />} />
+            <Route path="/dealer/records" element={<DealerRecordsPage />} />
+            <Route path="/dealer/reveals" element={<DealerRevealsPage />} />
           </Routes>
         </MemoryRouter>
       </SessionProvider>
@@ -410,10 +416,10 @@ describe('agents from Orange\'s file', () => {
 })
 
 describe('report and records', () => {
-  it('the aggregator changes their own PIN from Profile, the current one first', async () => {
+  it('the aggregator changes their own PIN from Settings, the current one first', async () => {
     const user = userEvent.setup()
     signIn(ALL)
-    render(<App start="/dealer/profile" />)
+    render(<App start="/dealer/settings" />)
     await user.click(await screen.findByRole('button', { name: /^change/i }))
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText('Current PIN'), '9999')
@@ -430,12 +436,25 @@ describe('report and records', () => {
     await operatorApi.changeDealerPin('5566', '1234')
   })
 
-  it('the profile shows the Global Report figures and exports CSVs of my agents, never money', async () => {
+  it('the profile is who you are and two doors; the gear opens Settings', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    render(<App start="/dealer/profile" />)
+    expect(await screen.findByText('Kissy Distribution')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Report and records' })).toHaveAttribute('href', '/dealer/records')
+    expect(screen.getByRole('link', { name: 'Your financial reveals' })).toHaveAttribute('href', '/dealer/reveals')
+    expect(screen.queryByText(/csv/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Settings' }))
+    expect(await screen.findByRole('radiogroup', { name: 'Appearance' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+  })
+
+  it('the records screen shows the Global Report figures and exports CSVs of my agents, never money', async () => {
     const user = userEvent.setup()
     signIn(ALL)
     const csv = vi.spyOn(operatorApi, 'recordsCsv')
     vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:x', revokeObjectURL: () => undefined })
-    render(<App start="/dealer/profile" />)
+    render(<App start="/dealer/records" />)
     expect(await screen.findByText(/agents ·/)).toBeInTheDocument()
     expect(screen.getByText(/on the map/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /customer reports \(csv\)/i }))
