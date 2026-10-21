@@ -278,6 +278,8 @@ describe('evidence by amount', () => {
     const user = userEvent.setup()
     render(<App start="/dealer/agents/Agent%20024" />)
     await screen.findByText(/usually handles/i)
+    // The agent's own wording never reaches this page: the age, not "customers no longer see you".
+    expect(screen.queryByText(/see you/i)).not.toBeInTheDocument()
     // The note sits behind an Edit row until the dealer asks for the form.
     expect(screen.queryByLabelText(/cash out, up to about/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /^edit/i }))

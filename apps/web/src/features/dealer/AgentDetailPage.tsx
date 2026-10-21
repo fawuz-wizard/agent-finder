@@ -71,7 +71,7 @@ export default function DealerAgentDetailPage() {
         <Block heading="Now">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className={`text-lg font-bold leading-tight ${tone}`}>{PRESENCE_LABELS[d.presence]}</span>
-            <span className="text-sm font-medium text-finder-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '')}</span>
+            <span className="text-sm font-medium text-finder-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '').split(' — ')[0]}</span>
           </div>
           <p className="text-sm font-medium text-finder-muted">{data.capacity_text}</p>
           {d.freshness === 'expired' && <p className="text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
