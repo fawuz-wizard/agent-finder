@@ -12,6 +12,7 @@ import { PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
 import type { DealerAction, DealerAgentDetail } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
 import { MaskedValue } from './components/MaskedValue'
+import { PinMap } from './components/PinMap'
 import { locationErrorText } from '@/lib/location'
 
 /**
@@ -235,15 +236,26 @@ function PhotoCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
   )
 }
 
-/** The agent pinned the shop from the phone. Nobody is sent there until the aggregator confirms. */
+/** Freetown, for a map with no point yet. */
+const FREETOWN = { lat: 8.4657, lng: -13.2317 }
+
+/**
+ * The agent pinned the shop from the phone. Nobody is sent there until the aggregator
+ * confirms. The pin is shown on the map; Move it lets the aggregator drag the map under the
+ * pin and confirm the corrected point in one go.
+ */
 function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [moving, setMoving] = useState(false)
+  const [point, setPoint] = useState({ lat: detail.lat ?? FREETOWN.lat, lng: detail.lng ?? FREETOWN.lng })
   const toast = useToast()
+  const moved = point.lat !== detail.lat || point.lng !== detail.lng
   async function confirm() {
     setBusy(true)
     setError(null)
     try {
+      if (moved) await operatorApi.editAgent(detail.ref, { lat: point.lat, lng: point.lng })
       await operatorApi.confirmLocation(detail.ref)
       toast.show(`${detail.shop_name} is on the map`)
       onSaved()
@@ -258,28 +270,36 @@ function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: 
       <p className="text-sm font-medium">
         The agent pinned the shop at <b>{detail.area}</b>. Customers are not sent there until you confirm it is right.
       </p>
+      <PinMap lat={point.lat} lng={point.lng} mode={moving ? 'move' : 'view'} onMove={setPoint} label={`${detail.shop_name}, pinned by the agent`} />
+      {moving && <p className="text-xs font-medium text-finder-muted">Drag the map until the pin sits on the shop, then confirm.</p>}
       {error && (
         <p role="alert" className="text-sm font-semibold text-danger">
           {error}
         </p>
       )}
-      <PillButton tone="on" className="self-start" onClick={confirm} disabled={busy}>
-        {busy ? 'Confirming…' : 'Confirm this location'}
-      </PillButton>
+      <div className="flex gap-3">
+        <PillButton tone="on" className="flex-1" onClick={confirm} disabled={busy}>
+          {busy ? 'Confirming…' : moved ? 'Confirm here' : 'Confirm this location'}
+        </PillButton>
+        <PillButton className="flex-1" onClick={() => setMoving((m) => !m)} disabled={busy}>
+          {moving ? 'Stop moving' : 'Move it'}
+        </PillButton>
+      </div>
     </Block>
   )
 }
 
 /**
  * An agent with no point on the map (every agent from Orange's file arrives this way) is never
- * shown to customers. The dealer pins the shop here: standing at it with the phone, or by
- * typing the coordinates. An agent inactive at Orange is shown the reason and nothing else.
+ * shown to customers. The dealer pins the shop here: on the map, standing at it with the
+ * phone, or by typing the coordinates. An agent inactive at Orange is shown the reason and nothing else.
  */
 function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: () => void }) {
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
   const [locating, setLocating] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [typing, setTyping] = useState(false)
   const [error, setError] = useState<string | null>(null)
   if (!detail.active) {
     return (
@@ -320,30 +340,52 @@ function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved
       setSaving(false)
     }
   }
+  const typedLat = Number(lat)
+  const typedLng = Number(lng)
+  const hasPoint = lat !== '' && lng !== '' && Number.isFinite(typedLat) && Number.isFinite(typedLng)
+  const centre = hasPoint ? { lat: typedLat, lng: typedLng } : FREETOWN
   return (
     <Block id="place-agent" heading="Not on the map yet" tone="warning">
-      <p className="text-sm font-medium">Customers cannot find this shop until it has a location. Stand at the shop and use the phone's position, or type the coordinates.</p>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-2">
-          <FieldLabel htmlFor="place-lat">Latitude</FieldLabel>
-          <TextField id="place-lat" value={lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => setLat(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <FieldLabel htmlFor="place-lng">Longitude</FieldLabel>
-          <TextField id="place-lng" value={lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => setLng(e.target.value)} />
-        </div>
+      <p className="text-sm font-medium">Customers cannot find this shop until it has a point. Drag the map until the pin sits on the shop, or stand at the door and use your location.</p>
+      <PinMap
+        lat={centre.lat}
+        lng={centre.lng}
+        mode="move"
+        onMove={(pt) => {
+          setLat(String(pt.lat))
+          setLng(String(pt.lng))
+        }}
+        label={`${detail.shop_name}, drag the map to place the pin`}
+      />
+      <div className="flex gap-3">
+        <PillButton className="flex-1" onClick={useMyLocation} disabled={locating}>
+          {locating ? 'Reading location…' : 'Use my location'}
+        </PillButton>
+        <PillButton className="flex-1" onClick={() => setTyping((t) => !t)} aria-expanded={typing}>
+          Type coordinates
+        </PillButton>
       </div>
-      <PillButton className="self-start" onClick={useMyLocation} disabled={locating}>
-        {locating ? 'Reading location…' : 'Use my location'}
-      </PillButton>
+      {typing && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="place-lat">Latitude</FieldLabel>
+            <TextField id="place-lat" value={lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => setLat(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="place-lng">Longitude</FieldLabel>
+            <TextField id="place-lng" value={lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => setLng(e.target.value)} />
+          </div>
+        </div>
+      )}
       {error && (
         <p role="alert" className="text-sm font-semibold text-danger">
           {error}
         </p>
       )}
-      <FinderCta onClick={save} disabled={saving || !lat || !lng}>
-        {saving ? 'Saving…' : 'Pin this shop'}
+      <FinderCta onClick={save} disabled={saving || !hasPoint}>
+        {saving ? 'Saving…' : 'Pin this shop here'}
       </FinderCta>
+      <p className="text-xs font-medium text-finder-muted">Customers are sent here once the agent signs in and taps Open.</p>
     </Block>
   )
 }

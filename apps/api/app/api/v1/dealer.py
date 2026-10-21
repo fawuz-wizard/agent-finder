@@ -518,6 +518,10 @@ async def agent_detail(
         "located": a.lat is not None and a.lng is not None,
         "location_confirmed": bool(a.location_confirmed),
         "location_source": a.location_source,
+        # The point itself, for the aggregator's map: where the pin sits, to confirm or move it.
+        # Dealer-side only; customers get a point only through the search, once it is confirmed.
+        "lat": a.lat,
+        "lng": a.lng,
         "active": a.active,
         "region": a.region,
         "city": a.city,

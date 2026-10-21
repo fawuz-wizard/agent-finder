@@ -1816,6 +1816,8 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
       cash: { source: ledgerFor(a).cash.evidenceSource, text: ledgerFor(a).cash.evidenceText },
       float: { source: ledgerFor(a).float.evidenceSource, text: ledgerFor(a).float.evidenceText },
     },
+    lat: a.lat ?? null,
+    lng: a.lng ?? null,
     located: true,
     location_confirmed: true,
     active: true,

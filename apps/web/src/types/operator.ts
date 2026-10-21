@@ -547,6 +547,9 @@ export interface DealerAgentDetail {
   /** A pin goes live for customers only once the aggregator confirms it. */
   location_confirmed: boolean
   location_source?: 'dealer' | 'agent' | 'placed' | null
+  /** The pin itself, for the aggregator's map. Null until placed. */
+  lat: number | null
+  lng: number | null
   active: boolean
   region: 'east' | 'north' | 'west' | 'south' | null
   city: string | null

@@ -9,6 +9,7 @@ import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS } from '@/types/operator'
 import type { RegisterAgentBody } from '@/types/operator'
 import { locationErrorText } from '@/lib/location'
+import { PinMap } from './components/PinMap'
 
 const AREAS = ['Lumley', 'Aberdeen', 'Wilberforce', 'Congo Cross', 'Hill Station', 'Freetown']
 
@@ -56,6 +57,7 @@ export default function RegisterAgentPage() {
     verified: false,
   })
   const [locating, setLocating] = useState(false)
+  const [typing, setTyping] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -160,18 +162,36 @@ export default function RegisterAgentPage() {
           <Field id="reg-street" label="Street or landmark" hint="what customers read">
             <TextField id="reg-street" value={form.street} onChange={(e) => set('street', e.target.value)} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field id="reg-lat" label="Latitude">
-              <TextField id="reg-lat" value={form.lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => set('lat', e.target.value)} />
-            </Field>
-            <Field id="reg-lng" label="Longitude">
-              <TextField id="reg-lng" value={form.lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => set('lng', e.target.value)} />
-            </Field>
+          <PinMap
+            lat={form.lat !== '' && Number.isFinite(Number(form.lat)) ? Number(form.lat) : 8.4657}
+            lng={form.lng !== '' && Number.isFinite(Number(form.lng)) ? Number(form.lng) : -13.2317}
+            mode="move"
+            height={220}
+            onMove={(pt) => {
+              set('lat', String(pt.lat))
+              set('lng', String(pt.lng))
+            }}
+            label="the shop, drag the map to place the pin"
+          />
+          <div className="flex gap-3">
+            <PillButton className="flex-1" onClick={useMyLocation} disabled={locating}>
+              {locating ? 'Reading location…' : 'Use my location'}
+            </PillButton>
+            <PillButton className="flex-1" onClick={() => setTyping((v) => !v)} aria-expanded={typing}>
+              Type coordinates
+            </PillButton>
           </div>
-          <PillButton className="self-start" onClick={useMyLocation} disabled={locating}>
-            {locating ? 'Reading location…' : 'Use my location'}
-          </PillButton>
-          <p className="text-xs font-medium text-finder-muted">Stand at the shop for the phone's position, or type the coordinates.</p>
+          {typing && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field id="reg-lat" label="Latitude">
+                <TextField id="reg-lat" value={form.lat} inputMode="decimal" placeholder="8.4700" onChange={(e) => set('lat', e.target.value)} />
+              </Field>
+              <Field id="reg-lng" label="Longitude">
+                <TextField id="reg-lng" value={form.lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => set('lng', e.target.value)} />
+              </Field>
+            </div>
+          )}
+          <p className="text-xs font-medium text-finder-muted">Drag the map until the pin sits on the shop, stand at the door for the phone's position, or type the coordinates.</p>
         </Section>
 
         <Section heading="Hours" className="gap-3">

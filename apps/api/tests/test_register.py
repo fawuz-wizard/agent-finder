@@ -195,3 +195,14 @@ async def test_an_agent_who_never_declared_is_counted_not_flagged(client, dealer
     ][0]
     assert row["presence"] == "closed" and row["presence_text"] == "Not signed in yet"
     assert row["attention"] is False
+
+
+@pytest.mark.asyncio
+async def test_detail_carries_the_pin_for_the_aggregators_map(client, dealer):
+    """The agent's page shows the pin on a map, so the detail carries the point. Customers never
+    get it from here: the public detail has no coordinates field for an unconfirmed shop."""
+    r = await client.get("/api/v1/dealer/agents/Agent%20024", headers=dealer)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert isinstance(d["lat"], float) and isinstance(d["lng"], float)
+    assert d["located"] is True

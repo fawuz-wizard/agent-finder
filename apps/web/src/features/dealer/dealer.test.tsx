@@ -17,6 +17,7 @@ import DealerProfilePage from './ProfilePage'
 import DealerSettingsPage from './SettingsPage'
 import DealerRecordsPage from './RecordsPage'
 import DealerRevealsPage from './RevealsPage'
+import { pointer } from '@/test-utils/pointer'
 import RegisterAgentPage from './RegisterAgentPage'
 import DealerSearchPage from './SearchPage'
 
@@ -304,6 +305,7 @@ describe('registration', () => {
     await user.type(screen.getByLabelText(/shop name/i), "Mariama's Corner")
     await user.type(screen.getByLabelText(/agent's name/i), 'Mariama Sesay')
     await user.type(screen.getByLabelText(/street or landmark/i), 'Opposite the venue gate')
+    await user.click(screen.getByRole('button', { name: /type coordinates/i }))
     await user.type(screen.getByLabelText(/latitude/i), '8.4710')
     await user.type(screen.getByLabelText(/longitude/i), '-13.2600')
     await user.type(screen.getByLabelText(/cash out, up to about/i), '5000')
@@ -402,6 +404,10 @@ describe('agents from Orange\'s file', () => {
     const edit = vi.spyOn(operatorApi, 'editAgent').mockResolvedValue({ ...(await operatorApi.editAgent('Agent 024', {})), located: true })
     render(<App start="/dealer/agents/Agent%20024" />)
     expect(await screen.findByText(/Not on the map yet/)).toBeInTheDocument()
+    // The map is the first way; the fields are behind a pill for anyone who has the numbers.
+    expect(screen.getByRole('img', { name: /drag the map to place the pin/i })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Latitude')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /type coordinates/i }))
     await user.type(screen.getByLabelText('Latitude'), '8.4710')
     await user.type(screen.getByLabelText('Longitude'), '-13.2600')
     await user.click(screen.getByRole('button', { name: /pin this shop/i }))
@@ -541,8 +547,18 @@ describe('report and records', () => {
     const confirm = vi.spyOn(operatorApi, 'confirmLocation')
     render(<App start="/dealer/agents/Agent%20024" />)
     expect(await screen.findByText(/Pin waiting for your confirmation/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /confirm this location/i }))
-    expect(confirm).toHaveBeenCalledWith('Agent 024')
+    // The pin is on a map; Move it lets the aggregator drag the map under it and confirm the corrected point.
+    expect(screen.getByRole('img', { name: /pinned by the agent/i })).toBeInTheDocument()
+    const edit = vi.spyOn(operatorApi, 'editAgent')
+    await user.click(screen.getByRole('button', { name: /move it/i }))
+    const map = screen.getByRole('img', { name: /pinned by the agent/i })
+    pointer(map, 'pointerdown', 10, 10)
+    pointer(map, 'pointermove', 10, 60)
+    pointer(map, 'pointerup', 10, 60)
+    await user.click(screen.getByRole('button', { name: /confirm here/i }))
+    // The corrected point is saved first, then the confirmation; both are awaited.
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith('Agent 024'))
+    expect(edit).toHaveBeenCalledWith('Agent 024', expect.objectContaining({ lat: expect.any(Number), lng: expect.any(Number) }))
     vi.restoreAllMocks()
   })
 })
