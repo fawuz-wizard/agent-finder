@@ -56,28 +56,28 @@ export function MaskedValue({ agentRef, field, label }: { agentRef: string; fiel
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
-      <span className="text-sm text-muted">{label}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-finder-line py-2 last:border-b-0">
+      <span className="text-sm font-medium text-finder-muted">{label}</span>
       {value ? (
         <span className="text-right">
           <span className="block text-base font-bold">{formatSle(value.amount_sle)}</span>
-          <span className="text-xs font-semibold text-muted">
+          <span className="text-xs font-semibold text-finder-muted">
             from {value.source} · hides in {left}s
           </span>
         </span>
       ) : allowed ? (
         <button type="button" onClick={() => setAsking(true)} className="-my-2 flex h-control items-center gap-2 text-right">
-          <span className="text-base font-bold tracking-[3px] text-muted" aria-label="hidden">
+          <span className="text-base font-bold tracking-[3px] text-finder-muted" aria-label="hidden">
             •••••
           </span>
-          <span className="text-sm font-bold text-brand-text">Reveal</span>
+          <span className="text-sm font-bold text-finder-link">Reveal</span>
         </button>
       ) : (
-        <span className="text-sm font-semibold text-muted">Not available to you</span>
+        <span className="text-sm font-semibold text-finder-muted">Not available to you</span>
       )}
 
       <Sheet open={asking} onClose={() => setAsking(false)} title={`Reveal ${label.toLowerCase()} for ${REVEAL_SECONDS} seconds`}>
-        <p className="text-sm text-muted">
+        <p className="text-sm font-medium text-finder-muted">
           You will be asked why. The reveal is recorded against your name before the value appears — the record keeps
           which field you saw, never the amount.
         </p>

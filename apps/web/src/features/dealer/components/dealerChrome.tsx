@@ -20,6 +20,19 @@ export function Section({ id, heading, tone, className = '', children, ...rest }
   )
 }
 
+/** A section without the box: a small uppercase title, then its lines. `tone` draws a left rule. */
+export function Block({ id, heading, tone, className = '', children, ...rest }: React.HTMLAttributes<HTMLElement> & { id?: string | undefined; heading: ReactNode; tone?: 'warning' | 'danger' | undefined }) {
+  const edge = tone === 'warning' ? 'border-l-4 border-warning pl-4' : tone === 'danger' ? 'border-l-4 border-danger pl-4' : ''
+  return (
+    <section className={`flex flex-col gap-2 ${edge} ${className}`} aria-labelledby={id} {...rest}>
+      <p id={id} className="text-sm font-bold uppercase tracking-wider text-finder-muted">
+        {heading}
+      </p>
+      {children}
+    </section>
+  )
+}
+
 /** A 44 px pill button: orange when it is the main action, outlined otherwise, red to escalate. */
 export function PillButton({ tone = 'off', className = '', type = 'button', ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'on' | 'off' | 'danger' }) {
   const look = tone === 'on' ? PILL_ON : tone === 'danger' ? 'border-2 border-danger bg-transparent text-danger' : PILL_OFF

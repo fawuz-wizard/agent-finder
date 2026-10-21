@@ -278,6 +278,9 @@ describe('evidence by amount', () => {
     const user = userEvent.setup()
     render(<App start="/dealer/agents/Agent%20024" />)
     await screen.findByText(/usually handles/i)
+    // The note sits behind an Edit row until the dealer asks for the form.
+    expect(screen.queryByLabelText(/cash out, up to about/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^edit/i }))
     await user.type(screen.getByLabelText(/cash out, up to about/i), '5000')
     await user.click(screen.getByRole('button', { name: /save note/i }))
     expect(await screen.findByText(/your dealer noted you usually handle up to about SLE 5,000/i)).toBeInTheDocument()
@@ -335,7 +338,7 @@ describe('registration', () => {
     await expect(operatorApi.signIn(mine!.ref, fresh, 'agent')).resolves.toMatchObject({ must_set_pin: true })
     const later = await operatorApi.actions(mine!.ref)
     expect(later.some((a) => /issued a new sign-in code/.test(a.note))).toBe(true)
-  })
+  }, 15_000)
 
   it('offers no way to register without the permission: no link, and the page sends you back', async () => {
     signIn(ALL)

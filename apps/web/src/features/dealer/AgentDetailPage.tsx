@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useToast } from '@/design'
 import { FinderCta, FinderHeader } from '@/features/end-user/components/finder'
-import { FieldLabel, TextField } from '@/features/agent/components/agentChrome'
-import { Line, PillButton, Section } from './components/dealerChrome'
+import { FieldLabel, Line as ActionLine, TextField } from '@/features/agent/components/agentChrome'
+import { Block, Line, PillButton } from './components/dealerChrome'
 import { PILL_OFF } from '@/features/agent/components/agentChrome'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
@@ -15,8 +15,9 @@ import { MaskedValue } from './components/MaskedValue'
 import { locationErrorText } from '@/lib/location'
 
 /**
- * D2 — Agent detail. Declaration, money (masked), today's counts with their source, the
- * day's availability changes, and the fixed action row. Every action is logged with the
+ * Agent detail, in sections under small titles: the word now, money (masked), the Orange
+ * record, sign-in as one row, what they usually handle behind an Edit row, today's counts
+ * with their source, the day's availability changes, and the fixed action row. Every action is logged with the
  * dealer's name; none of them changes the agent's availability.
  */
 export default function DealerAgentDetailPage() {
@@ -66,8 +67,8 @@ export default function DealerAgentDetailPage() {
         {data.ref.replace(/^Agent /, 'Code ')} · {data.area}
       </p>
 
-      <div className="mt-4 flex flex-col gap-3">
-        <Section heading="Now">
+      <div className="mt-6 flex flex-col gap-8">
+        <Block heading="Now">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className={`text-lg font-bold leading-tight ${tone}`}>{PRESENCE_LABELS[d.presence]}</span>
             <span className="text-sm font-medium text-finder-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '')}</span>
@@ -77,9 +78,9 @@ export default function DealerAgentDetailPage() {
           <p className="text-sm font-medium text-finder-muted">
             <span className="font-bold text-finder-ink">{data.reliability.label_text}</span> · {data.reliability.text}
           </p>
-        </Section>
+        </Block>
 
-        <Section heading={<>Float &amp; balance</>}>
+        <Block heading={<>Float &amp; balance</>}>
           <MaskedValue agentRef={data.ref} field="balance" label="Balance" />
           <MaskedValue agentRef={data.ref} field="float" label="Float position" />
           <Line
@@ -95,19 +96,19 @@ export default function DealerAgentDetailPage() {
             }
           />
           {!can(PERMISSIONS.viewFinancial) && <p className="text-xs font-medium text-finder-muted">Financial detail needs a permission you do not hold.</p>}
-        </Section>
+        </Block>
 
         {(!data.located || !data.active) && <PlacementCard detail={data} onSaved={refresh} />}
         {data.located && data.active && !data.location_confirmed && <ConfirmCard detail={data} onSaved={refresh} />}
 
-        <Section heading="Orange record">
+        <Block heading="Orange record">
           <Line label="Agent code" value={data.agent_code ?? '—'} />
           <Line label="Status" value={data.active ? 'Active' : 'Inactive'} tone={data.active ? 'text-finder-likely' : 'text-danger'} />
           <Line label="Region · city" value={<>{data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : '—'} · {data.city ?? '—'}</>} />
           <Line label="On the map" value={data.located ? (data.location_confirmed ? 'Yes' : 'Pinned, not confirmed') : 'No'} />
           <Line label="Verified" value={data.verified ? 'Yes · shown to customers' : (data.verification_note ?? 'Pending · not shown to customers')} tone={data.verified ? 'text-finder-likely' : 'text-warning'} />
           <Line label="Source" value={data.source === 'orange_file' ? "Orange's file" : 'Registered in the app'} />
-        </Section>
+        </Block>
 
         {data.photo && <PhotoCard detail={data} onSaved={refresh} />}
 
@@ -115,21 +116,21 @@ export default function DealerAgentDetailPage() {
 
         <UsualCard detail={data} onSaved={refresh} />
 
-        <Section heading="Today">
+        <Block heading="Today">
           <Line label={<>Transactions <span className="text-xs">· {data.today.transactions === null ? 'not connected' : 'Orange'}</span></>} value={data.today.transactions ?? '—'} />
           <Line label="Successful" value={data.today.successful ?? '—'} />
           <Line label="Customers who found them" value={data.today.found_you} tone="text-finder-link" />
           <Line label="Reported problems" value={data.today.reported_problems} tone={data.today.reported_problems > 0 ? 'text-danger' : ''} />
-        </Section>
+        </Block>
 
-        <Section heading="Availability today">
+        <Block heading="Availability today">
           {data.availability_today.length === 0 && <p className="text-sm font-medium text-finder-muted">No changes today.</p>}
           {data.availability_today.map((e, i) => (
             <Line key={i} label={e.time_text} value={e.text} tone={e.tone === 'warning' ? 'text-warning' : ''} />
           ))}
-        </Section>
+        </Block>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 border-t border-finder-line pt-6">
           <PillButton className="flex-1" onClick={() => act('contact')} disabled={busy !== null}>
             Contact
           </PillButton>
@@ -176,25 +177,28 @@ function SignInCard({ detail, initialCode }: { detail: DealerAgentDetail; initia
   }
 
   return (
-    <Section id="agent-sign-in" heading="Sign-in">
+    <Block id="agent-sign-in" heading="Sign-in">
+      <ActionLine
+        label="One-time code"
+        action={
+          <button type="button" onClick={() => void issue()} disabled={busy} className="flex h-control items-center text-base font-bold text-finder-link disabled:opacity-60">
+            {busy ? 'Issuing…' : code ? 'Issue another code' : 'Issue a new sign-in code'}
+          </button>
+        }
+      />
       {code ? (
         <>
-          <p className="text-sm font-medium text-finder-muted">One-time code for {detail.name}. Read it out in person; it is not shown again.</p>
-          <p className="text-center text-2xl font-bold tracking-[0.3em] text-finder-ink" aria-label={`One-time code ${code.split('').join(' ')}`}>
+          <p className="py-2 text-center text-2xl font-bold tracking-[0.3em] text-finder-ink" aria-label={`One-time code ${code.split('').join(' ')}`}>
             {code.slice(0, 3)} {code.slice(3)}
           </p>
-          <p className="text-sm font-medium text-finder-muted">They sign in with their agent number and this code, then choose a PIN only they know. The code works once.</p>
+          <p className="text-sm font-medium text-finder-muted">
+            For {detail.name}. Read it out in person; it is not shown again. They sign in with their number and this code, then choose a PIN only they know. The code works once.
+          </p>
         </>
       ) : (
-        <p className="text-sm font-medium text-finder-muted">
-          The agent signs in with a PIN only they know. If they forget it, issue a new one-time code: their phones are signed out and they choose
-          a new PIN at the next sign-in.
-        </p>
+        <p className="text-xs font-medium text-finder-muted">The agent signs in with a PIN only they know. A new code signs their phones out; they choose a new PIN at the next sign-in.</p>
       )}
-      <PillButton className="self-start" onClick={() => void issue()} disabled={busy}>
-        {busy ? 'Issuing…' : code ? 'Issue another code' : 'Issue a new sign-in code'}
-      </PillButton>
-    </Section>
+    </Block>
   )
 }
 
@@ -216,7 +220,7 @@ function PhotoCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
     }
   }
   return (
-    <Section id="shop-photo" heading="Shop photo">
+    <Block id="shop-photo" heading="Shop photo">
       <img src={detail.photo ?? ''} alt={`${detail.shop_name}, photographed by the agent`} className="aspect-[4/3] w-full rounded-field object-cover" />
       <p className="text-sm font-medium text-finder-muted">Customers see this on the shop's page. If it is not the shop, take it down; the agent can take a new one.</p>
       {error && (
@@ -227,7 +231,7 @@ function PhotoCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
       <PillButton className="self-start" onClick={remove} disabled={busy}>
         {busy ? 'Removing…' : 'Remove photo'}
       </PillButton>
-    </Section>
+    </Block>
   )
 }
 
@@ -250,7 +254,7 @@ function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: 
     }
   }
   return (
-    <Section id="confirm-location" heading="Pin waiting for your confirmation" tone="warning">
+    <Block id="confirm-location" heading="Pin waiting for your confirmation" tone="warning">
       <p className="text-sm font-medium">
         The agent pinned the shop at <b>{detail.area}</b>. Customers are not sent there until you confirm it is right.
       </p>
@@ -262,7 +266,7 @@ function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: 
       <PillButton tone="on" className="self-start" onClick={confirm} disabled={busy}>
         {busy ? 'Confirming…' : 'Confirm this location'}
       </PillButton>
-    </Section>
+    </Block>
   )
 }
 
@@ -279,9 +283,9 @@ function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved
   const [error, setError] = useState<string | null>(null)
   if (!detail.active) {
     return (
-      <Section heading="Not shown to customers" tone="danger">
+      <Block heading="Not shown to customers" tone="danger">
         <p className="text-sm font-medium">This agent is marked inactive at Orange. Customers cannot find them until Orange's record changes.</p>
-      </Section>
+      </Block>
     )
   }
   function useMyLocation() {
@@ -317,7 +321,7 @@ function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved
     }
   }
   return (
-    <Section id="place-agent" heading="Not on the map yet" tone="warning">
+    <Block id="place-agent" heading="Not on the map yet" tone="warning">
       <p className="text-sm font-medium">Customers cannot find this shop until it has a location. Stand at the shop and use the phone's position, or type the coordinates.</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
@@ -340,7 +344,7 @@ function PlacementCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved
       <FinderCta onClick={save} disabled={saving || !lat || !lng}>
         {saving ? 'Saving…' : 'Pin this shop'}
       </FinderCta>
-    </Section>
+    </Block>
   )
 }
 
@@ -353,23 +357,44 @@ function UsualCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
   const [float, setFloat] = useState(detail.usual.usual_float_max_sle === null ? '' : String(detail.usual.usual_float_max_sle))
   const [daily, setDaily] = useState(detail.usual.usual_daily_transactions === null ? '' : String(detail.usual.usual_daily_transactions))
   const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState(false)
   const num = (raw: string) => (raw.trim() === '' ? null : Math.max(0, Math.floor(Number(raw))))
   async function save() {
     setSaving(true)
     try {
       await operatorApi.setUsual(detail.ref, { usual_max_sle: num(cash), usual_float_max_sle: num(float), usual_daily_transactions: num(daily) })
+      setEditing(false)
       onSaved()
     } finally {
       setSaving(false)
     }
   }
   const fromRecords = detail.evidence.cash.source === 'operator'
+  const u = detail.usual
+  const noteText =
+    u.usual_max_sle === null && u.usual_float_max_sle === null && u.usual_daily_transactions === null
+      ? 'None yet'
+      : [u.usual_max_sle !== null && `out ${formatSle(u.usual_max_sle)}`, u.usual_float_max_sle !== null && `in ${formatSle(u.usual_float_max_sle)}`, u.usual_daily_transactions !== null && `${u.usual_daily_transactions}/day`]
+          .filter(Boolean)
+          .join(' · ')
   return (
-    <Section heading="Usually handles">
+    <Block heading="Usually handles">
       <p className="text-sm font-medium text-finder-muted">{detail.evidence.cash.text}</p>
       {detail.evidence.float.source !== 'none' && <p className="text-sm font-medium text-finder-muted">{detail.evidence.float.text}</p>}
       {fromRecords ? (
         <p className="text-xs font-medium text-finder-muted">From the operator's records. Your note is no longer needed.</p>
+      ) : !editing ? (
+        <ActionLine
+          label="Your note"
+          action={
+            <span className="flex items-center gap-3">
+              <span className="text-base font-semibold text-finder-muted">{noteText}</span>
+              <button type="button" onClick={() => setEditing(true)} className="flex h-control items-center text-base font-bold text-finder-link">
+                Edit ›
+              </button>
+            </span>
+          }
+        />
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
@@ -384,12 +409,17 @@ function UsualCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
             <FieldLabel htmlFor="usual-daily">Transactions on a usual day</FieldLabel>
             <TextField id="usual-daily" type="number" inputMode="numeric" min={0} value={daily} onChange={(e) => setDaily(e.target.value)} />
           </div>
-          <PillButton className="self-start" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Save note'}
-          </PillButton>
+          <div className="flex gap-3">
+            <PillButton tone="on" className="flex-1" onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : 'Save note'}
+            </PillButton>
+            <PillButton className="flex-1" onClick={() => setEditing(false)} disabled={saving}>
+              Cancel
+            </PillButton>
+          </div>
           <p className="text-xs font-medium text-finder-muted">Sets what amounts customers are told this agent can likely handle. The figure is never shown to them, and it is replaced by the operator's records on integration.</p>
         </div>
       )}
-    </Section>
+    </Block>
   )
 }
