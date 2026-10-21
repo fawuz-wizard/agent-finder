@@ -249,8 +249,10 @@ function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: 
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
   const [point, setPoint] = useState({ lat: detail.lat ?? FREETOWN.lat, lng: detail.lng ?? FREETOWN.lng })
+  // Only a drag counts as a move: a detail without a point falls back to Freetown for the
+  // map, and that fallback must never be saved as the shop's place.
+  const [moved, setMoved] = useState(false)
   const toast = useToast()
-  const moved = point.lat !== detail.lat || point.lng !== detail.lng
   async function confirm() {
     setBusy(true)
     setError(null)
@@ -270,7 +272,16 @@ function ConfirmCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: 
       <p className="text-sm font-medium">
         The agent pinned the shop at <b>{detail.area}</b>. Customers are not sent there until you confirm it is right.
       </p>
-      <PinMap lat={point.lat} lng={point.lng} mode={moving ? 'move' : 'view'} onMove={setPoint} label={`${detail.shop_name}, pinned by the agent`} />
+      <PinMap
+        lat={point.lat}
+        lng={point.lng}
+        mode={moving ? 'move' : 'view'}
+        onMove={(pt) => {
+          setPoint(pt)
+          setMoved(true)
+        }}
+        label={`${detail.shop_name}, pinned by the agent`}
+      />
       {moving && <p className="text-xs font-medium text-finder-muted">Drag the map until the pin sits on the shop, then confirm.</p>}
       {error && (
         <p role="alert" className="text-sm font-semibold text-danger">
