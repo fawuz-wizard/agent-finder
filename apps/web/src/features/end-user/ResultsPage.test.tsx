@@ -83,7 +83,8 @@ describe('U3 — Results', () => {
 
   it('is deep-link addressable: a direct results URL renders that exact search', async () => {
     renderResults('?tx=deposit&amount=500&area=Aberdeen')
-    expect(await screen.findByText(/Cash in · SLE 500 · Aberdeen/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Cash in · SLE 500' })).toBeInTheDocument()
+    expect(screen.getByText(/Distances from around Aberdeen/)).toBeInTheDocument()
   })
 
   it('sends the customer back to the form with the query intact when editing', async () => {
@@ -144,7 +145,9 @@ describe('U3 — Results', () => {
       banner: null,
     })
     renderResults()
-    expect(await screen.findByText('No open agents found in this area')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Change transaction or amount' })).toBeInTheDocument()
+    expect(await screen.findByText(/^No open agent near /)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change amount or place' })).toBeInTheDocument()
+    // Nothing is inside the radius, so the radius is not claimed.
+    expect(screen.queryByText(/within 500 m/)).not.toBeInTheDocument()
   })
 })

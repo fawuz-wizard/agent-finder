@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { FinderCta, FinderHeader } from './components/finder'
+import { useBack } from './useBack'
 import { ServedLikelihood } from './components/ServedLikelihood'
 
 const POINTS = [
@@ -17,9 +18,10 @@ const EXAMPLES = [
 
 /** U4 — the trust explanation. Four sentences, the figure itself, one way out. */
 export default function HowAvailabilityWorksPage() {
+  const back = useBack('/find')
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-white">
-      <FinderHeader back={() => history.back()} title="How availability works" />
+      <FinderHeader back={back} title="How availability works" />
 
       <h1 className="mt-8 text-xl font-bold leading-tight">A figure, not a promise</h1>
       <p className="mt-2 text-base font-medium text-finder-muted">What the number next to each shop means, and what it does not.</p>

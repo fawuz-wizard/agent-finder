@@ -187,6 +187,18 @@ export default function HomePage() {
       <FinderCta className="mt-6" onClick={submit} disabled={pending}>
         {pending ? 'Waiting for your location…' : 'Find agent'}
       </FinderCta>
+      {pending && (
+        <button
+          type="button"
+          onClick={() => {
+            setPending(false)
+            setPickPlace(true)
+          }}
+          className="mt-2 flex h-control w-full items-center justify-center text-base font-bold text-finder-link"
+        >
+          Taking a while? Search a place instead
+        </button>
+      )}
       <LocationPromptSheet
         open={askLocation}
         problem={location.problem}
@@ -224,12 +236,10 @@ export default function HomePage() {
         </section>
       )}
 
-      <nav className="mt-auto flex w-full items-center justify-between gap-2 pt-10 text-base font-bold text-finder-link">
+      {/* Report a visit lives on the shop's page, where the shop is known: a link here only led to a page saying so. */}
+      <nav className="mt-auto flex w-full items-center pt-10 text-base font-bold text-finder-link">
         <Link to="/how-availability-works" className="flex h-control items-center">
           How availability works
-        </Link>
-        <Link to="/report-a-visit" className="flex h-control items-center text-right">
-          Report a visit
         </Link>
       </nav>
 

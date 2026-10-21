@@ -100,13 +100,21 @@ async function fetchPlaces(url: string, signal?: AbortSignal): Promise<Response>
   return fetch(url, { signal: signal ?? null, headers: { Accept: 'application/json' } })
 }
 
+/** The map could not be reached: offline, a refused request, a broken answer. Not "no such place". */
+export class PlaceLookupError extends Error {
+  constructor() {
+    super('Could not reach the map. Check your connection and try again.')
+    this.name = 'PlaceLookupError'
+  }
+}
+
 export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
   const q = query.trim()
   if (q.length < 2 || typeof fetch !== 'function') return []
   const url = `${SEARCH}?format=jsonv2&countrycodes=sl&limit=5&addressdetails=1&accept-language=en&q=${encodeURIComponent(q)}`
   try {
     const res = await fetchPlaces(url, signal)
-    if (!res.ok) return []
+    if (!res.ok) throw new PlaceLookupError()
     const hits = (await res.json()) as NominatimHit[]
     const out: Place[] = []
     for (const h of Array.isArray(hits) ? hits : []) {
@@ -118,7 +126,8 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
       out.push({ name, detail: placeDetail(h.address, name), lat: Number(lat.toFixed(3)), lng: Number(lng.toFixed(3)) })
     }
     return out
-  } catch {
-    return []
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e
+    throw new PlaceLookupError()
   }
 }

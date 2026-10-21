@@ -4,6 +4,7 @@ import { ApiRequestError } from '@/lib/api'
 import { customerApi } from '@/services/customerApi'
 import type { VisitReport } from '@/types/public'
 import { FinderBox, FinderCta, FinderHeader } from './components/finder'
+import { useBack } from './useBack'
 
 const COMMENT_MAX_CHARS = 1000
 
@@ -31,6 +32,7 @@ function reportTarget(state: unknown) {
  * wrote it; other customers never see it. One question, one field, one button.
  */
 export default function ReportVisitPage() {
+  const back = useBack('/find')
   const navigate = useNavigate()
   const location = useLocation()
   const target = reportTarget(location.state)
@@ -67,7 +69,7 @@ export default function ReportVisitPage() {
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-white">
-      <FinderHeader back={() => history.back()} title="Report a visit" />
+      <FinderHeader back={back} title="Report a visit" />
 
       {sent && target ? (
         <div className="mt-8 flex flex-col gap-3" role="status">

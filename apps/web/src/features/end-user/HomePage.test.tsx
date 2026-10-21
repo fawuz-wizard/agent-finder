@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -75,7 +75,7 @@ describe('U1 — Home', () => {
     const user = userEvent.setup()
     renderHome()
     await user.type(screen.getByLabelText('Amount (SLE)'), '500')
-    expect(screen.getByText('= Le 500,000 old Leones')).toBeInTheDocument()
+    expect(screen.getByText('SLE 500 = Le 500,000 old Leones')).toBeInTheDocument()
   })
 
   it('rejects a zero amount instead of searching', async () => {
@@ -109,7 +109,7 @@ describe('U1 — Home', () => {
     await screen.findByText(/Searching around your location/)
     await user.click(screen.getByRole('button', { name: '2,000' }))
     expect(screen.getByRole('button', { name: '2,000' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('= Le 2,000,000 old Leones')).toBeInTheDocument()
+    expect(screen.getByText('SLE 2,000 = Le 2,000,000 old Leones')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Find agent' }))
     expect(screen.getByTestId('loc')).toHaveTextContent('amount=2000')
   })
@@ -180,6 +180,7 @@ describe('U1 — Home asks for the live location first', () => {
     await user.click(screen.getByRole('button', { name: 'Find agent' }))
     expect(screen.queryByTestId('loc')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Waiting for your location…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /search a place instead/i })).toBeInTheDocument()
     answer!({ coords: { latitude: 8.4701, longitude: -13.2609 } })
     expect(await screen.findByTestId('loc')).toHaveTextContent('lat=8.47&lng=-13.261')
   })
@@ -217,6 +218,21 @@ describe('U1 — Home names where the customer is', () => {
     expect(await screen.findByTestId('loc')).toHaveTextContent('/search?tx=cash_out&area=Aberdeen&lat=8.484&lng=-13.271&by=place')
     // Remembered on this phone for next time.
     expect(JSON.parse(localStorage.getItem('af.places') ?? '[]')).toHaveLength(1)
+  })
+
+  it('says the map could not be reached, with a retry, instead of pretending the place does not exist', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn(async () => { throw new Error('offline') })
+    vi.stubGlobal('fetch', fetchMock)
+    renderHome()
+    await user.click(await screen.findByRole('button', { name: 'Change' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Search a place' }), 'Aberdeen')
+    expect(await screen.findByText(/Could not reach the map/)).toBeInTheDocument()
+    expect(screen.queryByText(/does not know that place/)).not.toBeInTheDocument()
+    const calls = fetchMock.mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(calls))
+    vi.unstubAllGlobals()
   })
 
   it('shows recent places first, and says so when the map does not know a place', async () => {

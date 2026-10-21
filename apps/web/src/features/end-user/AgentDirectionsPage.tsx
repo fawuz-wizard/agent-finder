@@ -76,14 +76,17 @@ export default function AgentDirectionsPage() {
         />
       </div>
 
-      {agent.call_url && (
-        <div className="sticky bottom-0 mx-auto flex w-full max-w-[480px] gap-5 bg-finder-bg px-5 pb-6 pt-3">
+      <div className="sticky bottom-0 mx-auto flex w-full max-w-[480px] gap-3 border-t border-finder-line bg-finder-bg px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
+        {agent.call_url && (
           <a href={agent.call_url} className={actionClass}>
             {PhoneIcon}
             Call
           </a>
-        </div>
-      )}
+        )}
+        <a href={agent.directions_url} target="_blank" rel="noopener noreferrer" className={`${actionClass} flex-[1.4]`}>
+          Open in Maps
+        </a>
+      </div>
     </div>
   )
 }

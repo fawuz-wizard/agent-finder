@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentDetailPage from './AgentDetailPage'
 import { customerApi } from '@/services/customerApi'
@@ -88,6 +89,41 @@ describe('directions are the next screen, inside the app', () => {
     const link = screen.getByRole('link', { name: /get details/i })
     expect(link).toHaveAttribute('href', '/agents/af-4821?tx=cash_out&amount=2000')
     expect(link).not.toHaveAttribute('target')
+  })
+})
+
+describe('rating', () => {
+  it('tapping the chosen star again keeps it, and the button says what will be sent', async () => {
+    const user = userEvent.setup()
+    at('/agents/af-4821?tx=cash_out&amount=2000')
+    await screen.findByText("Fatmata's Shop")
+    await user.click(screen.getByRole('radio', { name: '4 out of 5' }))
+    expect(screen.getByRole('button', { name: 'Submit 4-star rating' })).toBeEnabled()
+    await user.click(screen.getByRole('radio', { name: '4 out of 5' }))
+    expect(screen.getByRole('radio', { name: '4 out of 5' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('button', { name: 'Submit 4-star rating' })).toBeInTheDocument()
+    expect(screen.queryByText(/max it|browser/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('back on a pasted link', () => {
+  it('goes to the search with the same request when there is no history to go back to', async () => {
+    const user = userEvent.setup()
+    function Probe() {
+      const l = useLocation()
+      return <p data-testid="loc">{l.pathname + l.search}</p>
+    }
+    render(
+      <MemoryRouter initialEntries={['/agents/af-4821?tx=cash_out&amount=2000']}>
+        <Routes>
+          <Route path="/agents/:id" element={<AgentDetailPage />} />
+          <Route path="/search" element={<Probe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await screen.findByText("Fatmata's Shop")
+    await user.click(screen.getByRole('button', { name: /back/i }))
+    expect(await screen.findByTestId('loc')).toHaveTextContent('/search?tx=cash_out&amount=2000')
   })
 })
 

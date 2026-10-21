@@ -68,7 +68,7 @@ export default function ResultsPage() {
           body="Choose a transaction and an amount to see agents near you."
           actions={
             <Link to="/find" className="w-full">
-              <FinderCta>Start again</FinderCta>
+              <FinderCta>Find an agent</FinderCta>
             </Link>
           }
         />
@@ -81,35 +81,38 @@ export default function ResultsPage() {
       req.lat !== undefined && req.lng !== undefined ? `&lat=${req.lat}&lng=${req.lng}` : ''
     }`
 
-  const summary = data
-    ? `${data.query.transaction_label}${data.query.amount_label ? ` · ${data.query.amount_label}` : ''} · ${data.query.area}`
-    : 'Searching…'
+  const summary = data ? `${data.query.transaction_label}${data.query.amount_label ? ` · ${data.query.amount_label}` : ''}` : 'Searching…'
   const shown = view === 'recommended' ? lists.recommended : lists.nearest
+  // The switch earns its place only when the two orders differ.
+  const sameOrder = lists.recommended.length > 0 && lists.recommended.length === lists.nearest.length && lists.recommended.every((a, i) => a.id === lists.nearest[i]?.id)
+  // "Within 500 m" is said only while something is inside it.
+  const inside = lists.nearest.length > 0
+  const whereFrom =
+    req.lat === undefined || params.get('by') === 'place'
+      ? `Distances from around ${req.area}`
+      : params.get('rough') === '1'
+        ? 'Distances from your approximate location'
+        : 'Distances from your location'
+  const subtitle = `${whereFrom}${inside ? ', within 500 m' : ''}${params.get('rough') === '1' ? ' · move outside for a better fix' : ''}`
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-6 text-white">
       <FinderHeader back="/find" />
 
-      <div className="mt-8 flex items-baseline justify-between gap-4">
+      <div className="mt-6 flex items-center justify-between gap-4">
         <h1 className="min-w-0 text-xl font-bold leading-tight">{summary}</h1>
         <button
           type="button"
           onClick={() => navigate(`/find?${params.toString()}`)}
-          className="shrink-0 text-base font-bold text-finder-link"
+          className="flex h-control shrink-0 items-center text-base font-bold text-finder-link"
         >
           Edit
         </button>
       </div>
-      <p className="mt-2 text-sm font-medium text-finder-muted">
-        {req.lat === undefined || params.get('by') === 'place'
-          ? `Distances from around ${req.area}, within 500 m`
-          : params.get('rough') === '1'
-            ? 'Distances from your approximate location, within 500 m · move outside for a better fix'
-            : 'Distances from your location, within 500 m'}
-      </p>
+      <p className="text-sm font-medium text-finder-muted">{subtitle}</p>
 
       <div className="mt-6 flex flex-col gap-5">
-        {stale && <OfflineBanner since={lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null} />}
+        {stale && <OfflineBanner since={lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null} onRetry={refresh} />}
         {data?.banner && <Banner tone="warning">{data.banner}</Banner>}
 
         {state === 'loading' && <LoadingResults />}
@@ -117,12 +120,12 @@ export default function ResultsPage() {
 
         {data && state !== 'loading' && (
           <>
-            {lists.recommended.length > 0 && (
+            {lists.recommended.length > 0 && !sameOrder && (
               <>
                 <div
                   role="tablist"
                   aria-label="How to order the agents"
-                  className="flex h-[2.5rem] rounded-field bg-finder-line"
+                  className="flex h-chip rounded-field bg-finder-line"
                   onKeyDown={(e) => {
                     const keys: Record<string, View> = { ArrowLeft: 'recommended', Home: 'recommended', ArrowRight: 'nearest', End: 'nearest' }
                     const next = keys[e.key]
@@ -151,9 +154,11 @@ export default function ResultsPage() {
                   <button
                     type="button"
                     onClick={() => setView('nearest')}
-                    className="-mt-2 text-left text-sm font-medium text-finder-muted"
+                    className="-mt-2 flex min-h-control items-center text-left text-sm font-medium text-finder-muted"
                   >
-                    Closer open agents may have uncertain availability · <span className="font-bold text-finder-link">See Nearest ›</span>
+                    <span>
+                      Closer open agents may have uncertain availability · <span className="font-bold text-finder-link">See Nearest ›</span>
+                    </span>
                   </button>
                 )}
               </>
@@ -197,13 +202,14 @@ export default function ResultsPage() {
 
             {lists.nearest.length === 0 && (data.further_away?.length ?? 0) === 0 && (
               <EmptyState
-                title="No open agents found in this area"
-                body={`We couldn't find an open agent near ${data.query.area}. Try another area or search again.`}
-                actions={<FinderCta onClick={() => navigate(`/find?${params.toString()}`)}>Change transaction or amount</FinderCta>}
+                title={`No open agent near ${data.query.area}`}
+                body={req.amount_sle ? 'Try a smaller amount, another place, or come back in a while.' : 'Try another place, or come back in a while.'}
+                actions={<FinderCta onClick={() => navigate(`/find?${params.toString()}`)}>Change amount or place</FinderCta>}
               />
             )}
 
-            <p className="pb-2 pt-2 text-center text-sm font-medium text-finder-muted" aria-live="polite">
+            {/* No live region: a screen reader would hear this flip every thirty seconds. */}
+            <p className="pb-2 pt-2 text-center text-sm font-medium text-finder-muted">
               {state === 'refreshing' ? 'Refreshing…' : `Updated ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) ?? 'just now'}`}
             </p>
           </>

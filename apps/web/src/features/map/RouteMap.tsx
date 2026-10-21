@@ -153,14 +153,11 @@ export function RouteMap({ agent, origin, distance_m, directions_url, originIsSi
       <p className={fill ? 'px-5 pt-3 text-xs text-finder-muted' : 'text-xs text-muted'}>
         {origin ? `${originIsSimulated ? 'Simulated demo location · ' : ''}Straight-line distance, ${distanceText(distance_m)}, ${walkText(distance_m)}.` : 'Your location is not shared, so this shows the agent\'s area.'} Ask when you arrive.
       </p>
-      <a
-        href={mapsUrl.toString()}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={fill ? 'mx-5 self-start text-xs font-semibold text-finder-link underline' : 'self-start text-xs font-semibold text-brand-text underline'}
-      >
-        Open {travelMode} directions in Maps
-      </a>
+      {!fill && (
+        <a href={mapsUrl.toString()} target="_blank" rel="noopener noreferrer" className="self-start text-xs font-semibold text-brand-text underline">
+          Open {travelMode} directions in Maps
+        </a>
+      )}
     </section>
   )
 }

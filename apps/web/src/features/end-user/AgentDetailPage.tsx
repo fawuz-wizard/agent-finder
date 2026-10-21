@@ -4,12 +4,12 @@ import { Skeleton } from '@/design'
 import { customerApi } from '@/services/customerApi'
 import { ApiRequestError } from '@/lib/api'
 import { rememberRecent } from '@/lib/recent'
-import { TRANSACTION_LABELS, type TransactionType } from '@/types/public'
 import { ServedLikelihood } from './components/ServedLikelihood'
 import { FreshnessBadge } from './components/FreshnessBadge'
 import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
-import { FinderCta, FinderHeader, PinIcon } from './components/finder'
+import { FinderCta, FinderHeader } from './components/finder'
+import { useBack } from './useBack'
 import { DirectionsIcon, PhoneIcon, actionClass } from './components/actions'
 import { requestFrom, useAgentDetail } from './useAgentDetail'
 import { photoSrc } from '@/lib/photo'
@@ -44,6 +44,12 @@ const ClockIcon = (
     <path d="M9 5v4.5l3 1.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
   </svg>
 )
+const PinSmall = (
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 22s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z" fill="currentColor" />
+    <circle cx="12" cy="10" r="2.6" fill="var(--color-finder-bg)" />
+  </svg>
+)
 const StarIcon = (
   <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" className="text-finder-star">
     <path d="M9 1.5l2.3 4.8 5.2.7-3.8 3.6.9 5.2L9 13.3l-4.6 2.5.9-5.2L1.5 7l5.2-.7z" fill="currentColor" />
@@ -52,7 +58,7 @@ const StarIcon = (
 /**
  * Agent detail, as the "Agent details page" frames draw it: a picture of the shop, then a
  * sheet, dark like the rest of the module, with the name, how far and whether it is open, rating, where, phone, the
- * services, the hours, and Call / Get Directions at the foot. Our own answer to the
+ * hours, and Call / Get directions at the foot. Our own answer to the
  * customer's request sits right under the name, because that is what they came for.
  * Shop details always come before the map: Get Directions opens the next screen.
  */
@@ -64,6 +70,8 @@ export default function AgentDetailPage() {
   const [ratingState, setRatingState] = useState<'idle' | 'sending' | 'sent'>('idle')
   const [ratingError, setRatingError] = useState<string | null>(null)
   const directionsPath = `/agents/${id}/directions${params.toString() ? `?${params.toString()}` : ''}`
+  // Back: the results the customer came from, or, on a pasted link, the search with the same request.
+  const back = useBack(params.get('tx') ? `/search?${params.toString()}` : '/find')
 
   useEffect(() => {
     if (agent) rememberRecent({ id: agent.id, name: agent.name, area: agent.area })
@@ -94,7 +102,7 @@ export default function AgentDetailPage() {
   if (error) {
     return (
       <div className="flex flex-col gap-4 px-5 py-4 text-white">
-        <FinderHeader back={() => history.back()} />
+        <FinderHeader back={back} />
         <ErrorState message={error} />
         <Link to="/find">
           <FinderCta>Search again</FinderCta>
@@ -113,40 +121,40 @@ export default function AgentDetailPage() {
     )
   }
 
-  const services = ['Orange Money', ...(Object.keys(TRANSACTION_LABELS) as TransactionType[]).map((k) => TRANSACTION_LABELS[k])]
+  const photo = photoSrc(agent.photo_url)
+  const backButton = (
+    <button
+      type="button"
+      onClick={back}
+      aria-label="Back"
+      className={`flex h-control w-control items-center justify-center rounded-pill text-white ${photo ? 'absolute left-3 top-3 bg-finder-bg/60' : '-ml-2'}`}
+    >
+      <svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true">
+        <path d="M12 1L3 9l9 8" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  )
 
   return (
     <div className="flex flex-1 flex-col bg-finder-bg text-white">
-      {/* The shop's picture, as the agent took it. Until they add one, the network's own mark. */}
-      <div className="relative flex h-[13rem] items-end justify-center overflow-hidden bg-finder-line text-white">
-        {photoSrc(agent.photo_url) && (
-          <img src={photoSrc(agent.photo_url)!} alt={`${agent.name}, photographed by the agent`} className="absolute inset-0 h-full w-full object-cover" />
-        )}
-        <button
-          type="button"
-          onClick={() => history.back()}
-          aria-label="Back"
-          className="absolute left-3 top-3 flex h-control w-control items-center justify-center rounded-pill bg-finder-bg/60 text-white"
-        >
-          <svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true">
-            <path d="M12 1L3 9l9 8" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        {!photoSrc(agent.photo_url) && (
-          <span className="mb-10 text-finder-link">
-            <PinIcon size={56} />
-          </span>
-        )}
-      </div>
+      {/* The shop's picture, as the agent took it, when there is one. Without one, no empty band: the name comes first. */}
+      {photo ? (
+        <div className="relative flex h-[13rem] items-end justify-center overflow-hidden bg-finder-line text-white">
+          <img src={photo} alt={`${agent.name}, photographed by the agent`} className="absolute inset-0 h-full w-full object-cover" />
+          {backButton}
+        </div>
+      ) : (
+        <div className="flex h-control items-center px-5 pt-4">{backButton}</div>
+      )}
 
-      <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-bg px-5 pb-28 pt-6 shadow-inset-finder">
+      <div className={`flex flex-1 flex-col bg-finder-bg px-5 pb-32 ${photo ? '-mt-5 rounded-t-panel pt-6 shadow-inset-finder' : 'pt-4'}`}>
         <h1 className="text-xl font-bold leading-tight">{agent.name}</h1>
         <div className="mt-4 flex flex-col gap-2">
           <Row icon={ClockIcon}>
             <DistanceLabel metres={agent.distance_m} />
             <span aria-hidden="true">•</span>
             <span className={`font-semibold ${agent.open_now ? 'text-finder-open' : 'text-finder-muted'}`}>
-              {agent.open_now ? 'Open now' : 'Hours vary'}
+              {agent.open_now ? 'Open now' : 'Closed now'}
             </span>
             {agent.verified_label && <span className="rounded-pill bg-finder-line px-2 py-0.5 text-xs font-semibold text-white">{agent.verified_label}</span>}
           </Row>
@@ -156,7 +164,7 @@ export default function AgentDetailPage() {
               <span>[{agent.rating_count} ratings]</span>
             </Row>
           )}
-          <Row icon={<PinIcon size={18} />}>{agent.area}</Row>
+          <Row icon={PinSmall}>{agent.area}</Row>
           {agent.call_url && <Row icon={PhoneIcon}>{phoneText(agent.call_url)}</Row>}
         </div>
 
@@ -173,21 +181,12 @@ export default function AgentDetailPage() {
           </section>
         )}
 
-        <h2 className="mt-10 text-xl font-bold">Services</h2>
-        <ul className="mt-4 flex flex-wrap gap-3">
-          {services.map((s) => (
-            <li key={s} className="flex h-10 items-center rounded-field bg-finder-line px-4 text-[0.95rem] font-semibold text-white">
-              {s}
-            </li>
-          ))}
-        </ul>
-
-        <h2 className="mt-10 text-xl font-bold">Opening hours</h2>
-        <p className="mt-3 text-base font-medium text-finder-muted">{agent.hours_text}</p>
+        <h2 className="mt-8 text-lg font-bold">Hours</h2>
+        <p className="mt-2 text-base font-medium text-finder-muted">{agent.hours_text}</p>
 
         <section className="mt-10" aria-labelledby="rate-heading">
-          <h2 id="rate-heading" className="text-xl font-bold">Rate this agent</h2>
-          <p className="mt-2 text-sm font-medium text-finder-muted">Any Max it user can rate. You do not need a completed transaction.</p>
+          <h2 id="rate-heading" className="text-lg font-bold">Rate this agent</h2>
+          <p className="mt-2 text-sm font-medium text-finder-muted">Anyone can rate, before or after a visit.</p>
           {ratingState === 'sent' ? (
             <p className="mt-4 text-base font-semibold text-finder-likely" role="status">Thanks. Your rating was submitted.</p>
           ) : (
@@ -200,8 +199,8 @@ export default function AgentDetailPage() {
                     role="radio"
                     aria-checked={rating === n}
                     aria-label={`${n} out of 5`}
-                    onClick={() => setRating((current) => (current === n ? (n === 1 ? null : n - 1) : n))}
-                    className={`h-12 flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-finder-on-orange' : 'bg-finder-line text-finder-muted'}`}
+                    onClick={() => setRating(n)}
+                    className={`h-control flex-1 rounded-field text-2xl transition-colors ${rating !== null && n <= rating ? 'bg-finder-link text-finder-on-orange' : 'bg-finder-line text-finder-muted'}`}
                   >
                     ★
                   </button>
@@ -214,11 +213,11 @@ export default function AgentDetailPage() {
                 disabled={!rating || ratingState === 'sending'}
                 className="mt-4 h-chip rounded-pill bg-finder-link px-6 text-base font-bold text-finder-on-orange transition-opacity disabled:opacity-40"
               >
-                {ratingState === 'sending' ? 'Submitting…' : 'Submit rating'}
+                {ratingState === 'sending' ? 'Submitting…' : rating ? `Submit ${rating}-star rating` : 'Submit rating'}
               </button>
             </>
           )}
-          <p className="mt-3 text-xs font-medium text-finder-muted">One rating per agent per browser every 24 hours.</p>
+          <p className="mt-3 text-xs font-medium text-finder-muted">One rating per shop per day from this phone.</p>
         </section>
 
         <div className="mt-10 border-t border-finder-line pt-6">
@@ -235,16 +234,16 @@ export default function AgentDetailPage() {
         </div>
       </div>
 
-      <div className="sticky bottom-0 mx-auto flex w-full max-w-[480px] gap-5 bg-finder-bg px-5 pb-6 pt-3">
+      <div className="sticky bottom-0 mx-auto flex w-full max-w-[480px] gap-3 border-t border-finder-line bg-finder-bg px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
         {agent.call_url && (
           <a href={agent.call_url} className={actionClass}>
             {PhoneIcon}
             Call
           </a>
         )}
-        <Link to={directionsPath} className={actionClass}>
+        <Link to={directionsPath} className={`${actionClass} flex-[1.4]`}>
           {DirectionsIcon}
-          Get Directions
+          Get directions
         </Link>
       </div>
     </div>

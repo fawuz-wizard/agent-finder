@@ -4,9 +4,9 @@ import { FinderBox } from './finder'
 const QUICK = [100, 200, 500, 1000, 2000, 5000]
 
 /**
- * Amount in new Leones: a 60 px field with "SLE" in front and the figure at 36 px, the
- * old-Leone equivalent underneath — the single most common real-world error since
- * redenomination.
+ * Amount in new Leones: a field with "SLE" in front, holding the digits exactly as typed so
+ * the cursor never jumps on an Android keyboard; the formatted figure and the old-Leone
+ * equivalent sit underneath, the single most common real-world error since redenomination.
  */
 export function AmountInput({
   value,
@@ -22,12 +22,12 @@ export function AmountInput({
   const helper =
     error ??
     (value && Number.isFinite(parsed) && parsed > 0
-      ? `= Le ${(parsed * 1000).toLocaleString('en-US')} old Leones`
+      ? `SLE ${parsed.toLocaleString('en-US')} = Le ${(parsed * 1000).toLocaleString('en-US')} old Leones`
       : 'Optional — leave empty to see all agents')
 
   return (
     <div className="flex flex-col gap-3">
-      <label htmlFor={id} className="text-[0.95rem] font-medium text-white">
+      <label htmlFor={id} className="text-sm font-medium text-white">
         Amount (SLE)
       </label>
       <FinderBox className={`flex h-[3.5rem] items-center gap-4 px-4 ${error ? 'outline outline-2 outline-danger' : 'focus-within:outline focus-within:outline-2 focus-within:outline-finder-link'}`}>
@@ -37,15 +37,15 @@ export function AmountInput({
           inputMode="numeric"
           pattern="[0-9]*"
           autoComplete="off"
-          value={value ? Number(value).toLocaleString('en-US') : ''}
+          value={value}
           aria-invalid={Boolean(error)}
           aria-describedby={`${id}-help`}
           onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, '').slice(0, 7))}
           placeholder="0"
-          className="h-full w-full min-w-0 bg-transparent text-3xl font-bold tabular-nums text-white outline-none placeholder:text-finder-muted/80"
+          className="h-full w-full min-w-0 bg-transparent text-2xl font-bold tabular-nums text-white outline-none placeholder:text-finder-muted/80"
         />
       </FinderBox>
-      <p id={`${id}-help`} className={`-mt-1 text-[0.95rem] font-medium ${error ? 'text-danger' : 'text-finder-muted'}`}>
+      <p id={`${id}-help`} className={`-mt-1 text-sm font-medium ${error ? 'text-danger' : 'text-finder-muted'}`}>
         {helper}
       </p>
       {/* The usual amounts, one tap each: the same pills as the transaction choice, smaller. */}

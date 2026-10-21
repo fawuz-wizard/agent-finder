@@ -4,7 +4,7 @@
  * is what reads at arm's length in sunlight.
  */
 export const actionClass =
-  'flex h-[2.5rem] flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
+  'flex h-chip flex-1 items-center justify-center gap-2 rounded-field bg-finder-link text-base font-semibold text-finder-on-orange transition-[filter] hover:brightness-95 active:brightness-90'
 
 export const PhoneIcon = (
   <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">

@@ -45,8 +45,11 @@ describe('the directions screen', () => {
     expect(screen.queryByRole('group', { name: /travel mode/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /walking|driving/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /i'm going there/i })).not.toBeInTheDocument()
-    // The maps-app hand-off is still there, but quiet and secondary.
-    expect(screen.getByRole('link', { name: /open walking directions in maps/i })).toHaveAttribute('target', '_blank')
+    // The maps-app hand-off is a foot action beside Call, not small print under the sketch.
+    const maps = screen.getByRole('link', { name: /open in maps/i })
+    expect(maps).toHaveAttribute('target', '_blank')
+    expect(maps).toHaveAttribute('href', expect.stringContaining('google.com/maps'))
+    expect(maps).toHaveClass('text-finder-on-orange')
     expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument()
   })
 

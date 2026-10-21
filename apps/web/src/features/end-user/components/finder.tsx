@@ -22,6 +22,11 @@ export function HostStrip() {
   )
 }
 
+/** The customer module's outlined secondary action: a white pill, 44 px, beside the orange one. */
+export function FinderPill({ className, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" className={cn('flex h-chip items-center justify-center rounded-pill border-2 border-white px-5 text-base font-bold text-white disabled:opacity-45', className)} {...rest} />
+}
+
 export function FinderHeader({ title = 'Agent Finder', back, action }: { title?: string; back?: string | (() => void) | undefined; action?: ReactNode }) {
   const arrow = (
     <svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true">

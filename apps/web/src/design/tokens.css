@@ -70,8 +70,8 @@
   /* Type: Boosted stack (HelvNeueOrange is licence-restricted; Helvetica Neue is the
      documented fallback). Sizes follow the Boosted mobile scale: h1 24, h2/h3 18, body 16. */
   --font-sans: 'Helvetica Neue', Helvetica, 'Noto Sans', 'Liberation Sans', Arial, system-ui, sans-serif;
-  --text-xs: 0.8rem;    /* ~11 on the smallest phones, 12.8 at full size — never smaller */
-  --text-sm: 0.875rem;  /* 14 — labels, freshness, helper ($font-size-sm) */
+  --text-xs: max(0.8rem, 12px);    /* captions: never under 12 px, whatever the root */
+  --text-sm: max(0.875rem, 13px);  /* labels, freshness, helper: never under 13 px */
   --text-base: 1rem;    /* 16 — body, controls ($font-size-base) */
   --text-lg: 1.125rem;  /* 18 — card titles, primary buttons ($font-size-lg, mobile h2) */
   --text-xl: 1.5rem;    /* 24 — screen headline (mobile h1) */
@@ -89,9 +89,9 @@
   --radius-pill: 999px;
 
   /* Control heights (min target size 44px = Boosted $target-size) */
-  --spacing-cta: 3.5rem;     /* 56 */
-  --spacing-control: 3rem;   /* 48 */
-  --spacing-chip: 2.75rem;   /* 44 */
+  --spacing-cta: max(3.5rem, 52px);     /* 56, never under 52 */
+  --spacing-control: max(3rem, 44px);   /* 48, never under the 44 px target */
+  --spacing-chip: max(2.75rem, 44px);   /* 44, whatever the root */
 
   /* Orange disables elevation ($enable-shadows: false); panels separate with 2px borders. */
   --shadow-sheet: 0 -2px 0 0 #cccccc;
@@ -223,10 +223,11 @@
   html {
     font-family: var(--font-sans);
     /* One layout for every phone. The root size follows the screen width, so a 360 px
-       Android (itel, Tecno) and a 440 px frame get the same proportions: 13.6 px at 360,
-       14.7 at 390, 16 from 424 up, never below 13. Every rem size follows, and the fixed
-       pieces (rows, pills, fields, icons) are in rem too. Chosen on the itel, 2026-10-10. */
-    font-size: clamp(13px, 3.78vw, 16px);
+       Android (itel, Tecno) and a 440 px frame get the same proportions: 14 px at 360,
+       14.7 at 390, 16 from 424 up, never below 14. Every rem size follows; controls and
+       the two small text sizes carry a px floor so targets and captions never shrink past
+       44 px and 12 px. Chosen on the itel, 2026-10-10; floors added 2026-10-21. */
+    font-size: clamp(14px, 3.78vw, 16px);
     -webkit-text-size-adjust: 100%;
     /* Clip sideways overflow at the root, never on a shell: a clipping shell would become
        the box that sticky tab bars stick to, and they would scroll away with the page. */
