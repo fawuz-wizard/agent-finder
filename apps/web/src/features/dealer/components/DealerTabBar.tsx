@@ -5,7 +5,8 @@ import { DashboardIcon, ProfileIcon, type IconProps } from '@/features/agent/com
 
 /**
  * The aggregator console's chrome, on the finder's design like the Agent App: the strip
- * with who is signed in, and four tabs at the foot. Dashboard, Agents, Search, Profile.
+ * with who is signed in, and four tabs at the foot. Dashboard, Agents, Float, Profile. The
+ * agent search lives on the Agents tab; the keyword search page stays reachable by its address.
  */
 export function AggregatorStrip() {
   const { session } = useSession()
@@ -32,11 +33,12 @@ function AgentsIcon({ active }: IconProps) {
     </svg>
   )
 }
-function SearchIcon({ active }: IconProps) {
+function FloatIcon({ active }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="10.5" cy="10.5" r="6.5" fill={fillWhenActive(active)} fillOpacity="0.25" />
-      <path d="M15.5 15.5L21 21" />
+      <rect x="2" y="6" width="20" height="13" rx="3" fill={fillWhenActive(active)} fillOpacity="0.25" />
+      <circle cx="12" cy="12.5" r="2.5" />
+      <path d="M6 10v5M18 10v5" />
     </svg>
   )
 }
@@ -44,11 +46,11 @@ function SearchIcon({ active }: IconProps) {
 const TABS = [
   { to: '/dealer', label: 'Dashboard', end: true, Icon: DashboardIcon },
   { to: '/dealer/agents', label: 'Agents', end: false, Icon: AgentsIcon },
-  { to: '/dealer/search', label: 'Search', end: false, Icon: SearchIcon },
+  { to: '/dealer/float', label: 'Float', end: false, Icon: FloatIcon },
   { to: '/dealer/profile', label: 'Profile', end: false, Icon: ProfileIcon },
 ]
 
-/** Dashboard, Agents, Search, Profile. The active one is orange; the bar never leaves the screen. */
+/** Dashboard, Agents, Float, Profile. The active one is orange; the bar never leaves the screen. */
 export function DealerTabBar() {
   return (
     <nav aria-label="Aggregator sections" className="sticky bottom-0 mt-auto flex bg-finder-bg pb-[env(safe-area-inset-bottom)] shadow-inset-finder">

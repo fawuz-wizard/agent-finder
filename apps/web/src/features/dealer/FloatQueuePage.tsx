@@ -88,7 +88,7 @@ export default function DealerFloatQueuePage() {
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader back="/dealer" title="Float requests" />
+      <FinderHeader title="Float requests" />
       <p className="mt-4 text-sm font-medium text-finder-muted">{waiting.length} waiting · nothing expires silently</p>
 
       <section aria-labelledby="forecast-heading" className="mt-6 flex flex-col gap-3">

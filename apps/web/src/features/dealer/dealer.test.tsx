@@ -420,6 +420,21 @@ describe('agents from Orange\'s file', () => {
   })
 })
 
+describe('tabs', () => {
+  it('the foot is Dashboard, Agents, Float, Profile; search lives on the Agents tab', async () => {
+    const { DealerTabBar } = await import('./components/DealerTabBar')
+    signIn(ALL)
+    render(
+      <MemoryRouter initialEntries={['/dealer']}>
+        <DealerTabBar />
+      </MemoryRouter>,
+    )
+    const nav = screen.getByRole('navigation', { name: /aggregator sections/i })
+    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Dashboard', 'Agents', 'Float', 'Profile'])
+    expect(within(nav).getByRole('link', { name: 'Float' })).toHaveAttribute('href', '/dealer/float')
+  })
+})
+
 describe('report and records', () => {
   it('the aggregator changes their own PIN from Settings, the current one first', async () => {
     const user = userEvent.setup()
