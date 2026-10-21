@@ -61,17 +61,14 @@ export default function DealerSearchPage() {
       )}
 
       {!q && (
-        <p className="mt-5 text-sm font-medium text-finder-muted">
-          Type a shop name, the agent's name, their number, Orange code, phone, street or town. Words work too: active, away, closed, not on map, inactive, attention,
-          float, photo, verified, new, west. Put them together: “closed Lumley”. Your agents on the map will live here too.
-        </p>
+        <p className="mt-5 text-sm font-medium text-finder-muted">Name, number, code, street, or a word like closed, not on map, attention. Try “closed Lumley”.</p>
       )}
 
       {q && (
-        <div className="mt-5 flex flex-col gap-3" role="region" aria-live="polite" aria-label="Results">
+        <div className="mt-3 flex flex-col" role="region" aria-live="polite" aria-label="Results">
           {state === 'loading' && <p className="text-base font-medium text-finder-muted">Looking…</p>}
           {state === 'ready' && shown.length === 0 && <p className="text-base font-medium text-finder-muted">No agent of yours matches “{q}”.</p>}
-          {state === 'ready' && shown.length > 0 && <p className="text-sm font-bold text-finder-muted">{summaryLine(shown.length, rows.length, keywords)}</p>}
+          {state === 'ready' && shown.length > 0 && <p className="py-2 text-sm font-bold text-finder-muted">{summaryLine(shown.length, rows.length, keywords)}</p>}
           {shown.map((a) => (
             <AgentRowCard key={a.ref} agent={a} onOpen={() => setRecent(rememberSearch(q))} />
           ))}

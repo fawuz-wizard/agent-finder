@@ -30,8 +30,8 @@ function isFilter(v: string | null): v is Filter {
 }
 
 /**
- * Agents: every agent this aggregator is responsible for, each in the finder's card frame
- * with their current word. The dashboard tiles land here with ?filter=<bucket>; the pills are
+ * Agents: every agent this aggregator is responsible for, each a row with their current
+ * word. The dashboard tiles land here with ?filter=<bucket>; the pills are
  * the same filter, and the bucket comes from the server so a tile and its list never disagree.
  */
 export default function DealerAgentsPage() {
@@ -91,9 +91,9 @@ export default function DealerAgentsPage() {
         ))}
       </div>
 
-      <div className="mt-4 flex flex-col gap-3">
-        {state === 'loading' && <p className="text-base font-medium text-finder-muted">Loading…</p>}
-        {state === 'ready' && shown.length === 0 && <p className="text-base font-medium text-finder-muted">{q ? 'No agent matches that.' : current.empty}</p>}
+      <div className="mt-2 flex flex-col">
+        {state === 'loading' && <p className="mt-2 text-base font-medium text-finder-muted">Loading…</p>}
+        {state === 'ready' && shown.length === 0 && <p className="mt-2 text-base font-medium text-finder-muted">{q ? 'No agent matches that.' : current.empty}</p>}
         {shown.map((a) => (
           <AgentRowCard key={a.ref} agent={a} />
         ))}
