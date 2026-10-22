@@ -23,7 +23,7 @@ export function AmountInput({
     error ??
     (value && Number.isFinite(parsed) && parsed > 0
       ? `SLE ${parsed.toLocaleString('en-US')} = Le ${(parsed * 1000).toLocaleString('en-US')} old Leones`
-      : 'Optional — leave empty to see all agents')
+      : null)
 
   return (
     <div className="flex flex-col gap-3">
@@ -45,12 +45,14 @@ export function AmountInput({
           className="h-full w-full min-w-0 bg-transparent text-2xl font-bold tabular-nums text-white outline-none placeholder:text-finder-muted/80"
         />
       </FinderBox>
-      <p id={`${id}-help`} className={`-mt-1 text-sm font-medium ${error ? 'text-danger' : 'text-finder-muted'}`}>
-        {helper}
-      </p>
-      {/* The usual amounts, one tap each: the same pills as the transaction choice, smaller. */}
-      <div className="relative -mx-5">
-        <div className="flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Quick amounts">
+      {helper && (
+        <p id={`${id}-help`} className={`-mt-1 text-sm font-medium ${error ? 'text-danger' : 'text-finder-muted'}`}>
+          {helper}
+        </p>
+      )}
+      {/* The usual amounts, one tap each: the same pills as the transaction choice, smaller.
+          They wrap to a second row, so every figure is whole on a 360 px phone. */}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Quick amounts">
           {QUICK.map((q) => (
           <button
             key={q}
@@ -64,9 +66,6 @@ export function AmountInput({
             {q.toLocaleString('en-US')}
           </button>
         ))}
-        </div>
-        {/* The strip scrolls sideways; the fade says so on a phone where the last pill is off-screen. */}
-        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-finder-bg to-transparent" />
       </div>
     </div>
   )

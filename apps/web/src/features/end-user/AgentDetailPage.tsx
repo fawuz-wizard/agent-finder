@@ -8,7 +8,7 @@ import { ServedLikelihood } from './components/ServedLikelihood'
 import { FreshnessBadge } from './components/FreshnessBadge'
 import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
-import { FinderCta, FinderHeader } from './components/finder'
+import { FinderCta, FinderHeader, PinIcon } from './components/finder'
 import { useBack } from './useBack'
 import { DirectionsIcon, PhoneIcon, actionClass } from './components/actions'
 import { requestFrom, useAgentDetail } from './useAgentDetail'
@@ -127,7 +127,7 @@ export default function AgentDetailPage() {
       type="button"
       onClick={back}
       aria-label="Back"
-      className={`flex h-control w-control items-center justify-center rounded-pill text-white ${photo ? 'absolute left-3 top-3 bg-finder-bg/60' : '-ml-2'}`}
+      className="absolute left-3 top-3 flex h-control w-control items-center justify-center rounded-pill bg-finder-bg/60 text-white"
     >
       <svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true">
         <path d="M12 1L3 9l9 8" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -137,17 +137,19 @@ export default function AgentDetailPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-finder-bg text-white">
-      {/* The shop's picture, as the agent took it, when there is one. Without one, no empty band: the name comes first. */}
-      {photo ? (
-        <div className="relative flex h-[13rem] items-end justify-center overflow-hidden bg-finder-line text-white">
+      {/* The shop's picture, as the agent took it. Until they add one, the space waits with the network's mark: shorter, so the name is still in the first screen. */}
+      <div className={`relative flex items-end justify-center overflow-hidden bg-finder-line text-white ${photo ? 'h-[13rem]' : 'h-[9rem]'}`}>
+        {photo ? (
           <img src={photo} alt={`${agent.name}, photographed by the agent`} className="absolute inset-0 h-full w-full object-cover" />
-          {backButton}
-        </div>
-      ) : (
-        <div className="flex h-control items-center px-5 pt-4">{backButton}</div>
-      )}
+        ) : (
+          <span className="mb-9 text-finder-link" aria-hidden="true">
+            <PinIcon size={44} />
+          </span>
+        )}
+        {backButton}
+      </div>
 
-      <div className={`flex flex-1 flex-col bg-finder-bg px-5 pb-32 ${photo ? '-mt-5 rounded-t-panel pt-6 shadow-inset-finder' : 'pt-4'}`}>
+      <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-bg px-5 pb-32 pt-6 shadow-inset-finder">
         <h1 className="text-xl font-bold leading-tight">{agent.name}</h1>
         <div className="mt-4 flex flex-col gap-2">
           <Row icon={ClockIcon}>
