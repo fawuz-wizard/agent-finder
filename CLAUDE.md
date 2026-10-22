@@ -20,3 +20,12 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
+
+## Orange Summer Challenge standards (rule from the organizers, noted 2026-10-22)
+
+Every deliverable and every piece of code written from 2026-10-22 on must comply with the Orange Summer
+Challenge graphic requirements and technical standards set by the organizers (ODC). The full brief has
+not yet been received; until it is, keep to the Orange design system tokens already in
+`apps/web/src/design/tokens.css`, produce documents and screens that could be shown at the national
+ceremony without rework, and record the brief's items here as soon as they arrive. When the brief
+arrives, check each new file, screen and document against it before it is considered done.

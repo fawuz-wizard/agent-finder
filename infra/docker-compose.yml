@@ -1,5 +1,5 @@
 # Local development database: PostgreSQL 16 + PostGIS 3.
-# Production uses Supabase (Postgres + PostGIS); this file is for developers' machines and CI only.
+# Production runs PostgreSQL + PostGIS on AWS; this file is for developers' machines and CI only.
 services:
   db:
     image: postgis/postgis:16-3.4

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # SQLite by default so the pilot runs on any laptop or a single Render dyno with a disk;
-    # set DATABASE_URL=postgresql+asyncpg://... for Supabase/Postgres.
+    # set DATABASE_URL=postgresql+asyncpg://... for PostgreSQL.
     database_url: str = Field(default="sqlite+aiosqlite:///./agentfinder.db")
     operator_adapter: Literal["fake", "none"] = "fake"
     # When on, the operator's activity feed (position, last transaction) is the truth behind
@@ -40,10 +40,6 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str] | None, NoDecode] = None
 
     auth_mode: Literal["demo", "otp"] = "demo"
-    supabase_url: str | None = None
-    supabase_anon_key: str | None = None
-    supabase_service_role_key: str | None = None
-    supabase_jwt_secret: str | None = None
 
     app_timezone: str = "Africa/Freetown"
 

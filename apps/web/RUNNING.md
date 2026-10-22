@@ -5,7 +5,7 @@ Both experiences — the customer module and the agent/dealer app — run from t
 Two ways to run it:
 
 - **Mock mode** (default) — everything runs in the browser from demo data. No server. Good for a quick look; each browser has its own private copy, so an agent's change is NOT seen by a customer on another phone.
-- **Live mode** — the browser talks to the API in `apps/api`. One shared server, one shared database: what an agent declares on their phone changes what every customer sees. This is the mode for the pilot (10+ real users) and the mode gstack should review.
+- **Live mode** — the browser talks to the API in `apps/api`. One shared server, one shared database: what an agent declares on their phone changes what every customer sees. This is the mode for the pilot (10+ real users).
 
 Requires Node 20+ (`node -v`). Live mode also needs Python 3.11+ (`python --version`).
 

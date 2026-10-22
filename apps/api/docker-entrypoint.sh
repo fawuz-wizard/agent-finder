@@ -1,6 +1,6 @@
 #!/bin/sh
 # Migrations only where they apply: the Alembic baseline enables PostGIS and pgcrypto, which
-# exist on Postgres (Supabase) and not on SQLite. Tables themselves are created by the app.
+# exist on Postgres and not on SQLite. Tables themselves are created by the app.
 set -e
 case "${DATABASE_URL:-}" in
   postgresql*) alembic upgrade head ;;

@@ -1,5 +1,5 @@
 """Pure business logic. Nothing in this package performs I/O: no database, HTTP, Google or
-Supabase calls. Every function here takes plain values and returns plain values so it can be
+database calls. Every function here takes plain values and returns plain values so it can be
 unit-tested without infrastructure. Tests in tests/test_domain_purity.py enforce the import rule.
 
 Modules

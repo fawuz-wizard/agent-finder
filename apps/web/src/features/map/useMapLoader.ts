@@ -4,7 +4,7 @@
  * - Nothing here runs at import time. The SDK is fetched the first time `load()` is called,
  *   which happens only when a customer asks to see the map.
  * - One script tag per session; concurrent callers share the same promise.
- * - The API key is a browser key restricted by HTTP referrer (see docs/google-cloud-setup.md).
+ * - The API key is a browser key restricted by HTTP referrer.
  */
 import { useCallback, useState } from 'react'
 import { config } from '@/lib/config'

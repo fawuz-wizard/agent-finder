@@ -1,4 +1,4 @@
-# The API as one container, for Render, Fly.io, Railway or any host that runs an image.
+# The API as one container, for AWS or any host that runs an image.
 # Build context: apps/api. Listens on $PORT (hosts set it), defaults to 8000.
 FROM python:3.12-slim
 
