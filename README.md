@@ -115,7 +115,9 @@ on another phone. Live mode is what makes them share one database.
 ### What a customer search does
 1. `POST /api/v1/search` with the transaction, optional amount, and a point.
 2. The API finds open, confirmed agents within 500 m (wider only when nobody near can serve).
-3. For each, it scores how likely the visit is to succeed and rounds it to a served percentage.
+3. For each, it scores the served percentage with the 7-day rule (`app/services/week_rule.py`): days
+   the agent was active, whether they did this exact transaction at this size, and customer reports;
+   rounded to fives, 5 to 95. Agents and aggregators read it in words (`seen_as`), never as a figure.
 4. It returns the agents with words, the percentage, the distance and how fresh the information is,
    never a money figure.
 
@@ -130,6 +132,7 @@ python -m venv .venv
 SEED_ON_START=true APP_ENV=development .venv/bin/python -m uvicorn app.main:app --port 8000
 
 cd apps/web
+npm install
 printf 'VITE_API_MODE=live\nVITE_API_BASE_URL=http://localhost:8000\n' > .env.local
 npx vite --port 5173                                         # customer
 VITE_APP_SURFACE=agent npx vite --port 5174                  # agent and aggregator
@@ -144,11 +147,8 @@ cd apps/api && .venv/bin/python -m pytest -q
 cd apps/web && npm run typecheck && npm run lint && npm test
 ```
 
-## 5. Changing before going live (not in this code yet)
-- The served percentage moves to a 7-day rule: days the agent was active, whether they did the exact
-  transaction type and size, and customer reports. Never 100; 95 at best. The subtraction ledger is
-  retired. Agents and aggregators see a plain note, never the percentage or points. The rule and its
-  picture come as separate documents.
+## 5. Still to come before going live
 - Activity will come from Orange's transaction SMS or API if access is granted; until then agents
-  record their transactions.
+  record their transactions, which is what the 7-day rule counts.
 - Hosting on AWS; the date is set by the account holder.
+- How the whole system works, in plain words for anyone new to it: `docs/how-it-works.md`.
