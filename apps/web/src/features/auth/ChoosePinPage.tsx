@@ -50,7 +50,7 @@ export default function ChoosePinPage() {
       <div className="flex h-12 items-center justify-between gap-3 px-5">
         <span className="flex items-center gap-2 text-base font-bold">
           <LogoMark size={20} className="text-finder-ink" />
-          Agent App
+          <span className="sr-only">Agent App</span>
         </span>
         <button type="button" onClick={signOut} className="text-sm font-bold text-finder-muted">
           Sign out

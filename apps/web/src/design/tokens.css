@@ -150,6 +150,70 @@
 [data-platform='light'] .shadow-inset-finder {
   --tw-shadow: inset 0 0 0 1px #e5e5e5;
 }
+/*
+  OUDS (Orange Unified Design System, Web v1.4.0, the Orange theme): the values of its
+  semantic tokens, read from @ouds/web-orange's ouds-web.css. Screens rebuilt to the current
+  Orange specification (the sign-in page first) use these; light here, dark below.
+*/
+@theme {
+  --color-ouds-bg: #ffffff;                       /* color-bg-primary */
+  --color-ouds-content: #000000;                  /* color-content-default */
+  --color-ouds-muted: rgba(0, 0, 0, 0.68);        /* color-content-muted */
+  --color-ouds-field: rgba(0, 0, 0, 0.04);        /* color-action-support-enabled: text input fill */
+  --color-ouds-field-hover: rgba(0, 0, 0, 0.08);  /* color-action-support-hover */
+  --color-ouds-field-pressed: rgba(0, 0, 0, 0.12); /* color-action-support-pressed: focused input fill */
+  --color-ouds-border: rgba(0, 0, 0, 0.2);        /* color-border-default */
+  --color-ouds-border-muted: rgba(0, 0, 0, 0.08); /* color-border-muted */
+  --color-ouds-border-emphasized: #000000;        /* color-border-emphasized */
+  --color-ouds-focus: #000000;                    /* color-border-focus: the 3px focus ring */
+  --color-ouds-focus-inset: #ffffff;              /* color-border-focus-inset */
+  --color-ouds-action: #000000;                   /* color-action-enabled: links, minimal buttons */
+  --color-ouds-action-hover: rgba(0, 0, 0, 0.68); /* color-action-hover */
+  --color-ouds-on-action: #ffffff;                /* color-content-on-action-enabled / -hover */
+  --color-ouds-action-disabled: rgba(0, 0, 0, 0.2); /* color-action-disabled */
+  --color-ouds-on-disabled: #ffffff;              /* color-content-on-action-disabled */
+  --color-ouds-brand: #ff7900;                    /* color-surface-brand-primary: the brand button */
+  --color-ouds-on-brand: #000000;                 /* color-content-on-brand-primary */
+  --color-ouds-brand-pressed: #000000;            /* button-color-bg-brand-pressed / -loading */
+  --color-ouds-on-brand-pressed: #ffffff;         /* button-color-content-brand-pressed / -loading */
+  --color-ouds-negative: #db0002;                 /* color-action-negative-enabled, color-content-status-negative */
+  --color-ouds-negative-hover: #b20002;           /* color-action-negative-hover */
+  --color-ouds-negative-pressed: #800001;         /* color-action-negative-pressed */
+  --color-ouds-negative-muted: rgba(219, 0, 2, 0.08); /* color-surface-status-negative-muted: alert fill */
+  /* OUDS font stack: HelvNeueOrange is Orange's licensed face; the rest are its fallbacks. */
+  --font-ouds: 'HelvNeueOrange', 'Helvetica Neue', Helvetica, 'SF Pro', Roboto, Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
+}
+[data-platform='dark'] {
+  --color-ouds-bg: #141414;
+  --color-ouds-content: #eeeeee;
+  --color-ouds-muted: rgba(255, 255, 255, 0.64);
+  --color-ouds-field: rgba(255, 255, 255, 0.04);
+  --color-ouds-field-hover: rgba(255, 255, 255, 0.08);
+  --color-ouds-field-pressed: rgba(255, 255, 255, 0.12);
+  --color-ouds-border: rgba(255, 255, 255, 0.2);
+  --color-ouds-border-muted: rgba(255, 255, 255, 0.08);
+  --color-ouds-border-emphasized: #eeeeee;
+  --color-ouds-focus: #eeeeee;
+  --color-ouds-focus-inset: #141414;
+  --color-ouds-action: #eeeeee;
+  --color-ouds-action-hover: rgba(255, 255, 255, 0.64);
+  --color-ouds-on-action: #000000;
+  --color-ouds-action-disabled: rgba(255, 255, 255, 0.2);
+  --color-ouds-on-disabled: #000000;
+  --color-ouds-brand-pressed: #eeeeee;
+  --color-ouds-on-brand-pressed: #000000;
+  --color-ouds-negative: #ff8081;
+  --color-ouds-negative-hover: #ffb2b3;
+  --color-ouds-negative-pressed: #ffe5e6;
+  --color-ouds-negative-muted: rgba(219, 0, 2, 0.32);
+}
+/* OUDS focus ring: 3px solid, 2px off the control, with a 2px inset halo in the page colour. */
+.ouds-focus:focus-visible {
+  outline: 3px solid var(--color-ouds-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--color-ouds-focus-inset);
+}
+
 @theme {
 
   /* Boosted grid breakpoints */

@@ -1,11 +1,16 @@
-/** The Open Door mark: ink frame open on the right, orange dot arriving at the gap. */
+import markUrl from './agent-finder-mark.png'
+
+/** The Agent Finder mark: the orange A with the agent magnifier, on its black tile. */
 export function LogoMark({ size = 28, className }: { size?: number; className?: string }) {
+  const rem = size / 16
   return (
-    <svg style={{ width: `${size / 16}rem`, height: `${size / 16}rem` }} viewBox="0 0 28 28" fill="none" aria-hidden className={className}>
-      <path d="M20 4H8a4 4 0 00-4 4v12a4 4 0 004 4h12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-      <path d="M24 8v3M24 17v3" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="24" cy="14" r="3" className="fill-brand" />
-    </svg>
+    <span
+      aria-hidden
+      className={`inline-flex shrink-0 items-center justify-center bg-black ${className ?? ''}`}
+      style={{ width: `${rem}rem`, height: `${rem}rem`, borderRadius: `${rem * 0.23}rem` }}
+    >
+      <img src={markUrl} alt="" draggable={false} style={{ width: '78%', height: 'auto' }} />
+    </span>
   )
 }
 
