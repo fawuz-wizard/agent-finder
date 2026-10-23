@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Principal, hash_pin, require_role, verify_pin
 from app.core.errors import AppError
+from app.core.settings import get_settings
 from app.db.models import (
     Action,
     Agent,
@@ -28,7 +29,7 @@ from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import schedule, usage
 from app.services.commission import TARIFF_NOTE, commission_for, commission_for_band
-from app.services.ledger import BAND_TEXT, Ledger, ledgers_for, word_for_figure
+from app.services.ledger import BAND_TEXT, Ledger, ledgers_for, low_today, word_for_figure
 from app.services.photo import decode_photo, public_photo_url, to_data_url
 from app.services.phrasing import (
     CAPACITY_LABEL,
@@ -42,6 +43,7 @@ from app.services.phrasing import (
     now_utc,
 )
 from app.services.points import check_point, on_map
+from app.services.week_rule import week_note, weeks_for
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 CONFIRM_AFTER_MIN = 90
@@ -267,6 +269,8 @@ async def home(
         "declaration": d.model_dump(),
         "schedule": sched,
         "customers_see": customers_see(a, now, ledger),
+        # Under the 7-day rule: the listing in words and what raises it; never the percentage.
+        "seen_as": await seen_as(db, a, now, "agent"),
         # The shopfront in the listing, once customers can be sent here.
         "photo_url": public_photo_url(a) if on_map(a) else None,
         "low": _low_out(a, now),
@@ -286,6 +290,15 @@ async def home(
         },
         "attention": attention,
     }
+
+
+async def seen_as(db: AsyncSession, a: Agent, now: datetime, viewer: str) -> dict | None:
+    """The 7-day note for the agent's own screens and the aggregator's; None under the older
+    rankers, where the listing keeps its phrases."""
+    if get_settings().ranker != "week":
+        return None
+    week = (await weeks_for(db, [a.ref], now))[a.ref]
+    return week_note(week, low_today(a, now), viewer)
 
 
 BANDS = tuple(BAND_TEXT)

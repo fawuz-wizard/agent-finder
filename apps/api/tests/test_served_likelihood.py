@@ -8,6 +8,9 @@ import pytest
 from app.core.settings import get_settings
 from app.services.ranker import served_pct
 
+# The older ranker and the ledger phrases; the 7-day rule has its own file.
+pytestmark = pytest.mark.usefixtures("activity_ranker")
+
 HDR = {"X-Client": "cust-pct"}
 POINT = {"lat": 8.439, "lng": -13.283}
 SEARCH = {"transaction": "cash_out", "area": "Lumley", **POINT}

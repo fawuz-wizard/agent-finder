@@ -6,6 +6,9 @@ import pytest
 from app.core.settings import get_settings
 from app.services.evidence import ceiling_from_bands
 
+# The older ranker and the ledger phrases; the 7-day rule has its own file.
+pytestmark = pytest.mark.usefixtures("activity_ranker")
+
 HDR = {"X-Client": "cust-evidence"}
 SEARCH = {"transaction": "cash_out", "area": "Lumley"}
 

@@ -19,6 +19,8 @@ import type {
 } from '@/types/public'
 import { TRANSACTION_LABELS } from '@/types/public'
 import { config } from '@/lib/config'
+import { score as weekScore } from './weekRule'
+import { addWeekReport, weekFor } from './demoWeek'
 
 /** PRIVATE to this fake server — never leaves it. */
 interface DemoAgent {
@@ -127,6 +129,8 @@ export function recordDemoVisit(body: VisitReport): void {
   if (body.amount_sle === null) return
   const side = body.transaction === 'deposit' ? 'float' : 'cash'
   visits.push({ id: body.agent_id, side, amount: body.amount_sle, answer: body.answer, reason: body.reason_code ?? null })
+  const shop = demoAgentName(body.agent_id)
+  if (shop) addWeekReport(shop, side, body.answer, !!body.reason_code && CAPACITY_FAILURES.includes(body.reason_code))
 }
 
 function ratingSummary(id: string): { rating_average: number | null; rating_count: number } {
@@ -285,11 +289,32 @@ export function servedPct(p: number): number {
 /** The outcomes on which "how likely am I to be served?" is a question worth answering. */
 const SERVED_OUTCOMES: PublicOutcome[] = ['likely', 'limited', 'unknown']
 
+/** The phrases the 7-day rule replaces; closed and hidden shops keep theirs. Same as the API. */
+const WEEK_REPLACES: PublicOutcome[] = ['likely', 'limited', 'unknown', 'expired']
+
+/** The 7-day rule on one agent and one request: the phrase, the percentage and the reason. */
+function weekFor_(a: DemoAgent, tx: TransactionType, amount: number | null) {
+  return weekScore(weekFor(a.name), tx === 'cash_out' ? 'cash_out' : 'deposit', amount)
+}
+
+/** The figure the ranking sorts on: the week's percentage, or the older probability when the ranker is not "week". */
+function rankValue(a: DemoAgent, tx: TransactionType, amount: number | null): number {
+  if (config.ranker !== 'week') return successProbability(a, tx, amount)
+  return WEEK_REPLACES.includes(outcomeFor(a, tx, amount)) ? weekFor_(a, tx, amount).pct / 100 : 0
+}
+
 function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): AgentResult {
-  const outcome = outcomeFor(a, tx, amount)
+  let outcome = outcomeFor(a, tx, amount)
   const feed = feedFor(a)
   const freshnessAge = feed?.ageMin ?? a.updated_min_ago
-  const pct = SERVED_OUTCOMES.includes(outcome) ? servedPct(successProbability(a, tx, amount)) : null
+  let pct = SERVED_OUTCOMES.includes(outcome) ? servedPct(successProbability(a, tx, amount)) : null
+  let note: string | null = null
+  if (config.ranker === 'week' && WEEK_REPLACES.includes(outcome)) {
+    const w = weekFor_(a, tx, amount)
+    outcome = w.outcome
+    pct = w.pct
+    note = w.note
+  }
   return {
     id: a.id,
     name: a.name,
@@ -306,6 +331,7 @@ function toResult(a: DemoAgent, tx: TransactionType, amount: number | null): Age
     photo_url: null,
     served_pct: pct,
     served_text: pct === null ? null : `${pct}% likely to serve you`,
+    note,
     ...ratingSummary(a.id),
   }
 }
@@ -340,7 +366,7 @@ export function demoSearch(req: SearchRequest): SearchResponse {
     .filter((a) => a.verified && !a.hidden && a.open && a.distance_m <= 20_000)
   // The phrase gates; within it, the order is the probability a visit succeeds, computed
   // from activity, not from words. The customer reads it only as the rounded figure.
-  const prob = new Map(scoped.map((a) => [a.id, successProbability(a, req.transaction, amount)] as const))
+  const prob = new Map(scoped.map((a) => [a.id, rankValue(a, req.transaction, amount)] as const))
   const ranked = scoped
     .map((a) => toResult(a, req.transaction, amount))
     .sort((x, y) =>

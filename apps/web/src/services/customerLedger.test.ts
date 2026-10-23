@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { customerApi, setOperatorFeedDemo } from './customerApi'
 import type { AgentResult, SearchResponse } from '@/types/public'
+
+// The older scoring and the listing phrases; the 7-day rule has its own tests.
+vi.mock('@/lib/config', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/config')>()
+  return { ...mod, config: { ...mod.config, ranker: 'activity' } }
+})
 
 function fatmata(res: SearchResponse): AgentResult {
   const all = [...res.recommended, ...res.closer_not_serving, ...res.results]

@@ -4,16 +4,16 @@ import { readPlatformTheme, writePlatformTheme } from './platformTheme'
 describe('the platform theme', () => {
   beforeEach(() => localStorage.clear())
 
-  it('is light until this phone says otherwise, and remembers dark', () => {
-    expect(readPlatformTheme()).toBe('light')
-    expect(writePlatformTheme('dark')).toBe('dark')
+  it('is dark until this phone says otherwise, and remembers light', () => {
     expect(readPlatformTheme()).toBe('dark')
-    writePlatformTheme('light')
+    expect(writePlatformTheme('light')).toBe('light')
     expect(readPlatformTheme()).toBe('light')
+    writePlatformTheme('dark')
+    expect(readPlatformTheme()).toBe('dark')
   })
 
-  it('treats anything unexpected in storage as light', () => {
+  it('treats anything unexpected in storage as dark', () => {
     localStorage.setItem('af.platformTheme', 'purple')
-    expect(readPlatformTheme()).toBe('light')
+    expect(readPlatformTheme()).toBe('dark')
   })
 })

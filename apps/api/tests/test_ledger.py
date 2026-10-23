@@ -8,6 +8,9 @@ import pytest
 from app.domain.capacity import SideThresholds
 from app.services.ledger import Ledger, SideLedger, word_for_figure
 
+# The older ranker and the ledger phrases; the 7-day rule has its own file.
+pytestmark = pytest.mark.usefixtures("activity_ranker")
+
 RANGES = SideThresholds(some_max_sle=10_000, small_max_sle=500)
 SEARCH = {"transaction": "cash_out", "area": "Lumley"}
 HDR = {"X-Client": "cust-ledger"}

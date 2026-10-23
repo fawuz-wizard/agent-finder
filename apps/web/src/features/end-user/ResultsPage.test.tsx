@@ -41,7 +41,8 @@ describe('U3 — Results', () => {
     const names = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
     expect(names[0]).toBe('Aminata Trading') // nearest to the simulated Lumley search point
     expect(names.indexOf("Fatmata's Shop")).toBeGreaterThan(0)
-    expect(screen.getByText('Availability uncertain for this request')).toBeInTheDocument()
+    // The 7-day rule says why in plain words: a size not seen, a type not done, no activity.
+    expect(screen.getAllByText(/this week$/).length).toBeGreaterThan(0)
   })
 
   it('never leaks a private field into the customer view', async () => {

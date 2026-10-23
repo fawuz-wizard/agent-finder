@@ -8,6 +8,9 @@ from types import SimpleNamespace
 import pytest
 from app.services import schedule as sch
 
+# The older ranker and the ledger phrases; the 7-day rule has its own file.
+pytestmark = pytest.mark.usefixtures("activity_ranker")
+
 HDR = {"X-Client": "cust-hours"}
 
 

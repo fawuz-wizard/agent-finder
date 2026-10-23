@@ -6,6 +6,9 @@ from __future__ import annotations
 import pytest
 from app.services.phrasing import AREA_POINTS
 
+# The older ranker and the ledger phrases; the 7-day rule has its own file.
+pytestmark = pytest.mark.usefixtures("activity_ranker")
+
 HDR = {"X-Client": "cust-map"}
 
 

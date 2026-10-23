@@ -16,6 +16,11 @@ export const config = {
    * and agents are never asked to refresh. Off for the pilot with real agents.
    */
   operatorFeed: ((env.VITE_OPERATOR_FEED as string | undefined) ?? 'off') === 'on',
+  /**
+   * Demo only: the rule the in-browser network scores with, as the API's RANKER. "week" (the
+   * default) is the 7-day rule; "activity" the older success probability.
+   */
+  ranker: ((env.VITE_RANKER as string | undefined) === 'activity' ? 'activity' : 'week') as 'week' | 'activity',
   /** Results re-query cadence while the results screen is visible (architecture §9). */
   searchRefreshMs: 30_000,
   maxResults: 10,

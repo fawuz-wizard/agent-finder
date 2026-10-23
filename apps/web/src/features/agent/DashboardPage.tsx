@@ -8,6 +8,7 @@ import type { AgentHome, AgentTransactions, LowLevel, Presence } from '@/types/o
 import { FinderBox, FinderCta } from '@/features/end-user/components/finder'
 import { EdgeCard, PILL_OFF, PILL_ON, PlaceRow, SectionLabel } from './components/agentChrome'
 import { ListingCard } from './components/ListingCard'
+import { SeenAsCard } from './components/SeenAsCard'
 import { floatRowText } from './floatRow'
 import { formatSle } from './money'
 import { BEEP_CLOSING, askToBeep, beep, cancelBeep } from '@/lib/notify'
@@ -226,8 +227,12 @@ export default function DashboardPage() {
       ))}
 
       <div className="mt-8 flex flex-col gap-3">
-        <SectionLabel id="customers-see">Customers now see</SectionLabel>
-        <ListingCard name={data.name} street={data.area} see={data.customers_see} photoUrl={data.photo_url} compact frame={false} />
+        <SectionLabel id="customers-see">{data.seen_as && data.customers_see.state === 'open' ? 'How customers see you' : 'Customers now see'}</SectionLabel>
+        {data.seen_as && data.customers_see.state === 'open' ? (
+          <SeenAsCard name={data.name} street={data.area} note={data.seen_as} />
+        ) : (
+          <ListingCard name={data.name} street={data.area} see={data.customers_see} photoUrl={data.photo_url} compact frame={false} />
+        )}
       </div>
 
       <SectionLabel className="mt-8">Today</SectionLabel>

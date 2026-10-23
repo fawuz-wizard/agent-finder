@@ -59,6 +59,8 @@ import type {
   LowToday,
 } from '@/types/operator'
 import { config } from '@/lib/config'
+import { bandOf as weekBand, sideOf, weekNote } from './weekRule'
+import { addWeekTransaction, weekFor } from './demoWeek'
 import { TARIFF_NOTE, commissionFor, commissionForBand } from '@/features/agent/commission'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, WEEKDAYS, wordForFigure } from '@/types/operator'
 
@@ -1069,6 +1071,13 @@ export function demoIssueCode(ref: string): { ref: string; code: string } {
 
 /* ---------- agent ---------- */
 
+/** The 7-day note, in words, for the agent's screens and the aggregator's (the API's seen_as). */
+function seenAs(a: AgentState, viewer: 'agent' | 'dealer') {
+  if (config.ranker !== 'week') return null
+  const low = lowToday(a)
+  return weekNote(weekFor(a.shop), [low.cash_out, low.deposit], viewer)
+}
+
 export function demoAgentHome(ref: string): AgentHome {
   const a = find(ref)
   const pending = floatRequests.find((r) => r.agent_ref === ref && r.state === 'pending')
@@ -1089,6 +1098,7 @@ export function demoAgentHome(ref: string): AgentHome {
     declaration: declarationOf(a),
     schedule: scheduleState(a),
     customers_see: customersSee(a),
+    seen_as: seenAs(a, 'agent'),
     photo_url: customersSee(a).state === 'unlocated' ? null : (a.photo ?? null),
     low: { ...lowToday(a), until_text: 'until midnight' },
     balance: operatorValue(ref, 'balance'),
@@ -1142,6 +1152,7 @@ export function demoLogTransaction(ref: string, body: LogTransactionBody): Logge
   if (!entry) {
     entry = { id: body.client_token, at: Date.now(), tx, band, amount, last3 }
     a.txLog.push(entry)
+    addWeekTransaction(a.shop, sideOf(tx), amount !== null ? weekBand(amount) : band)
     record(`You recorded: ${tx === 'cash_out' ? 'Cash out' : 'Cash in'} · ${amount !== null ? sle(amount) : BAND_TEXT[band]}`, 'agent_finder')
   }
   const text = `${entry.tx === 'cash_out' ? 'Cash out' : 'Cash in'} · ${entry.amount !== null ? sle(entry.amount) : BAND_TEXT[entry.band]}`
@@ -1800,6 +1811,8 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
     shop_name: a.shop,
     area: a.area,
     declaration: declarationOf(a),
+    customers_see: { state: customersSee(a).state, headline: customersSee(a).headline },
+    seen_as: seenAs(a, 'dealer'),
     today: {
       transactions: operatorValues[ref] ? a.transactions : null,
       successful: operatorValues[ref] ? a.successful : null,

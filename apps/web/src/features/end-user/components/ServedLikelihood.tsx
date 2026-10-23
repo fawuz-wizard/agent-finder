@@ -1,7 +1,7 @@
 import type { AgentResult } from '@/types/public'
 import { ServiceStatus } from './ServiceStatus'
 
-type Served = Pick<AgentResult, 'outcome' | 'outcome_text' | 'served_pct' | 'served_text'>
+type Served = Pick<AgentResult, 'outcome' | 'outcome_text' | 'served_pct' | 'served_text'> & Partial<Pick<AgentResult, 'note'>>
 
 /**
  * How likely the customer is to be served, as the server rounded it: the figure, a bar the
@@ -27,7 +27,7 @@ export function ServedLikelihood({ agent, size = 'md' }: { agent: Served; size?:
       <div className="h-1.5 w-full overflow-hidden rounded-pill bg-white/60" aria-hidden="true">
         <div className="h-full rounded-pill bg-current" style={{ width: `${pct}%` }} />
       </div>
-      {!good && <p className="text-sm font-medium">{agent.outcome_text}</p>}
+      {(agent.note || !good) && <p className="text-sm font-medium">{agent.note || agent.outcome_text}</p>}
     </div>
   )
 }

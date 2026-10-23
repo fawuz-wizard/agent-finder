@@ -12,6 +12,9 @@ from app.db.models import SearchImpression
 from app.services.ranker import DEFAULT_WEIGHTS, features, fit, log_loss, probability
 from sqlalchemy import select
 
+# The older ranker and the ledger phrases; the 7-day rule has its own file.
+pytestmark = pytest.mark.usefixtures("activity_ranker")
+
 SEARCH = {"transaction": "cash_out", "area": "Lumley"}
 
 

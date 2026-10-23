@@ -4,7 +4,8 @@ import { useToast } from '@/design'
 import { FinderCta, FinderHeader } from '@/features/end-user/components/finder'
 import { FieldLabel, Line as ActionLine, TextField } from '@/features/agent/components/agentChrome'
 import { Block, Line, PillButton } from './components/dealerChrome'
-import { PILL_OFF } from '@/features/agent/components/agentChrome'
+import { PILL_OFF, SectionLabel } from '@/features/agent/components/agentChrome'
+import { SeenAsCard } from '@/features/agent/components/SeenAsCard'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -74,12 +75,20 @@ export default function DealerAgentDetailPage() {
             <span className={`text-lg font-bold leading-tight ${tone}`}>{PRESENCE_LABELS[d.presence]}</span>
             <span className="text-sm font-medium text-finder-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '').split(' — ')[0]}</span>
           </div>
-          <p className="text-sm font-medium text-finder-muted">{data.capacity_text}</p>
+          {/* The ledger's estimate is retired under the 7-day rule; the note below says it in words. */}
+          {!data.seen_as && <p className="text-sm font-medium text-finder-muted">{data.capacity_text}</p>}
           {d.freshness === 'expired' && <p className="text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
           <p className="text-sm font-medium text-finder-muted">
             <span className="font-bold text-finder-ink">{data.reliability.label_text}</span> · {data.reliability.text}
           </p>
         </Block>
+
+        {data.seen_as && data.customers_see?.state === 'open' && (
+          <section aria-labelledby="seen-as" className="flex flex-col gap-3">
+            <SectionLabel id="seen-as">How customers see this agent</SectionLabel>
+            <SeenAsCard name={data.shop_name} street={data.area} note={data.seen_as} />
+          </section>
+        )}
 
         <Block heading={<>Float &amp; balance</>}>
           <MaskedValue agentRef={data.ref} field="balance" label="Balance" />

@@ -110,13 +110,13 @@ export default function SettingsPage() {
 
       <SectionLabel className="mt-8">Appearance</SectionLabel>
       <div role="radiogroup" aria-label="Appearance" className="mt-3 flex gap-3">
-        {(['light', 'dark'] as const).map((t) => (
+        {(['dark', 'light'] as const).map((t) => (
           <button key={t} type="button" role="radio" aria-checked={theme === t} onClick={() => setTheme(t)} className={`h-[2.9rem] flex-1 rounded-pill text-base font-bold ${theme === t ? PILL_ON : PILL_OFF}`}>
             {t === 'light' ? 'Light' : 'Dark'}
           </button>
         ))}
       </div>
-      <p className="mt-2 text-xs font-medium text-finder-muted">Light reads best at the counter in daylight. Dark is the same screens on the dark surface. On this phone only.</p>
+      <p className="mt-2 text-xs font-medium text-finder-muted">Dark is the standard look. Light is the same screens on white, for bright daylight at the counter. On this phone only.</p>
 
       <SectionLabel className="mt-8">Security</SectionLabel>
       <div className="mt-2 flex flex-col">

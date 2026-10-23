@@ -17,7 +17,7 @@ from app.db.models import Agent, OutcomeReport, SearchImpression
 from app.db.session import get_session
 from app.schemas.public.common import PublicModel
 from app.services import usage
-from app.services.ledger import ledgers_for
+from app.services.ledger import ledgers_for, low_today
 from app.services.photo import public_photo_url
 from app.services.phrasing import (
     AREA_POINTS,
@@ -34,10 +34,13 @@ from app.services.phrasing import (
     normalise_tx,
     now_utc,
     public_outcome,
+    side_for,
 )
 from app.services.points import on_map
 from app.services.ranker import current_model, features, probability, served_pct
 from app.services.trust import RANK_TIER, trust_for
+from app.services.week_rule import Week, weeks_for
+from app.services.week_rule import score as week_score
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -188,6 +191,25 @@ async def served_for(
     return probability(ranker_features(a, tx, amount, dist, now, ledger, t), model.weights)
 
 
+WEEK_REPLACES = ("likely", "limited", "unknown", "expired")
+
+
+def apply_week(r: AgentResult, a: Agent, week: Week, tx: str, amount: int | None, now) -> int:
+    """The 7-day rule on one result. Closed, hidden and never-opened shops keep their phrase;
+    for the rest the phrase, the percentage and the reason come from the week. Returns the
+    percentage, 0 when the rule does not apply."""
+    if r.outcome not in WEEK_REPLACES:
+        return 0
+    cash_low, float_low = low_today(a, now)
+    s = week_score(week, tx, amount, cash_low if tx == "cash_out" else float_low)
+    r.outcome = s.outcome
+    r.outcome_text = PUBLIC_TEXT[s.outcome]
+    r.served_pct = s.pct
+    r.served_text = f"{s.pct}% likely to serve you"
+    r.note = s.note
+    return s.pct
+
+
 def origin_for(req: SearchRequest) -> tuple[float, float]:
     if req.lat is not None and req.lng is not None:
         # Blunt to ~110 m before use; the precise point is never stored or logged.
@@ -232,7 +254,10 @@ async def search(
     # goes first. It reorders; it never hides, and it never reaches the payload.
     rank = {a.ref.replace("Agent ", "af-"): RANK_TIER[trust[a.ref].label] for a in agents}
     by_activity = get_settings().ranker == "activity"
+    by_week = get_settings().ranker == "week"
     model = await current_model(db) if by_activity else None
+    weeks = await weeks_for(db, [a.ref for a in agents if on_map(a)], now) if by_week else {}
+    last_tx: dict[str, float] = {}
     scored = []
     prob: dict[str, float] = {}
     feats: dict[str, dict[str, float]] = {}
@@ -245,12 +270,36 @@ async def search(
         ledger = ledgers.get(a.ref)
         r = to_result(a, tx, req.amount_sle, dist, now, ledger)
         scored.append(r)
-        if model is not None and ledger is not None:
+        if by_week:
+            w = weeks[a.ref]
+            prob[r.id] = apply_week(r, a, w, tx, req.amount_sle, now) / 100
+            side = side_for(tx)
+            # The week's counts behind the figure, for the records and the training log.
+            feats[r.id] = {
+                "active_days": w.active_days,
+                "type_seen": float(bool(w.bands[side])),
+                "served": w.served[side],
+                "failed": w.failed[side],
+            }
+            seen = ledger.last_tx_at if ledger is not None else None
+            last_tx[r.id] = seen.timestamp() if seen is not None else 0.0
+        elif model is not None and ledger is not None:
             f = ranker_features(a, tx, req.amount_sle, dist, now, ledger, trust[a.ref])
             feats[r.id] = f
             prob[r.id] = probability(f, model.weights)
             say_served(r, prob[r.id])
-    if model is not None:
+    if by_week:
+        # Percentage first, then distance, then the most recent transaction.
+        scored.sort(
+            key=lambda r: (
+                TIER[r.outcome],
+                -prob.get(r.id, 0.0),
+                r.distance_m,
+                -last_tx.get(r.id, 0.0),
+                r.id,
+            )
+        )
+    elif model is not None:
         # The phrase still gates: only "likely" agents are recommended. Within a phrase, the
         # order is the probability a visit succeeds, computed from activity, not from words.
         scored.sort(key=lambda r: (TIER[r.outcome], -prob.get(r.id, 0.0), r.distance_m, r.id))
@@ -264,7 +313,7 @@ async def search(
                 r.id,
             )
         )
-    if model is not None:
+    if model is not None or by_week:
         for r in scored[:10]:
             if r.id in feats:
                 db.add(
@@ -291,7 +340,7 @@ async def search(
     likely.sort(
         key=lambda r: (
             -prob.get(r.id, 0.0),
-            rank.get(r.id, 0),
+            0 if by_week else rank.get(r.id, 0),
             FRESH_TIER[r.freshness],
             r.distance_m,
             r.id,

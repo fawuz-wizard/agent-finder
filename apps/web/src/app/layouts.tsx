@@ -37,7 +37,7 @@ export function CustomerLayout() {
 
 const PLATFORM_SHELL = 'mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-finder-ink md:min-h-0 md:my-8 md:border-2 md:border-finder-line'
 
-/** Agent shell: the platform surface (light by default, dark on request) and the tabs that never leave the screen. */
+/** Agent shell: the platform surface (dark by default, daylight on request) and the tabs that never leave the screen. */
 export function AgentLayout() {
   const [theme] = usePlatformTheme()
   return (

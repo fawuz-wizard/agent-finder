@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 
 /**
- * The agent and aggregator platform reads in daylight by default: white surfaces, dark ink.
- * Anyone may switch it to the dark design from Profile; the choice is this phone's, kept in
- * local storage, never on the server. The customer module is not affected: it keeps the dark
- * file it was designed in.
+ * The agent and aggregator platform opens in the dark design by default, as the customer
+ * module does. Anyone may switch it to daylight (white surfaces, dark ink) from Settings; the
+ * choice is this phone's, kept in local storage, never on the server.
  */
 export type PlatformTheme = 'light' | 'dark'
 
@@ -13,9 +12,9 @@ const EVENT = 'af-platform-theme'
 
 export function readPlatformTheme(): PlatformTheme {
   try {
-    return localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'
+    return localStorage.getItem(KEY) === 'light' ? 'light' : 'dark'
   } catch {
-    return 'light'
+    return 'dark'
   }
 }
 

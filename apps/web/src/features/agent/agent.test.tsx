@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '@/design'
 import { SessionProvider } from '@/features/auth/SessionProvider'
 import { RequireRole } from '@/features/auth/RequireRole'
@@ -13,6 +13,12 @@ import ServicesPage from './ServicesPage'
 import HoursPage from './HoursPage'
 import { operatorApi } from '@/services/operatorApi'
 import { demoRecordVisit, demoSetOperatorFeed, demoSetUnlocated } from '@/services/operatorDemo'
+
+// The older scoring and the listing phrases; the 7-day rule has its own tests.
+vi.mock('@/lib/config', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/config')>()
+  return { ...mod, config: { ...mod.config, ranker: 'activity' } }
+})
 
 function App({ start = '/agent' }: { start?: string }) {
   return (
@@ -36,7 +42,7 @@ function App({ start = '/agent' }: { start?: string }) {
 }
 
 async function signIn(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText(/your number/i), 'Agent 024')
+  await user.type(await screen.findByLabelText(/^phone number$/i), 'Agent 024')
   await user.type(screen.getByLabelText(/^pin$/i), '1234')
   await user.click(screen.getByRole('button', { name: /^sign in$/i }))
 }
@@ -62,7 +68,7 @@ describe('agent app', () => {
       usual_daily_transactions: null, verified: false,
     })
     render(<App />)
-    await user.type(await screen.findByLabelText(/your number/i), ref)
+    await user.type(await screen.findByLabelText(/^phone number$/i), ref)
     await user.type(screen.getByLabelText(/^pin$/i), code)
     await user.click(screen.getByRole('button', { name: /^sign in$/i }))
     // Not the dashboard: the PIN screen, and the dashboard route sends you back to it.
@@ -84,7 +90,7 @@ describe('agent app', () => {
   it('refuses the wrong PIN without signing anyone in', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.type(await screen.findByLabelText(/your number/i), 'Agent 024')
+    await user.type(await screen.findByLabelText(/^phone number$/i), 'Agent 024')
     await user.type(screen.getByLabelText(/^pin$/i), '9999')
     await user.click(screen.getByRole('button', { name: /^sign in$/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/pin is not correct/i)

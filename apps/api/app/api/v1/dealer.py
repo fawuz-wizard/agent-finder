@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.agent_app import declaration_of, float_out
+from app.api.v1.agent_app import declaration_of, float_out, seen_as
 from app.core.auth import Principal, hash_pin, new_code, require_permission, require_role
 from app.core.errors import AppError, NotFoundError
 from app.db.models import (
@@ -44,6 +44,7 @@ from app.services.phrasing import (
     age_minutes,
     age_text,
     capacity_updated_at,
+    customers_see,
     freshness_of,
     is_open_now,
     now_utc,
@@ -492,6 +493,12 @@ async def agent_detail(
         "declaration": declaration_of(a, now, ledger).model_dump(),
         "reliability": trust.as_dict(),
         "capacity_text": capacity_text(ledger),
+        # How customers see this agent, in words, and the same note the agent reads. Only the
+        # state and its headline: the agent's own figure and estimate stay on the agent's screen.
+        "customers_see": {
+            k: v for k, v in customers_see(a, now, ledger).items() if k in ("state", "headline")
+        },
+        "seen_as": await seen_as(db, a, now, "dealer"),
         "usual": _usual_of(a),
         "evidence": {
             "cash": {"source": ledger.cash.evidence_source, "text": ledger.cash.evidence_text},

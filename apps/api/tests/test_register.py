@@ -9,6 +9,9 @@ import pytest
 from app.db import session as dbsession
 from app.db.models import Dealer
 
+# The older ranker and the ledger phrases; the 7-day rule has its own file.
+pytestmark = pytest.mark.usefixtures("activity_ranker")
+
 VENUE = {"lat": 8.4700, "lng": -13.2600}  # a point ~4 km from every seeded agent
 NEW = {
     "person_name": "Mariama Sesay",

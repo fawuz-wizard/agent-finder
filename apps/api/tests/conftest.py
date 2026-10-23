@@ -82,3 +82,13 @@ async def dealer(client):
     )
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}
+
+
+@pytest.fixture
+def activity_ranker(monkeypatch):
+    """For the files that cover the older ranker and the ledger phrases (RANKER=activity),
+    which stay available beside the 7-day rule that is now the default."""
+    monkeypatch.setenv("RANKER", "activity")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()

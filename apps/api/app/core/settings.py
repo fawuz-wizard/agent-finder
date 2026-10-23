@@ -26,9 +26,11 @@ class Settings(BaseSettings):
     # every phrase and the agent is never asked to refresh capacity. Off for the pilot with
     # real agents, on for the demo build; on for real once the Orange Money feed is connected.
     operator_feed: bool = False
-    # "activity": recommend by the success probability the ranker computes from what is known
+    # "week" (the default): the 7-day rule in services/week_rule.py: active days, the exact
+    # transaction, customer reports; never 100, 95 at best. Agents and aggregators read it in
+    # words, never as a figure. "activity": the success probability the older ranker computes
     # (position or ledger, recency, failures, trust, distance). "rules": the fixed order.
-    ranker: Literal["activity", "rules"] = "activity"
+    ranker: Literal["activity", "rules", "week"] = "week"
     # The fixture network (one dealer, demo agents, PIN 1234) exists for the test suite. Unset
     # means: only in tests. A laptop or a server starts empty and is filled by the Orange import
     # (scripts/import_orange.py) or by registering agents in the app.

@@ -6,6 +6,9 @@ from __future__ import annotations
 import pytest
 from app.core.settings import get_settings
 
+# The older ranker and the ledger phrases; the 7-day rule has its own file.
+pytestmark = pytest.mark.usefixtures("activity_ranker")
+
 HDR = {"X-Client": "cust-feed"}
 SEARCH = {"transaction": "cash_out", "area": "Lumley"}
 

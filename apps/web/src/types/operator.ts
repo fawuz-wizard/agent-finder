@@ -234,6 +234,26 @@ export interface CustomersSeeSide {
   why: string | null
 }
 
+/**
+ * The 7-day rule in words, for the agent's own screens and the aggregator's: one status per
+ * type and the lines that explain it. Never the percentage nor the points; the figure is
+ * worked out for each customer request and stays on the server. Null under the older rankers.
+ */
+export interface SeenAsSide {
+  label: string
+  outcome: 'likely' | 'limited' | 'unknown'
+  phrase: string
+}
+export interface SeenAsWhy {
+  tone: 'good' | 'warn' | 'neutral'
+  title: string
+  detail: string
+}
+export interface SeenAs {
+  sides: SeenAsSide[]
+  why: SeenAsWhy[]
+}
+
 export type LowLevel = 'low' | 'none'
 export interface LowToday {
   cash_out: LowLevel | null
@@ -300,6 +320,8 @@ export interface AgentHome {
   declaration: Declaration
   schedule: ScheduleState
   customers_see: CustomersSee
+  /** Under the 7-day rule: the listing in words and what raises it. */
+  seen_as?: SeenAs | null
   /** The shopfront in the listing, once customers can be sent here; null before that. */
   photo_url?: string | null
   /** The agent's own correction for today, per side: "low", "none", or null. */
@@ -532,6 +554,10 @@ export interface DealerAgentDetail {
   shop_name: string
   area: string
   declaration: Declaration
+  /** Whether customers are being sent here, in one headline; the agent's figures never. */
+  customers_see?: Pick<CustomersSee, 'state' | 'headline'>
+  /** The same 7-day note the agent reads, in the third person. */
+  seen_as?: SeenAs | null
   /** Read-through counts; null when the operator link is not connected. */
   today: { transactions: number | null; successful: number | null; found_you: number; reported_problems: number }
   pending_float: FloatRequest | null
