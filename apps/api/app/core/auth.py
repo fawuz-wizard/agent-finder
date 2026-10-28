@@ -27,6 +27,8 @@ PERMISSIONS = {
     "ESCALATE_AGENT",
     # Register and edit the agents under me (their record, location, hours, initial PIN).
     "MANAGE_AGENT",
+    # Orange's national view: the map and counts for every agent in the country. Read only.
+    "VIEW_NATIONAL",
 }
 
 

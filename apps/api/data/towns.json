@@ -1,0 +1,250 @@
+{
+ "_note": "Town -> region and an approximate map point (town centre). checked=false until a person confirms the point; lat/lng null when only the region is known. The Orange import and the national map both read this table.",
+ "towns": {
+  "freetown": {
+   "name": "Freetown",
+   "region": "west",
+   "lat": 8.484,
+   "lng": -13.234,
+   "checked": false
+  },
+  "wellington": {
+   "name": "Wellington",
+   "region": "west",
+   "lat": 8.43,
+   "lng": -13.17,
+   "checked": false
+  },
+  "waterloo": {
+   "name": "Waterloo",
+   "region": "west",
+   "lat": 8.339,
+   "lng": -13.071,
+   "checked": false
+  },
+  "lumley": {
+   "name": "Lumley",
+   "region": "west",
+   "lat": 8.44,
+   "lng": -13.28,
+   "checked": false
+  },
+  "kissy": {
+   "name": "Kissy",
+   "region": "west",
+   "lat": 8.47,
+   "lng": -13.2,
+   "checked": false
+  },
+  "goderich": {
+   "name": "Goderich",
+   "region": "west",
+   "lat": 8.43,
+   "lng": -13.29,
+   "checked": false
+  },
+  "hastings": {
+   "name": "Hastings",
+   "region": "west",
+   "lat": 8.39,
+   "lng": -13.14,
+   "checked": false
+  },
+  "aberdeen": {
+   "name": "Aberdeen",
+   "region": "west",
+   "lat": 8.49,
+   "lng": -13.27,
+   "checked": false
+  },
+  "ft": {
+   "name": "Freetown",
+   "region": "west",
+   "lat": 8.484,
+   "lng": -13.234,
+   "checked": false
+  },
+  "bo": {
+   "name": "Bo",
+   "region": "south",
+   "lat": 7.965,
+   "lng": -11.738,
+   "checked": false
+  },
+  "moyamba": {
+   "name": "Moyamba",
+   "region": "south",
+   "lat": 8.16,
+   "lng": -12.433,
+   "checked": false
+  },
+  "bonthe": {
+   "name": "Bonthe",
+   "region": "south",
+   "lat": 7.526,
+   "lng": -12.505,
+   "checked": false
+  },
+  "pujehun": {
+   "name": "Pujehun",
+   "region": "south",
+   "lat": 7.35,
+   "lng": -11.72,
+   "checked": false
+  },
+  "kenema": {
+   "name": "Kenema",
+   "region": "east",
+   "lat": 7.877,
+   "lng": -11.188,
+   "checked": false
+  },
+  "kono": {
+   "name": "Kono (Koidu)",
+   "region": "east",
+   "lat": 8.644,
+   "lng": -10.971,
+   "checked": false
+  },
+  "koidu": {
+   "name": "Kono (Koidu)",
+   "region": "east",
+   "lat": 8.644,
+   "lng": -10.971,
+   "checked": false
+  },
+  "kailahun": {
+   "name": "Kailahun",
+   "region": "east",
+   "lat": 8.279,
+   "lng": -10.574,
+   "checked": false
+  },
+  "nimikoro": {
+   "name": "Nimikoro",
+   "region": "east",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "makeni": {
+   "name": "Makeni",
+   "region": "north",
+   "lat": 8.881,
+   "lng": -12.044,
+   "checked": false
+  },
+  "kambia": {
+   "name": "Kambia",
+   "region": "north",
+   "lat": 9.126,
+   "lng": -12.918,
+   "checked": false
+  },
+  "port loko": {
+   "name": "Port Loko",
+   "region": "north",
+   "lat": 8.767,
+   "lng": -12.788,
+   "checked": false
+  },
+  "lunsar": {
+   "name": "Lunsar",
+   "region": "north",
+   "lat": 8.684,
+   "lng": -12.535,
+   "checked": false
+  },
+  "magburaka": {
+   "name": "Magburaka",
+   "region": "north",
+   "lat": 8.723,
+   "lng": -11.949,
+   "checked": false
+  },
+  "kabala": {
+   "name": "Kabala",
+   "region": "north",
+   "lat": 9.589,
+   "lng": -11.553,
+   "checked": false
+  },
+  "bombali": {
+   "name": "Bombali",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "tonkolili": {
+   "name": "Tonkolili",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "koinadugu": {
+   "name": "Koinadugu",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "falaba": {
+   "name": "Falaba",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "karene": {
+   "name": "Karene",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "lungi": {
+   "name": "Lungi",
+   "region": "north",
+   "lat": 8.617,
+   "lng": -13.2,
+   "checked": false
+  },
+  "masiaka": {
+   "name": "Masiaka",
+   "region": "north",
+   "lat": 8.683,
+   "lng": -12.833,
+   "checked": false
+  },
+  "makali": {
+   "name": "Makali",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "rokon": {
+   "name": "Rokon",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "petifu": {
+   "name": "Petifu",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  },
+  "patifu": {
+   "name": "Patifu",
+   "region": "north",
+   "lat": null,
+   "lng": null,
+   "checked": false
+  }
+ }
+}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import agent_app, agents, auth, dealer, float_requests, reports, search
+from app.api.v1 import agent_app, agents, auth, dealer, float_requests, network, reports, search
 from app.core.settings import get_settings
 from app.schemas.public.common import ApiInfo
 
@@ -19,6 +19,7 @@ RESOURCES = [
     "actions",
     "financial",
     "audit",
+    "dealer/map",
 ]
 
 api_v1 = APIRouter(prefix="/api/v1")
@@ -35,6 +36,7 @@ api_v1.include_router(agents.router)
 api_v1.include_router(agent_app.router)
 api_v1.include_router(float_requests.router)
 api_v1.include_router(dealer.router)
+api_v1.include_router(network.router)
 api_v1.include_router(reports.router)
 api_v1.include_router(auth.router)
 # admin.router is not mounted for the pilot; the admin surface returns after the competition.

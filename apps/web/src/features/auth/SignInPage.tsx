@@ -32,7 +32,8 @@ export default function SignInPage() {
         navigate('/choose-pin', { replace: true })
         return
       }
-      const home = s.role === 'agent' ? '/agent' : '/dealer'
+      // Orange's national account has no agents of its own: it opens on the national map.
+      const home = s.role === 'agent' ? '/agent' : s.permissions.includes('VIEW_NATIONAL') ? '/dealer/map' : '/dealer'
       navigate(location.state?.from && location.state.from.startsWith(home) ? location.state.from : home, {
         replace: true,
       })

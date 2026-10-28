@@ -94,9 +94,18 @@ async def find_agent(db: AsyncSession, ident: str) -> Agent | None:
 
 async def find_dealer(db: AsyncSession, ident: str) -> Dealer | None:
     """An aggregator by account id or Orange Money number. With nothing typed, the one and
-    only aggregator of a single-dealer pilot; several aggregators means they must say who."""
+    only aggregator of a single-dealer pilot; several aggregators means they must say who.
+    A national account is not an aggregator: it always signs in by its id."""
     if not ident:
-        rows = (await db.execute(select(Dealer).limit(2))).scalars().all()
+        rows = (
+            (
+                await db.execute(
+                    select(Dealer).where(Dealer.permissions.not_like("%VIEW_NATIONAL%")).limit(2)
+                )
+            )
+            .scalars()
+            .all()
+        )
         return rows[0] if len(rows) == 1 else None
     row = await db.get(Dealer, ident)
     if row is None and (m := as_msisdn(ident)):

@@ -27,51 +27,9 @@ from pathlib import Path
 from app.core.auth import hash_pin
 from app.db.models import Agent, Dealer
 from app.db.session import get_session_factory
+from app.services.towns import region_for  # noqa: F401  (re-exported for the tests)
 from sqlalchemy import select
 
-REGION_BY_CITY = {
-    # Western Area
-    "freetown": "west",
-    "wellington": "west",
-    "waterloo": "west",
-    "lumley": "west",
-    "kissy": "west",
-    "goderich": "west",
-    "hastings": "west",
-    "aberdeen": "west",
-    # Southern Province
-    "bo": "south",
-    "moyamba": "south",
-    "bonthe": "south",
-    "pujehun": "south",
-    # Eastern Province
-    "kenema": "east",
-    "kono": "east",
-    "koidu": "east",
-    "kailahun": "east",
-    # Northern Province (and North West)
-    "makeni": "north",
-    "kambia": "north",
-    "port loko": "north",
-    "lunsar": "north",
-    "magburaka": "north",
-    "kabala": "north",
-    "bombali": "north",
-    "tonkolili": "north",
-    "koinadugu": "north",
-    "falaba": "north",
-    "karene": "north",
-    # Towns and villages seen in Orange's file, placed by district. Unmatched values stay
-    # "region unknown" in the report until Orange confirms them.
-    "lungi": "north",
-    "masiaka": "north",
-    "rokon": "north",
-    "petifu": "north",
-    "patifu": "north",
-    "makali": "north",
-    "nimikoro": "east",
-    "ft": "west",
-}
 AGENT_PERMS = ""
 AGGREGATOR_PERMS = (
     "VIEW_AGENT,VIEW_AGENT_FINANCIAL_DETAIL,MANAGE_FLOAT_REQUEST,VIEW_AGENT_HISTORY,"
@@ -108,16 +66,6 @@ def read_xlsx(path: Path) -> list[dict[str, str]]:
     header = rows[0]
     cols = sorted(header, key=lambda c: (len(c), c))
     return [{header[c]: r.get(c, "") for c in cols} for r in rows[1:]]
-
-
-def region_for(city: str) -> str | None:
-    key = city.strip().lower()
-    if not key:
-        return None
-    for name, region in REGION_BY_CITY.items():
-        if key == name or key.startswith(name + " ") or name in key.split():
-            return region
-    return None
 
 
 def readable(text: str) -> str:

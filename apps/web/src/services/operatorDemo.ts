@@ -828,6 +828,10 @@ export function demoSignIn(ref: string, pin: string, role?: Role): Session {
   if (agent && pin === (agent.pin ?? DEMO_PIN)) {
     return { token: 'demo-agent-token', role: 'agent', name: agent.shop, ref: agent.ref, permissions: [], must_set_pin: Boolean(agent.mustSetPin) }
   }
+  // Orange's national account: sees every agent on the map and in the counts, changes nothing.
+  if (role !== 'agent' && ident.toLowerCase() === 'orange' && pin === DEMO_PIN) {
+    return { token: 'demo-national-token', role: 'dealer', name: 'Orange Sierra Leone', ref: 'orange', must_set_pin: false, permissions: [PERMISSIONS.viewAgent, PERMISSIONS.viewNational] }
+  }
   if (dealer && pin === dealerSignIn.pin) {
     return {
       token: 'demo-dealer-token',
@@ -1970,4 +1974,15 @@ export function demoRecordsCsv(kind: RecordKind | 'report', since?: string): str
   if (kind === 'reports')
     return csvOf(recent(visits.map((v) => ({ at: new Date(v.at).toISOString(), agent_ref: v.ref, transaction: v.tx, amount_band: '', answer: v.answer, reason_code: v.reason ?? '', source: 'search' }))))
   return csvOf([])
+}
+
+/** Read only, for the national map's demo (services/demoNationalMap.ts): Kissy's shops as the map counts them. */
+export function demoMapShops(): { ref: string; shop: string; street: string; lat: number | null; lng: number | null; confirmed: boolean; open: boolean; appDays: number }[] {
+  const week = Date.now() - 7 * 86_400_000
+  return agents.map((a) => {
+    const days = new Set((a.txLog ?? []).filter((t) => t.at >= week).map((t) => new Date(t.at).toDateString()))
+    if (a.updated_at >= week) days.add(new Date(a.updated_at).toDateString())
+    const placed = !unlocated.has(a.ref) && a.lat !== undefined && a.lng !== undefined
+    return { ref: a.ref, shop: a.shop, street: a.area, lat: placed ? a.lat! : null, lng: placed ? a.lng! : null, confirmed: placed, open: a.presence === 'open' && isOpenNow(a), appDays: days.size }
+  })
 }

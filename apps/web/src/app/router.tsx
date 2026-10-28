@@ -34,6 +34,7 @@ const DealerProfile = lazy(() => import('@/features/dealer/ProfilePage'))
 const DealerSettings = lazy(() => import('@/features/dealer/SettingsPage'))
 const DealerRecords = lazy(() => import('@/features/dealer/RecordsPage'))
 const DealerReveals = lazy(() => import('@/features/dealer/RevealsPage'))
+const DealerNetworkMap = lazy(() => import('@/features/dealer/NetworkMapPage'))
 const NotFound = lazy(() => import('./NotFound'))
 
 function Fallback() {
@@ -117,6 +118,8 @@ const router = createBrowserRouter([
           { path: 'reveals', element: withSuspense(<DealerReveals />) },
         ],
       },
+      // The national map is full width, outside the phone-sized console frame.
+      { path: 'map', element: withSuspense(<DealerNetworkMap />) },
     ],
   },
   // /admin (features/admin, AdminLayout) is not routed for the pilot; it returns after the competition.

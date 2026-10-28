@@ -44,6 +44,9 @@ import type {
   TodayChange,
   UsualNote,
   WeeklyHours,
+  MapAgentRow,
+  MapFilter,
+  MapSummary,
 } from '@/types/operator'
 
 const LATENCY_MS = 350
@@ -396,10 +399,37 @@ export const operatorApi = {
     return delay(demo.demoRecordsCsv(kind, since))
   },
 
+  /** The national map's counts by region, aggregator and town; national for Orange, scoped for an aggregator. */
+  mapSummary(signal?: AbortSignal): Promise<MapSummary> {
+    if (config.useLiveApi) return api.get<MapSummary>('/api/v1/dealer/map/summary', signal)
+    return import('./demoNationalMap').then((m) => delay(m.demoMapSummary(), signal))
+  },
+
+  /** The agents behind one row of the map. */
+  mapAgents(filter: MapFilter, signal?: AbortSignal): Promise<MapAgentRow[]> {
+    if (config.useLiveApi) return api.get<MapAgentRow[]>(`/api/v1/dealer/map/agents${mapQuery(filter)}`, signal)
+    return import('./demoNationalMap').then((m) => delay(m.demoMapAgents(filter), signal))
+  },
+
+  /** The same rows as CSV text, for Excel. */
+  mapCsv(filter: MapFilter): Promise<string> {
+    if (config.useLiveApi) return api.text(`/api/v1/dealer/map/agents.csv${mapQuery(filter)}`)
+    return import('./demoNationalMap').then((m) => delay(m.demoMapCsv(filter)))
+  },
+
   audit(signal?: AbortSignal): Promise<AuditEntry[]> {
     if (config.useLiveApi) return api.get<AuditEntry[]>('/api/v1/audit', signal)
     return delay(demo.demoAudit(), signal)
   },
+}
+
+function mapQuery(f: MapFilter): string {
+  const q = new URLSearchParams()
+  if (f.region) q.set('region', f.region)
+  if (f.aggregator) q.set('aggregator', f.aggregator)
+  if (f.city) q.set('city', f.city)
+  const s = q.toString()
+  return s ? `?${s}` : ''
 }
 
 export { fail }

@@ -13,6 +13,7 @@ from app.db.session import get_session_factory
 from app.services.phrasing import now_utc
 
 DEMO_PIN = "1234"
+NATIONAL_PERMS = "VIEW_AGENT,VIEW_NATIONAL"
 ALL_PERMS = "VIEW_AGENT,VIEW_AGENT_FINANCIAL_DETAIL,MANAGE_FLOAT_REQUEST,VIEW_AGENT_HISTORY,CONTACT_AGENT,ESCALATE_AGENT,MANAGE_AGENT"  # noqa: E501
 
 AGENTS = [
@@ -150,6 +151,15 @@ async def seed_if_empty() -> None:
                 msisdn="+23276000123",  # fictional, like everything in the demo
             )
         )
+        # Orange's national view: sees every agent on the map and in the counts, changes nothing.
+        db.add(
+            Dealer(
+                id="orange",
+                name="Orange Sierra Leone",
+                pin_hash=hash_pin(DEMO_PIN, "orange"),
+                permissions=NATIONAL_PERMS,
+            )
+        )
         for (
             ref,
             person,
@@ -176,6 +186,8 @@ async def seed_if_empty() -> None:
                     lat=lat,
                     lng=lng,
                     location_confirmed=True,
+                    city="Freetown",
+                    region="west",
                     phone="+23276000000",
                     phone_visible=(ref == "Agent 024"),
                     # Unverified shops are never shown to customers; every demo agent is checked.

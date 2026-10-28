@@ -35,7 +35,7 @@ export default function ChoosePinPage() {
       const { operatorApi } = await import('@/services/operatorApi')
       await operatorApi.choosePin(session.ref, session.role, pin)
       pinChosen()
-      navigate(session.role === 'agent' ? '/agent' : '/dealer', { replace: true })
+      navigate(session.role === 'agent' ? '/agent' : session.permissions.includes('VIEW_NATIONAL') ? '/dealer/map' : '/dealer', { replace: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not set the PIN.')
       setBusy(false)

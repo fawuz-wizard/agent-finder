@@ -73,6 +73,10 @@ export default function DealerDashboardPage() {
         </p>
       )}
 
+      <Link to="/dealer/map" className="mt-3 flex h-control items-center text-base font-bold text-finder-link">
+        Network map: your agents by town and region ›
+      </Link>
+
       <div className="mt-5 flex">
         <Count bucket="active" label="Active" value={data.counts.active} tone="text-finder-likely" />
         <Count bucket="limited" label="Limited" value={data.counts.limited} tone="text-warning" />

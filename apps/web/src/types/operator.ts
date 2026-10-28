@@ -495,6 +495,8 @@ export const PERMISSIONS = {
   contact: 'CONTACT_AGENT',
   escalate: 'ESCALATE_AGENT',
   manageAgent: 'MANAGE_AGENT',
+  /** Orange's national view: the map and counts for every agent in the country. Read only. */
+  viewNational: 'VIEW_NATIONAL',
 } as const
 
 export const CAPACITY_RANGES: CapacityRange[] = [
@@ -727,4 +729,80 @@ export interface AuditEntry {
   agent_ref: string
   field: 'balance' | 'float'
   purpose: string
+}
+
+/* ---------- the national map (GET /dealer/map/*): counts and agents, never money ---------- */
+
+export type MapRegion = 'west' | 'north' | 'south' | 'east'
+
+/** The five counts at every level of the table. `no_file_figure` agents are left out of Transacting, never counted as zero. */
+export interface MapCounts {
+  registered: number
+  transacting: number
+  no_file_figure: number
+  app_active: number
+  located: number
+  confirmed: number
+}
+
+export interface MapAggregatorRow extends MapCounts {
+  id: string
+  name: string
+  parent_id: string | null
+}
+
+export interface MapRegionRow extends MapCounts {
+  region: MapRegion
+  label: string
+  aggregators: MapAggregatorRow[]
+}
+
+export interface MapTown extends MapCounts {
+  city: string
+  region: MapRegion
+  lat: number
+  lng: number
+}
+
+export interface MapSummary {
+  generated_at: string
+  scope: 'national' | 'aggregator'
+  scope_name: string
+  definitions: { registered: string; transacting: string; app: string; located: string; confirmed: string; file_month: string }
+  totals: MapCounts
+  regions: MapRegionRow[]
+  towns: MapTown[]
+  /** The table's last row: agents with no region at all. */
+  unplaced: MapCounts & { reasons: { no_town: number; town_not_on_record: number } }
+  /** The map's off-coast bubble: every agent the map cannot place. */
+  no_point: MapCounts & { lat: number; lng: number }
+}
+
+export interface MapAgentRow {
+  ref: string
+  shop_name: string
+  aggregator_id: string
+  aggregator: string
+  region: MapRegion | null
+  region_label: string
+  city: string | null
+  street: string
+  active_at_orange: boolean
+  /** From Orange's file; null when the file has no figure for this agent. */
+  transacting: boolean | null
+  /** Days out of the last 7 with something done in the app. */
+  app_days: number
+  located: boolean
+  confirmed: boolean
+  open_now: boolean
+  /** Present only once the pin is confirmed. */
+  lat: number | null
+  lng: number | null
+  photo_url: string | null
+}
+
+export interface MapFilter {
+  region?: MapRegion | 'none' | undefined
+  aggregator?: string | undefined
+  city?: string | undefined
 }
