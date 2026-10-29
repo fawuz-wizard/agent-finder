@@ -12,6 +12,7 @@ from app.api.v1.router import api_v1
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestIdMiddleware, SecurityHeadersMiddleware
+from app.core.monitoring import init_monitoring
 from app.core.settings import Settings, get_settings
 from app.db import models  # noqa: F401  (register tables)
 from app.db.base import Base
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
+    init_monitoring(settings)
 
     app = FastAPI(
         title="Agent Finder API",

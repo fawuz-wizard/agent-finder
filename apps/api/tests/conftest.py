@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 
 os.environ["APP_ENV"] = "test"
 os.environ["OPERATOR_ADAPTER"] = "fake"
+os.environ["SENTRY_DSN"] = ""  # tests never report to Sentry, whatever .env says
 
 from app.core.settings import get_settings  # noqa: E402
 from app.db import session as dbsession  # noqa: E402

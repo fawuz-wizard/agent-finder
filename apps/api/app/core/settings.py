@@ -43,6 +43,10 @@ class Settings(BaseSettings):
 
     auth_mode: Literal["demo", "otp"] = "demo"
 
+    # Error tracking (Sentry). Unset means off: nothing leaves the server. When set, only the
+    # error, the route and the release are sent, never a body, header, query or person.
+    sentry_dsn: str | None = None
+
     app_timezone: str = "Africa/Freetown"
 
     @field_validator("cors_origins", mode="before")

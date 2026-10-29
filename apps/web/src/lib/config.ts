@@ -5,6 +5,8 @@ export const config = {
   apiBaseUrl: (env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000',
   googleMapsApiKey: (env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ?? '',
   googleMapsMapId: (env.VITE_GOOGLE_MAPS_MAP_ID as string | undefined) ?? '',
+  /** Error tracking (Sentry). Empty means off; the demo never reports. */
+  sentryDsn: (env.VITE_SENTRY_DSN as string | undefined) ?? '',
   authMode: ((env.VITE_AUTH_MODE as string | undefined) ?? 'demo') as 'demo' | 'otp',
   /** The in-browser demo network (no API). A live build with PIN sign-in is not a demo. */
   isDemo: ((env.VITE_API_MODE as string | undefined) ?? 'mock') === 'mock',
