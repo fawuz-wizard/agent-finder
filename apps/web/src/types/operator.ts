@@ -79,6 +79,28 @@ export interface OperatorValue {
 
 export type FloatRequestState = 'pending' | 'approved' | 'completed' | 'declined' | 'cancelled'
 
+/** Float the aggregator sent in Orange Money and recorded in the app. The app moves no money. */
+export interface FloatSend {
+  id: string
+  agent_ref: string
+  agent_name: string
+  amount_sle: number
+  /** The Orange Money reference from the SMS, when the aggregator gave it. */
+  om_reference: string | null
+  /** The request it answered, if any; that request is completed by the send. */
+  request_id: string | null
+  sent_at: string
+  sent_by: string
+}
+
+export interface SendFloatBody {
+  agent_ref: string
+  amount_sle: number
+  om_reference?: string | null
+  request_id?: string | null
+  client_token?: string
+}
+
 export interface FloatRequest {
   id: string
   agent_ref: string
@@ -106,14 +128,31 @@ export interface FeedbackItem {
   /** "Today", "Yesterday", "3 days ago", "12 Oct". The hour would say which customer. */
   day_text: string
   kind: FeedbackKind
+  /** For a failed visit, the reason's code, to group by; null for a comment. */
+  reason_code?: string | null
   transaction_label: string | null
   reason_text: string | null
   rating: number | null
   comment: string | null
 }
 
+/** What customers reported about one of the aggregator's agents: the agent's own feedback, anonymous. */
+export interface DealerAgentReports extends AgentFeedback {
+  shop_name: string
+}
+
+export interface FeedbackReason {
+  code: string
+  text: string
+  count: number
+}
+
 export interface AgentFeedback {
   days: number
+  /** Failed visits by reason over the whole window, worst first. */
+  reasons?: FeedbackReason[]
+  /** Not-served this week against last week; null until there is a week to compare. */
+  trend?: { this_week: number; last_week: number } | null
   summary: {
     served: number
     not_served: number
@@ -124,6 +163,15 @@ export interface AgentFeedback {
   }
   privacy_text: string
   items: FeedbackItem[]
+  /** How many items match the requested tab and reason, for "Load more". */
+  total?: number
+}
+
+/** One page of an agent's reports for the aggregator's tabs. */
+export interface ReportsQuery {
+  kind?: 'not_served' | 'comment' | undefined
+  reason?: string | null
+  offset?: number
 }
 
 export type ActivitySource = 'operator' | 'agent_finder'
@@ -556,6 +604,11 @@ export interface DealerAgentDetail {
   shop_name: string
   area: string
   declaration: Declaration
+  /** The same state and age the agent list shows, so the two screens never disagree. */
+  bucket: DealerBucket
+  freshness_text: string
+  /** tel: link for the Call button; null when no number is on file. */
+  call_url: string | null
   /** Whether customers are being sent here, in one headline; the agent's figures never. */
   customers_see?: Pick<CustomersSee, 'state' | 'headline'>
   /** The same 7-day note the agent reads, in the third person. */

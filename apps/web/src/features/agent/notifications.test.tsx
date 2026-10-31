@@ -33,7 +33,7 @@ afterEach(() => {
 })
 
 describe('the bell', () => {
-  it('counts what is new on top of every agent screen, opens the list, and remembers what was seen on this phone', async () => {
+  it('counts what is new on the home header, opens the list, and remembers what was seen on this phone', async () => {
     const user = userEvent.setup()
     renderApp()
     const bell = await screen.findByRole('link', { name: /notifications, \d+ new/i })
@@ -48,7 +48,8 @@ describe('the bell', () => {
     for (const row of screen.getAllByRole('link').filter((l) => l.getAttribute('href')?.startsWith('/agent/'))) {
       expect(row.getAttribute('href')).toMatch(/^\/agent(\/|$)/)
     }
-    // Opened once: the badge is gone and stays gone across the shell.
+    // Opened once: back home, the badge is gone and stays gone.
+    await user.click(screen.getByRole('link', { name: 'Home' }))
     await waitFor(() => expect(screen.getByRole('link', { name: 'Notifications' })).toBeInTheDocument())
     expect(JSON.parse(localStorage.getItem('af.seenNotifications') ?? '[]').length).toBe(count)
   })

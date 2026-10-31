@@ -99,7 +99,7 @@ export default function ResultsPage() {
     <div className="flex flex-1 flex-col px-5 pb-6 text-white">
       <FinderHeader back="/find" />
 
-      <div className="mt-6 flex items-center justify-between gap-4">
+      <div className="mt-4 flex items-center justify-between gap-4">
         <h1 className="min-w-0 text-xl font-bold leading-tight">{summary}</h1>
         <button
           type="button"
@@ -111,7 +111,7 @@ export default function ResultsPage() {
       </div>
       <p className="text-sm font-medium text-finder-muted">{subtitle}</p>
 
-      <div className="mt-6 flex flex-col gap-5">
+      <div className="mt-4 flex flex-col gap-3">
         {stale && <OfflineBanner since={lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null} onRetry={refresh} />}
         {data?.banner && <Banner tone="warning">{data.banner}</Banner>}
 

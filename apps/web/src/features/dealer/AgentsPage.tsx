@@ -1,28 +1,34 @@
 import { useState } from 'react'
+import { Search, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS } from '@/types/operator'
 import type { DealerAgentRow, DealerBucket } from '@/types/operator'
-import { FinderBox, FinderHeader } from '@/features/end-user/components/finder'
-import { PILL_OFF, PILL_ON } from '@/features/agent/components/agentChrome'
+import { ScreenTitle } from './components/designKit'
+import { CARD, PAGE, chipClass } from './components/designClasses'
 import { AgentRowCard } from './components/AgentRowCard'
 import { agentMatches, keywordByKey } from '@/lib/dealerSearches'
 
-/** The four buckets the dashboard counts, plus three states an aggregator chases. Each is a Search word. */
+/**
+ * The four chips the aggregator asked for, plus the dashboard's own buckets, which arrive by
+ * link (?filter=limited from a count card) and show as one more chip that clears back to All.
+ */
 type Filter = DealerBucket | 'all' | 'unlocated' | 'inactive' | 'attention'
 
 const word = (key: string) => keywordByKey(key)!.test
-const FILTERS: { key: Filter; label: string; empty: string; test: (a: DealerAgentRow) => boolean }[] = [
-  { key: 'all', label: 'All', empty: 'No agents are assigned to you yet.', test: () => true },
-  { key: 'active', label: 'Active', empty: 'No agent is open and fresh right now.', test: word('active') },
-  { key: 'limited', label: 'Limited', empty: 'No agent is on Small or None right now.', test: word('limited') },
-  { key: 'hidden', label: 'Away', empty: 'Nobody is away right now.', test: word('hidden') },
-  { key: 'closed', label: 'Closed', empty: 'Nobody is closed or stale right now.', test: word('closed') },
-  { key: 'unlocated', label: 'Not on map', empty: 'Every active agent is on the map.', test: word('unlocated') },
-  { key: 'inactive', label: 'Inactive at Orange', empty: 'Every agent is active at Orange.', test: word('inactive') },
-  { key: 'attention', label: 'Attention', empty: 'Nobody needs attention right now.', test: word('attention') },
+/** Serving now: open with a fresh word, including those open but low today. */
+const serving = (a: DealerAgentRow) => a.active && (a.bucket === 'active' || a.bucket === 'limited')
+const FILTERS: { key: Filter; label: string; empty: string; test: (a: DealerAgentRow) => boolean; chip: boolean }[] = [
+  { key: 'all', label: 'All', empty: 'No agents are assigned to you yet.', test: () => true, chip: true },
+  { key: 'active', label: 'Active', empty: 'No agent is serving right now.', test: serving, chip: true },
+  { key: 'inactive', label: 'Inactive', empty: 'Every agent is serving right now.', test: (a) => !serving(a), chip: true },
+  { key: 'unlocated', label: 'Not on map', empty: 'Every active agent is on the map.', test: word('unlocated'), chip: true },
+  { key: 'limited', label: 'Limited', empty: 'No agent is on Small or None right now.', test: word('limited'), chip: false },
+  { key: 'hidden', label: 'Away', empty: 'Nobody is away right now.', test: word('hidden'), chip: false },
+  { key: 'closed', label: 'Closed', empty: 'Nobody is closed or stale right now.', test: word('closed'), chip: false },
+  { key: 'attention', label: 'Attention', empty: 'Nobody needs attention right now.', test: word('attention'), chip: false },
 ]
 
 function isFilter(v: string | null): v is Filter {
@@ -53,49 +59,46 @@ export default function DealerAgentsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader
+    <div className={PAGE}>
+      <ScreenTitle
         title="Agents"
+        back="/dealer"
         action={
           can(PERMISSIONS.manageAgent) ? (
-            <Link to="/dealer/agents/new" className="flex h-control items-center text-base font-bold text-finder-link">
+            <Link to="/dealer/agents/new" className="flex h-10 items-center rounded-xl bg-finder-card px-3 text-sm font-bold text-finder-link">
               Register
             </Link>
           ) : undefined
         }
       />
 
-      <FinderBox className="mt-6 flex h-[3.5rem] items-center px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+      <label className="flex h-12 items-center gap-2.5 rounded-[14px] bg-finder-card px-4 focus-within:outline focus-within:outline-2 focus-within:outline-finder-link">
+        <Search size={18} strokeWidth={2.2} className="shrink-0 text-finder-muted" aria-hidden />
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find by name, number or street"
+          placeholder="Search by name or location"
           aria-label="Find an agent"
-          className="h-full w-full min-w-0 bg-transparent text-base font-medium text-finder-ink outline-none placeholder:text-finder-muted"
+          className="h-full min-w-0 flex-1 bg-transparent text-sm font-semibold text-finder-ink outline-none placeholder:text-finder-muted"
         />
-      </FinderBox>
+      </label>
 
-      <div className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5" role="group" aria-label="Show">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            aria-pressed={filter === f.key}
-            onClick={() => choose(f.key)}
-            className={`flex h-chip shrink-0 items-center gap-1.5 rounded-pill px-4 text-sm font-bold ${filter === f.key ? PILL_ON : PILL_OFF}`}
-          >
+      <div className="-mx-6 flex gap-2 overflow-x-auto px-6" role="group" aria-label="Show">
+        {[...FILTERS.filter((f) => !f.chip && f.key === filter), ...FILTERS.filter((f) => f.chip)].map((f) => (
+          <button key={f.key} type="button" aria-pressed={filter === f.key} onClick={() => choose(f.chip ? f.key : 'all')} className={chipClass(filter === f.key)}>
             {f.label}
-            {state === 'ready' && <span className={`text-xs ${filter === f.key ? 'text-finder-on-orange/70' : 'text-finder-muted'}`}>{count(f)}</span>}
+            {state === 'ready' && ` (${count(f)})`}
+            {!f.chip && <X size={14} strokeWidth={2.6} className="ml-1.5" aria-label="clear" />}
           </button>
         ))}
       </div>
 
-      <div className="mt-2 flex flex-col">
-        {state === 'loading' && <p className="mt-2 text-base font-medium text-finder-muted">Loading…</p>}
-        {state === 'ready' && shown.length === 0 && <p className="mt-2 text-base font-medium text-finder-muted">{q ? 'No agent matches that.' : current.empty}</p>}
-        {shown.map((a) => (
-          <AgentRowCard key={a.ref} agent={a} />
+      <div className={`${CARD} flex flex-col py-1`}>
+        {state === 'loading' && <p className="p-8 text-center text-sm text-finder-muted">Loading…</p>}
+        {state === 'ready' && shown.length === 0 && <p className="p-8 text-center text-sm text-finder-muted">{q ? 'No agent matches that.' : current.empty}</p>}
+        {shown.map((a, i) => (
+          <AgentRowCard key={a.ref} agent={a} index={i} />
         ))}
       </div>
     </div>

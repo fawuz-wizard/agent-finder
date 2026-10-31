@@ -1,5 +1,6 @@
 import type { InputHTMLAttributes, ReactNode } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Bell as BellLucide, CircleUser, History as HistoryLucide, House } from 'lucide-react'
 import { LogoMark } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { FinderBox, PinIcon } from '@/features/end-user/components/finder'
@@ -12,21 +13,16 @@ import { useNotifications } from '../notifications'
  */
 
 function BellIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 9a6 6 0 0 1 12 0v4.5l1.8 2.7a1 1 0 0 1-.8 1.5H5a1 1 0 0 1-.8-1.5L6 13.5z" />
-      <path d="M9.5 20a2.5 2.5 0 0 0 5 0" />
-    </svg>
-  )
+  return <BellLucide size={24} strokeWidth={1.8} aria-hidden />
 }
 
 /** The bell: what is new for this agent, counted, opening the list. */
-function Bell() {
+export function Bell({ className = 'text-finder-ink' }: { className?: string }) {
   const { session } = useSession()
   const { unseen } = useNotifications(session?.ref ?? 'Agent 024')
   const label = unseen === 0 ? 'Notifications' : `Notifications, ${unseen} new`
   return (
-    <Link to="/agent/notifications" aria-label={label} className="relative -mr-2 flex h-control w-control shrink-0 items-center justify-center text-finder-ink">
+    <Link to="/agent/notifications" aria-label={label} className={`relative -mr-2 flex h-control w-control shrink-0 items-center justify-center ${className}`}>
       <BellIcon />
       {unseen > 0 && (
         <span aria-hidden="true" className="absolute right-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-pill bg-finder-accent px-1 text-xs font-bold text-finder-on-orange">
@@ -37,9 +33,11 @@ function Bell() {
   )
 }
 
-/** Who is signed in and which app this is: the customer module's host strip, for agents, with the bell. */
+/** Who is signed in and which app this is: the customer module's host strip, for agents, with the bell. The home screen carries its own dark header instead. */
 export function AgentStrip() {
   const { session } = useSession()
+  const { pathname } = useLocation()
+  if (pathname === '/agent' || pathname === '/agent/') return null
   return (
     <div className="flex h-12 items-center justify-between gap-3 px-5 text-finder-ink">
       <span className="flex items-center gap-2 text-base font-bold">
@@ -167,12 +165,13 @@ export function Line({ label, value, action, className = '' }: { label: ReactNod
 
 /** The finder's two states of a pill. */
 export const PILL_ON = 'bg-finder-accent text-finder-on-orange'
-export const PILL_OFF = 'border-2 border-finder-ink bg-transparent text-finder-ink'
+export const PILL_OFF = 'border border-finder-card-line bg-finder-card text-finder-ink'
 
 /* The three tabs: one icon family, 2 px strokes, filled when active. */
 export type IconProps = { active: boolean }
 const fillWhenActive = (active: boolean) => (active ? 'currentColor' : 'none')
 
+/** The aggregator's dashboard tab still uses the four-square mark. */
 export function DashboardIcon({ active }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
@@ -183,50 +182,34 @@ export function DashboardIcon({ active }: IconProps) {
     </svg>
   )
 }
-function ServicesIcon({ active }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2" y="6" width="20" height="13" rx="3" fill={fillWhenActive(active)} fillOpacity="0.25" />
-      <path d="M2 10h20M6 15h4" />
-    </svg>
-  )
+
+export function HomeIcon({ active }: IconProps) {
+  return <House size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
 }
-function ActivityIcon({ active }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="12" width="4" height="8" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
-      <rect x="10" y="6" width="4" height="14" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
-      <rect x="17" y="9" width="4" height="11" rx="1" fill={fillWhenActive(active)} fillOpacity="0.25" />
-    </svg>
-  )
+function HistoryIcon({ active }: IconProps) {
+  return <HistoryLucide size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
 }
 export function ProfileIcon({ active }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="8" r="4" fill={fillWhenActive(active)} fillOpacity="0.25" />
-      <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
-    </svg>
-  )
+  return <CircleUser size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
 }
 
 const TABS = [
-  { to: '/agent', label: 'Dashboard', end: true, Icon: DashboardIcon },
-  { to: '/agent/activity', label: 'Activity', end: false, Icon: ActivityIcon },
-  { to: '/agent/services', label: 'Services', end: false, Icon: ServicesIcon },
+  { to: '/agent', label: 'Home', end: true, Icon: HomeIcon },
+  { to: '/agent/activity', label: 'History', end: false, Icon: HistoryIcon },
   { to: '/agent/profile', label: 'Profile', end: false, Icon: ProfileIcon },
 ]
 
-/** Dashboard, Activity, Services, Profile. The active one is orange; the bar never leaves the screen. */
+/** Home, History, Profile, as in the approved agent design: 72 px, 12 px labels, the active one orange. */
 export function AgentTabBar() {
   return (
-    <nav aria-label="Agent sections" className="sticky bottom-0 mt-auto flex bg-finder-bg pb-[env(safe-area-inset-bottom)] shadow-inset-finder">
+    <nav aria-label="Agent sections" className="sticky bottom-0 mt-auto grid h-[72px] grid-cols-3 border-t border-finder-card-line bg-finder-card pb-[env(safe-area-inset-bottom)]">
       {TABS.map(({ to, label, end, Icon }) => (
         <NavLink
           key={to}
           to={to}
           end={end}
           className={({ isActive }) =>
-            `flex h-16 flex-1 flex-col items-center justify-center gap-1 text-xs font-bold ${isActive ? 'text-finder-link' : 'text-finder-muted'}`
+            `flex flex-col items-center justify-center gap-1 text-xs font-semibold ${isActive ? 'text-finder-link' : 'text-finder-muted'}`
           }
         >
           {({ isActive }) => (
@@ -250,3 +233,150 @@ export function GearIcon() {
     </svg>
   )
 }
+
+/* The card design of the approved picture (2026-10-29): the dark header of the home screen,
+   white cards on the warm page, orange tiles, and a segmented control for the few choices. */
+
+/** Two letters for a name: the avatar, never a person's photo. */
+function initials(name: string): string {
+  const words = name.replace(/['’]s\b/g, '').split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w))
+  return ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? '')).toUpperCase() || '?'
+}
+
+export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const box = size === 'sm' ? 'h-9 w-9 text-sm' : size === 'lg' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-base'
+  return (
+    <span aria-hidden="true" className={`flex shrink-0 items-center justify-center rounded-full bg-finder-accent font-extrabold text-finder-on-orange ${box}`}>
+      {initials(name)}
+    </span>
+  )
+}
+
+/** The home screen's dark header: who, where, and the one state that matters, with the bell. */
+export function HomeHeader({ name, sub, status, tone, action }: { name: string; sub: ReactNode; status: string; tone: 'open' | 'away' | 'closed'; action?: ReactNode }) {
+  const pill = tone === 'open' ? 'bg-finder-likely-tint text-finder-likely-ink' : tone === 'away' ? 'bg-finder-limited-tint text-finder-limited' : 'bg-white/15 text-finder-on-head'
+  return (
+    <header className="bg-finder-head px-5 pb-10 pt-4 text-finder-on-head">
+      <div className="flex items-center justify-between">
+        <LogoMark size={20} className="text-finder-on-head" />
+        {action ?? <Bell className="text-finder-on-head" />}
+      </div>
+      <div className="mt-2 flex items-center gap-3">
+        <Avatar name={name} />
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-bold leading-tight">{name}</h1>
+          <p className="truncate text-sm font-medium text-white/75">{sub}</p>
+          <p className={`mt-1.5 inline-flex rounded-pill px-2.5 py-0.5 text-xs font-bold ${pill}`}>{status}</p>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+/** The white sheet that rises over the dark header. */
+export function HomeSheet({ children }: { children: ReactNode }) {
+  return <div className="relative -mt-5 flex flex-1 flex-col rounded-t-[1.25rem] bg-finder-bg px-5 pb-8 pt-5">{children}</div>
+}
+
+/** A white card on the warm page. */
+export function Card({ className = '', children, ...rest }: React.HTMLAttributes<HTMLElement>) {
+  return (
+    <section className={`rounded-2xl border border-finder-card-line bg-finder-card px-4 py-3 ${className}`} {...rest}>
+      {children}
+    </section>
+  )
+}
+
+/** One figure in a small card: the label above, the value below. A link when it leads somewhere. */
+export function StatCard({ label, value, tone = 'text-finder-ink', to, ariaLabel }: { label: string; value: string; tone?: string; to?: string; ariaLabel?: string }) {
+  const body = (
+    <>
+      <span className="text-xs font-medium text-finder-muted">{label}</span>
+      <span className={`mt-1 whitespace-nowrap text-xl font-bold leading-none tabular-nums ${tone}`}>{value}</span>
+    </>
+  )
+  const cls = 'flex min-h-[4.25rem] flex-1 flex-col justify-between rounded-xl border border-finder-card-line bg-finder-card px-3 py-2.5'
+  return to ? (
+    <Link to={to} aria-label={ariaLabel} className={cls}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
+  )
+}
+
+/** An orange tile: one icon, one action. */
+export function Tile({ to, label, icon, note }: { to: string; label: string; icon: ReactNode; note?: string | undefined }) {
+  return (
+    <Link to={to} className="flex min-h-[5.5rem] flex-col items-center justify-center gap-1.5 rounded-xl bg-finder-tile transition-transform duration-150 active:scale-[0.97] px-2 py-3 text-center text-sm font-bold text-finder-ink">
+      <span className="text-finder-link">{icon}</span>
+      {label}
+      {note && <span className="text-xs font-medium text-finder-muted">{note}</span>}
+    </Link>
+  )
+}
+
+/** A row of choices in one frame; the chosen one orange. The group's name is read aloud. */
+export function Segmented<V extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  busy = null,
+  disabled = false,
+}: {
+  label: string
+  options: { value: V; label: string }[]
+  value: V
+  onChange: (next: V) => void
+  busy?: V | null
+  disabled?: boolean
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex overflow-hidden rounded-xl border border-finder-card-line bg-finder-card">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          disabled={disabled || busy !== null}
+          onClick={() => onChange(o.value)}
+          className={`h-12 flex-1 px-1 text-sm font-bold transition-colors ${value === o.value ? 'bg-finder-accent text-finder-on-orange' : 'text-finder-ink'}`}
+        >
+          {busy === o.value ? '…' : o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const ICON = { viewBox: '0 0 24 24', className: 'h-6 w-6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const
+export const PowerIcon = () => (
+  <svg {...ICON}>
+    <path d="M12 3v8" />
+    <path d="M6.3 6.3a8 8 0 1 0 11.4 0" />
+  </svg>
+)
+export const PlusIcon = () => (
+  <svg {...ICON}>
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+)
+export const SwapIcon = () => (
+  <svg {...ICON}>
+    <path d="M7 4v16M4 7l3-3 3 3M17 20V4M14 17l3 3 3-3" />
+  </svg>
+)
+export const ClockIcon = () => (
+  <svg {...ICON}>
+    <circle cx="12" cy="12" r="8" />
+    <path d="M12 8v4l3 2" />
+  </svg>
+)
+export const MapPinIcon = () => (
+  <svg {...ICON} className="h-5 w-5">
+    <path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z" />
+    <circle cx="12" cy="10" r="2.2" />
+  </svg>
+)

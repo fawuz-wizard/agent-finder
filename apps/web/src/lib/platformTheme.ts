@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 
 /**
- * The agent and aggregator platform opens in the dark design by default, as the customer
- * module does. Anyone may switch it to daylight (white surfaces, dark ink) from Settings; the
- * choice is this phone's, kept in local storage, never on the server.
+ * The agent and aggregator platform opens in daylight by default: the warm page, white cards
+ * and orange tiles of the approved design (2026-10-29). Anyone may switch it to dark from
+ * Settings; the choice is this phone's, kept in local storage, never on the server.
  */
 export type PlatformTheme = 'light' | 'dark'
 
@@ -12,9 +12,9 @@ const EVENT = 'af-platform-theme'
 
 export function readPlatformTheme(): PlatformTheme {
   try {
-    return localStorage.getItem(KEY) === 'light' ? 'light' : 'dark'
+    return localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'
   } catch {
-    return 'dark'
+    return 'light'
   }
 }
 

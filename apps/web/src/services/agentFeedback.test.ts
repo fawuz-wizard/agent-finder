@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { customerApi } from './customerApi'
 import { operatorApi } from './operatorApi'
 
-const FEEDBACK_KEYS = ['comment', 'day_text', 'id', 'kind', 'rating', 'reason_text', 'transaction_label']
+const FEEDBACK_KEYS = ['comment', 'day_text', 'id', 'kind', 'rating', 'reason_code', 'reason_text', 'transaction_label']
 
 describe('demo: what customers say reaches the agent, never who said it', () => {
   it('a failed visit with a comment shows its reason, the day and the words, nothing else', async () => {

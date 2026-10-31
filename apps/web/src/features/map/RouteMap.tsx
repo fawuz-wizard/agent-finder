@@ -1,11 +1,14 @@
 /**
- * The way to an agent, drawn inside the app: a real Google map with both points and the
- * straight line between them when a Maps key is configured, otherwise an inline sketch from
- * the same coarse points. The customer never has to leave Max it to see where to go. No route
- * service is called — it is the straight line and an honest walking estimate.
+ * The way to an agent, drawn inside the app. With the TomTom key (the project's map key):
+ * TomTom's streets and TomTom's route between the customer and the shop. Without it, a Google
+ * map when a Google key is set, otherwise an inline sketch from the same coarse points. The
+ * customer never has to leave Max it to see where to go.
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { config } from '@/lib/config'
+import { tileSource } from '@/lib/tiles'
+import { fetchRoute, type Route } from '@/lib/route'
+import { TileLayer } from './TileLayer'
 import { GoogleMap, type LatLng } from './GoogleMap'
 import { buildAgentMarkerElement } from './AgentMarker'
 
@@ -70,7 +73,71 @@ function LiveRoute({ agent, origin, className }: { agent: RouteMapProps['agent']
   return <GoogleMap center={{ lat: agent.lat, lng: agent.lng }} zoom={16} className={className} onReady={onReady} />
 }
 
-/** No Maps key (or offline): the same two points as a sketch. Scaled to fit, north up. */
+/**
+ * With the TomTom key: the real streets, the customer and the shop as pins, and TomTom's own
+ * route between them (walking or driving), with its time. Until the route arrives, or if TomTom
+ * cannot give one, the straight line. Zoom in and out; it frames both points.
+ */
+function TomTomRoute({ agent, origin, mode, fill }: { agent: RouteMapProps['agent']; origin: LatLng | null; mode: 'walking' | 'driving'; fill: boolean }) {
+  const here = { lat: agent.lat, lng: agent.lng }
+  const [route, setRoute] = useState<Route | null>(null)
+  const [zoomBy, setZoomBy] = useState(0)
+  useEffect(() => {
+    if (!origin) return
+    const ctrl = new AbortController()
+    void fetchRoute(origin, here, mode, ctrl.signal).then((r) => setRoute(r))
+    return () => ctrl.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin?.lat, origin?.lng, agent.lat, agent.lng, mode])
+  const fit = [here, ...(origin ? [origin] : []), ...(route?.points ?? [])]
+  const minutes = route ? Math.max(1, Math.round(route.seconds / 60)) : null
+  const btn = 'flex h-10 w-10 items-center justify-center rounded-full bg-finder-bg/85 text-lg font-bold text-white'
+  return (
+    <TileLayer fit={fit} zoomBy={zoomBy} label={`Map of the way to ${agent.name}`} className={fill ? 'absolute inset-0' : 'h-56 w-full rounded-card'}>
+      {(at, size) => {
+        const line = (route?.points ?? (origin ? [origin, here] : [])).map(at)
+        const path = line.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+        const a = at(here)
+        const o = origin ? at(origin) : null
+        return (
+          <>
+            <svg className="pointer-events-none absolute inset-0" width={size.w} height={size.h} aria-hidden="true">
+              {line.length > 1 && (
+                <>
+                  <polyline points={path} fill="none" stroke="white" strokeOpacity="0.85" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={path} fill="none" stroke="var(--color-finder-accent)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={route ? undefined : '2 9'} />
+                </>
+              )}
+              {/* The route ends on the nearest road: the last steps to the shop, dashed. */}
+              {route && line.length > 1 && <line x1={line[line.length - 1]!.x} y1={line[line.length - 1]!.y} x2={a.x} y2={a.y} stroke="var(--color-finder-accent)" strokeWidth="4" strokeDasharray="2 8" strokeLinecap="round" />}
+              {o && <circle cx={o.x} cy={o.y} r="9" fill="white" stroke="black" strokeWidth="3" />}
+              <circle cx={a.x} cy={a.y} r="11" fill="var(--color-finder-accent)" stroke="white" strokeWidth="3" />
+            </svg>
+            {o && <span className="pointer-events-none absolute -translate-x-1/2 rounded-pill bg-white px-2 py-0.5 text-xs font-bold text-black" style={{ left: o.x, top: o.y + 14 }}>You</span>}
+            <span className="pointer-events-none absolute max-w-[70%] -translate-x-1/2 truncate rounded-pill bg-finder-accent px-2 py-0.5 text-xs font-bold text-finder-on-orange" style={{ left: a.x, top: a.y - 36 }}>
+              {agent.name}
+            </span>
+            {minutes !== null && (
+              <span className="absolute left-3 top-3 rounded-pill bg-finder-bg/90 px-3 py-1 text-sm font-bold text-white" role="status">
+                {minutes} min {mode === 'walking' ? 'walk' : 'drive'} · {distanceText(route!.metres)}
+              </span>
+            )}
+            <span className="absolute right-3 top-3 flex flex-col gap-2">
+              <button type="button" aria-label="Zoom in" className={btn} onClick={() => setZoomBy((z) => Math.min(z + 1, 4))}>
+                +
+              </button>
+              <button type="button" aria-label="Zoom out" className={btn} onClick={() => setZoomBy((z) => Math.max(z - 1, -4))}>
+                −
+              </button>
+            </span>
+          </>
+        )
+      }}
+    </TileLayer>
+  )
+}
+
+/** No map key (or offline): the same two points as a sketch. Scaled to fit, north up. */
 function SketchRoute({ agent, origin, distance_m, fill = false }: { agent: RouteMapProps['agent']; origin: LatLng | null; distance_m: number; fill?: boolean }) {
   // A card-sized landscape sketch, or a portrait one that covers the whole screen.
   const W = 320
@@ -133,9 +200,11 @@ export function RouteMap({ agent, origin, distance_m, directions_url, originIsSi
   if (origin) mapsUrl.searchParams.set('origin', `${origin.lat},${origin.lng}`)
 
   return (
-    <section aria-label={`Way to ${agent.name}`} className={fill ? 'flex h-full min-h-0 flex-col' : 'flex flex-col gap-2'}>
-      <div className={fill ? 'min-h-0 flex-1' : undefined}>
-        {config.googleMapsApiKey ? (
+    <section aria-label={`Way to ${agent.name}`} className={fill ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-col gap-2'}>
+      <div className={fill ? 'relative min-h-0 flex-1' : undefined}>
+        {tileSource().provider === 'tomtom' ? (
+          <TomTomRoute agent={agent} origin={origin} mode={travelMode} fill={fill} />
+        ) : config.googleMapsApiKey ? (
           <LiveRoute agent={agent} origin={origin} className={fill ? 'h-full w-full' : 'h-56 w-full'} />
         ) : (
           <SketchRoute agent={agent} origin={origin} distance_m={distance_m} fill={fill} />

@@ -74,6 +74,7 @@ async def test_agent_reads_why_customers_failed_and_what_they_wrote_but_never_wh
         "day_text",
         "kind",
         "transaction_label",
+        "reason_code",
         "reason_text",
         "rating",
         "comment",

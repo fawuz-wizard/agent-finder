@@ -63,6 +63,15 @@ export function addWeekReport(shop: string, side: Side, answer: 'yes' | 'no', ca
   added.push({ shop, at: Date.now(), report: { side, answer, capacity } })
 }
 
+/** The transactions an agent recorded in the last seven days, per side, as bands: what the float forecast learns its pace from. */
+export function weekRecords(shop: string): Record<Side, Band[]> {
+  const out: Record<Side, Band[]> = { cash: [], float: [] }
+  const since = Date.now() - WINDOW_DAYS * 86_400_000
+  for (const t of txs[shop] ?? []) if (t.day < WINDOW_DAYS) out[t.side].push(t.band)
+  for (const e of added) if (e.shop === shop && e.tx && e.at >= since) out[e.tx.side].push(e.tx.band)
+  return out
+}
+
 export function weekFor(shop: string): Week {
   const w = emptyWeek()
   const active = new Set<string>()

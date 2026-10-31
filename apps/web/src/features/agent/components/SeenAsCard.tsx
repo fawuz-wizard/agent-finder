@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { SeenAs } from '@/types/operator'
 import { ServiceStatus } from '@/features/end-user/components/ServiceStatus'
 import { EdgeCard, SectionLabel } from './agentChrome'
@@ -13,7 +14,9 @@ const DOT = {
  * then why, one line per check with what raises it. The same card on the agent's dashboard
  * and the aggregator's agent page; neither ever shows the percentage or the points.
  */
-export function SeenAsCard({ name, street, note, sub }: { name: string; street: string; note: SeenAs; sub?: string }) {
+export function SeenAsCard({ name, street, note, sub, folded = false }: { name: string; street: string; note: SeenAs; sub?: string; folded?: boolean }) {
+  // Folded (the agent's home): the listing alone, the reasons one tap away.
+  const [open, setOpen] = useState(!folded)
   return (
     <div className="flex flex-col gap-3">
       <EdgeCard aria-label={`${name}: how customers see this listing`}>
@@ -32,8 +35,13 @@ export function SeenAsCard({ name, street, note, sub }: { name: string; street: 
           ))}
         </dl>
       </EdgeCard>
-      <SectionLabel className="mt-3">Why</SectionLabel>
-      <ul className="flex flex-col divide-y divide-finder-line border-t border-finder-line">
+      {folded && (
+        <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex h-control items-center self-start text-sm font-bold text-finder-link">
+          {open ? 'Hide why' : 'Why customers see you this way ›'}
+        </button>
+      )}
+      {open && <SectionLabel className="mt-3">Why</SectionLabel>}
+      {open && <ul className="flex flex-col divide-y divide-finder-line border-t border-finder-line">
         {note.why.map((w) => (
           <li key={w.title} className="flex gap-3 py-3">
             <span aria-hidden className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${DOT[w.tone]}`} />
@@ -43,7 +51,7 @@ export function SeenAsCard({ name, street, note, sub }: { name: string; street: 
             </div>
           </li>
         ))}
-      </ul>
+      </ul>}
     </div>
   )
 }

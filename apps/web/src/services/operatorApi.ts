@@ -25,6 +25,8 @@ import type {
   AuditEntry,
   DealerAction,
   DealerAgentDetail,
+  DealerAgentReports,
+  ReportsQuery,
   Role,
   Session,
   SignalMuteKind,
@@ -47,6 +49,8 @@ import type {
   MapAgentRow,
   MapFilter,
   MapSummary,
+  FloatSend,
+  SendFloatBody,
 } from '@/types/operator'
 
 const LATENCY_MS = 350
@@ -264,6 +268,24 @@ export const operatorApi = {
     }
   },
 
+  /** Float sent: the aggregator's history, or the sends an agent received (ref in the demo). */
+  floatSends(ref: string | null, days?: number, signal?: AbortSignal): Promise<FloatSend[]> {
+    if (config.useLiveApi) return api.get<FloatSend[]>(`/api/v1/float-sends${days ? `?days=${days}` : ''}`, signal)
+    return import('./demoFloatSends').then(({ demoFloatSends }) => delay(demoFloatSends(ref, days), signal))
+  },
+
+  /** Record float sent in Orange Money. The app moves no money; a send answering a request completes it. */
+  sendFloat(body: SendFloatBody, by: string): Promise<FloatSend> {
+    if (config.useLiveApi) return api.post<FloatSend>('/api/v1/float-sends', body)
+    return import('./demoFloatSends').then(({ demoSendFloat }) => {
+      try {
+        return delay(demoSendFloat(body, by))
+      } catch (e) {
+        return Promise.reject(e instanceof Error ? e : new Error('Could not record that.'))
+      }
+    })
+  },
+
   /* dealer */
   /** Who will probably run short of cash by tomorrow. A ranking with reasons, never money. */
   floatForecast(signal?: AbortSignal): Promise<FloatForecast[]> {
@@ -281,6 +303,17 @@ export const operatorApi = {
     return delay(demo.demoAgentRows(), signal)
   },
 
+  /** What customers reported about one of my agents, without who: the agent's own feedback. */
+  dealerAgentReports(ref: string, q: ReportsQuery = {}, signal?: AbortSignal): Promise<DealerAgentReports> {
+    if (config.useLiveApi) {
+      const qs = new URLSearchParams()
+      if (q.kind) qs.set('kind', q.kind)
+      if (q.reason) qs.set('reason', q.reason)
+      if (q.offset) qs.set('offset', String(q.offset))
+      return api.get<DealerAgentReports>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}/reports${qs.size ? `?${qs}` : ''}`, signal)
+    }
+    return delay({ shop_name: demo.demoDealerAgentDetail(ref).shop_name, ...demo.demoReportsPage(ref, q) }, signal)
+  },
   dealerAgent(ref: string, signal?: AbortSignal): Promise<DealerAgentDetail> {
     if (config.useLiveApi) return api.get<DealerAgentDetail>(`/api/v1/dealer/agents/${encodeURIComponent(ref)}`, signal)
     return delay(demo.demoDealerAgentDetail(ref), signal)

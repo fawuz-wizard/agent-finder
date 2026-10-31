@@ -1,3 +1,5 @@
+import { tileSource } from '@/lib/tiles'
+import { TileLayer } from '@/features/map/TileLayer'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Skeleton } from '@/design'
@@ -141,6 +143,18 @@ export default function AgentDetailPage() {
       <div className={`relative flex items-end justify-center overflow-hidden bg-finder-line text-white ${photo ? 'h-[13rem]' : 'h-[9rem]'}`}>
         {photo ? (
           <img src={photo} alt={`${agent.name}, photographed by the agent`} className="absolute inset-0 h-full w-full object-cover" />
+        ) : tileSource().provider === 'tomtom' && Number.isFinite(agent.lat) && Number.isFinite(agent.lng) ? (
+          // No photo yet: the shop's spot on TomTom's map, so the space still tells the customer where.
+          <TileLayer fit={[{ lat: agent.lat, lng: agent.lng }]} label={`Where ${agent.name} is`} className="absolute inset-0 h-full w-full">
+            {(at) => {
+              const p = at({ lat: agent.lat, lng: agent.lng })
+              return (
+                <span className="absolute -translate-x-1/2 -translate-y-full text-finder-link drop-shadow" style={{ left: p.x, top: p.y }} aria-hidden="true">
+                  <PinIcon size={40} />
+                </span>
+              )
+            }}
+          </TileLayer>
         ) : (
           <span className="mb-9 text-finder-link" aria-hidden="true">
             <PinIcon size={44} />
@@ -149,7 +163,7 @@ export default function AgentDetailPage() {
         {backButton}
       </div>
 
-      <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-bg px-5 pb-32 pt-6 shadow-inset-finder">
+      <div className="-mt-5 flex flex-1 flex-col rounded-t-panel bg-finder-bg px-5 pb-[6.5rem] pt-5 shadow-inset-finder">
         <h1 className="text-xl font-bold leading-tight">{agent.name}</h1>
         <div className="mt-4 flex flex-col gap-2">
           <Row icon={ClockIcon}>
@@ -174,7 +188,7 @@ export default function AgentDetailPage() {
             round figure that is never 100, with how fresh the picture is. No figure and nothing
             to caution about means nothing here: a verdict would read like praise. */}
         {(agent.served_pct != null || agent.outcome !== 'likely') && (
-          <section className="mt-8 flex flex-col gap-3" aria-label="Your request">
+          <section className="mt-6 flex flex-col gap-3" aria-label="Your request">
             <ServedLikelihood agent={agent} size="lg" />
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               {agent.served_pct != null && <span className="text-sm font-semibold text-finder-muted">{agent.request_label}</span>}
@@ -183,10 +197,10 @@ export default function AgentDetailPage() {
           </section>
         )}
 
-        <h2 className="mt-8 text-lg font-bold">Hours</h2>
+        <h2 className="mt-6 text-lg font-bold">Hours</h2>
         <p className="mt-2 text-base font-medium text-finder-muted">{agent.hours_text}</p>
 
-        <section className="mt-10" aria-labelledby="rate-heading">
+        <section className="mt-7" aria-labelledby="rate-heading">
           <h2 id="rate-heading" className="text-lg font-bold">Rate this agent</h2>
           <p className="mt-2 text-sm font-medium text-finder-muted">Anyone can rate, before or after a visit.</p>
           {ratingState === 'sent' ? (
@@ -222,7 +236,7 @@ export default function AgentDetailPage() {
           <p className="mt-3 text-xs font-medium text-finder-muted">One rating per shop per day from this phone.</p>
         </section>
 
-        <div className="mt-10 border-t border-finder-line pt-6">
+        <div className="mt-8 border-t border-finder-line pt-5">
           <p className="text-sm font-medium text-finder-muted">
             The figure comes from recent activity at the shop, never from its cash. It can change before you arrive.
           </p>

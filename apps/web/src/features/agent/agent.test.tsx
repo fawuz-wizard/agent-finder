@@ -11,6 +11,8 @@ import DashboardPage from './DashboardPage'
 import { floatRowText } from './floatRow'
 import ServicesPage from './ServicesPage'
 import HoursPage from './HoursPage'
+import StatusPage from './StatusPage'
+import FloatPage from './FloatPage'
 import { operatorApi } from '@/services/operatorApi'
 import { demoRecordVisit, demoSetOperatorFeed, demoSetUnlocated } from '@/services/operatorDemo'
 
@@ -31,6 +33,8 @@ function App({ start = '/agent' }: { start?: string }) {
           <Route element={<RequireRole role="agent" />}>
             <Route path="/agent" element={<DashboardPage />} />
             <Route path="/agent/services" element={<ServicesPage />} />
+            <Route path="/agent/status" element={<StatusPage />} />
+            <Route path="/agent/float" element={<FloatPage />} />
             <Route path="/agent/profile" element={<p>profile</p>} />
             <Route path="/agent/hours" element={<HoursPage />} />
           </Route>
@@ -43,7 +47,8 @@ function App({ start = '/agent' }: { start?: string }) {
 
 async function signIn(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText(/^phone number$/i), 'Agent 024')
-  await user.type(screen.getByLabelText(/^pin$/i), '1234')
+  await user.click(screen.getByRole('button', { name: /^continue$/i }))
+  await user.type(await screen.findByLabelText(/^pin$/i), '1234')
   await user.click(screen.getByRole('button', { name: /^sign in$/i }))
 }
 
@@ -55,7 +60,7 @@ describe('agent app', () => {
   it('sends a signed-out visitor to sign-in and back to the agent home', async () => {
     const user = userEvent.setup()
     render(<App />)
-    expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument()
     await signIn(user)
     expect((await screen.findAllByText("Fatmata's Shop")).length).toBeGreaterThan(0)
   })
@@ -69,7 +74,8 @@ describe('agent app', () => {
     })
     render(<App />)
     await user.type(await screen.findByLabelText(/^phone number$/i), ref)
-    await user.type(screen.getByLabelText(/^pin$/i), code)
+    await user.click(screen.getByRole('button', { name: /^continue$/i }))
+    await user.type(await screen.findByLabelText(/^pin$/i), code)
     await user.click(screen.getByRole('button', { name: /^sign in$/i }))
     // Not the dashboard: the PIN screen, and the dashboard route sends you back to it.
     expect(await screen.findByRole('heading', { name: /choose your pin/i })).toBeInTheDocument()
@@ -91,7 +97,8 @@ describe('agent app', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.type(await screen.findByLabelText(/^phone number$/i), 'Agent 024')
-    await user.type(screen.getByLabelText(/^pin$/i), '9999')
+    await user.click(screen.getByRole('button', { name: /^continue$/i }))
+    await user.type(await screen.findByLabelText(/^pin$/i), '9999')
     await user.click(screen.getByRole('button', { name: /^sign in$/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/pin is not correct/i)
     expect(screen.queryAllByText("Fatmata's Shop")).toHaveLength(0)
@@ -104,8 +111,8 @@ describe('agent app', () => {
     await screen.findAllByText("Fatmata's Shop")
     expect(screen.queryByText(/still correct\?/i)).not.toBeInTheDocument()
     expect(screen.queryByText('Refresh status')).not.toBeInTheDocument()
-    expect(screen.getByText(/open · serving/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /working hours/i })).toBeInTheDocument()
+    expect(screen.getByText(/open · customers can find you/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /opening hours/i })).toHaveAttribute('href', '/agent/hours')
     expect(container.textContent).not.toMatch(/\bMost\b|\bSome\b|\bSmall\b/)
   })
 
@@ -159,7 +166,7 @@ describe('float workflow', () => {
 
   it('shows the agent the dealer\'s reason for a decline', async () => {
     const user = userEvent.setup()
-    render(<App start="/agent/services" />)
+    render(<App start="/agent/float" />)
     await signIn(user)
     // The list loads after the card frame, so wait for the reason itself.
     expect(await screen.findByText(/too close to your last top-up/i)).toBeInTheDocument()
@@ -311,11 +318,19 @@ describe('the listing on the dashboard', () => {
     const card = () => screen.getByRole('article', { name: /your listing/i })
     expect(card()).toHaveAttribute('data-state', 'open')
     expect(within(card()).getByText('Cash out')).toBeInTheDocument()
-    await user.click(screen.getByRole('radio', { name: 'Away' }))
+    // The choices live on Shop status, one tap from the home's Open / Close tile.
+    await user.click(screen.getByRole('link', { name: 'Open / Close' }))
+    await user.click(await screen.findByRole('button', { name: 'Go Away' }))
+    expect(await screen.findByText('Hidden from customers · tap to reopen')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Back' }))
     await waitFor(() => expect(card()).toHaveAttribute('data-state', 'hidden'))
     expect(within(card()).getByText('Availability hidden')).toBeInTheDocument()
     expect(within(card()).queryByText('Cash out')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('radio', { name: 'Open' }))
+    expect(screen.getByText(/Away · not sent customers/)).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Open / Close' }))
+    await user.click(await screen.findByRole('button', { name: 'Open for Business' }))
+    expect(await screen.findByText('You are visible to customers')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Back' }))
     await waitFor(() => expect(card()).toHaveAttribute('data-state', 'open'))
   })
 
@@ -363,10 +378,11 @@ describe('low on cash or float today', () => {
     render(<App />)
     await signIn(user)
     await screen.findAllByText("Fatmata's Shop")
-    await user.click(screen.getByRole('button', { name: /low on cash out or cash in today/i }))
+    await user.click(screen.getByRole('link', { name: 'Open / Close' }))
+    await screen.findByRole('radiogroup', { name: 'Cash out today' })
     const cash = screen.getByRole('radiogroup', { name: 'Cash out today' })
-    await user.click(within(cash).getByRole('radio', { name: 'Low' }))
-    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash out today' })).getByRole('radio', { name: 'Low' })).toHaveAttribute('aria-checked', 'true'))
+    await user.click(within(cash).getByRole('radio', { name: 'Low today' }))
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash out today' })).getByRole('radio', { name: 'Low today' })).toHaveAttribute('aria-checked', 'true'))
     const see = (await operatorApi.home('Agent 024')).customers_see
     const cashSide = see.sides.find((s) => s.label === 'Cash out')!
     expect(cashSide.range_text).toMatch(/^up to SLE/)
@@ -374,13 +390,13 @@ describe('low on cash or float today', () => {
     const float = see.sides.find((s) => s.label === 'Cash in')!
     expect(float.why).toBeNull()
     const floatGroup = screen.getByRole('radiogroup', { name: 'Cash in today' })
-    await user.click(within(floatGroup).getByRole('radio', { name: 'None' }))
+    await user.click(within(floatGroup).getByRole('radio', { name: 'None today' }))
     await waitFor(async () => expect((await operatorApi.home('Agent 024')).customers_see.sides.find((s) => s.label === 'Cash in')!.outcome).toBe('limited'))
-    await user.click(within(screen.getByRole('radiogroup', { name: 'Cash out today' })).getByRole('radio', { name: 'Fine' }))
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Cash out today' })).getByRole('radio', { name: 'Normal' }))
     // One save at a time: the pills are disabled while a change is being written.
     await waitFor(async () => expect((await operatorApi.home('Agent 024')).low.cash_out).toBeNull())
-    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash in today' })).getByRole('radio', { name: 'Fine' })).toBeEnabled())
-    await user.click(within(screen.getByRole('radiogroup', { name: 'Cash in today' })).getByRole('radio', { name: 'Fine' }))
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash in today' })).getByRole('radio', { name: 'Normal' })).toBeEnabled())
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Cash in today' })).getByRole('radio', { name: 'Normal' }))
     await waitFor(async () => expect((await operatorApi.home('Agent 024')).low).toMatchObject({ cash_out: null, deposit: null }))
   })
 })

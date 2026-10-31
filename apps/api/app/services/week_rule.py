@@ -103,6 +103,18 @@ async def weeks_for(db: AsyncSession, refs: list[str], now: datetime) -> dict[st
     return out
 
 
+def size_done(week: Week, tx: str, amount_sle: int | None) -> float:
+    """Check 2 as a number for the learned ranker: 1 when the type was done at this size or
+    larger this week (or done at all when no amount is asked), 0.5 when only at smaller
+    sizes, 0 when not done."""
+    seen = week.bands[side_for(tx)]
+    if not seen:
+        return 0.0
+    asked = _band_index(amount_band(amount_sle))
+    largest = max(_band_index(b) or 0 for b in seen)
+    return 1.0 if asked is None or largest >= asked else 0.5
+
+
 def score(week: Week, tx: str, amount_sle: int | None, low: str | None = None) -> WeekScore:
     """The percentage a customer reads for one agent and one request."""
     side = side_for(tx)

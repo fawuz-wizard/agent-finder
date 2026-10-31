@@ -1,49 +1,30 @@
 import { Link } from 'react-router-dom'
 import type { DealerAgentRow } from '@/types/operator'
-import { Tag } from './dealerChrome'
-
-const PRESENCE_TONE: Record<DealerAgentRow['presence'], string> = {
-  open: 'text-finder-likely',
-  hidden: 'text-warning',
-  closed: 'text-finder-muted',
-}
-
-/** The one thing keeping customers away from this agent, if there is one; the worst first. */
-function flag(a: DealerAgentRow): { tone: 'danger' | 'warning'; text: string } | null {
-  if (!a.active) return { tone: 'danger', text: 'Inactive at Orange' }
-  if (!a.verified) return { tone: 'warning', text: 'Pending' }
-  if (!a.located) return { tone: 'warning', text: 'Not on the map' }
-  if (!a.location_confirmed) return { tone: 'warning', text: 'Pin to confirm' }
-  if (a.attention) return { tone: 'warning', text: 'Needs attention' }
-  return null
-}
+import { Pill, RowAvatar } from './designKit'
+import { agentState, mapBlock } from './agentState'
 
 /**
  * One agent as the aggregator sees them, as a row under a hairline: the shop, its code and
- * street, then the word, the track record and how old the word is, on one line. One pill on
- * the right names the thing keeping customers away, if any. Greyed when customers cannot be
- * sent there. The row opens the agent's page, where the capacity line and the rest live;
- * `onOpen` lets a screen note the tap (Search remembers the query).
+ * street, and one pill. The pill is the agent's state, the same word as the chips and the
+ * agent's page, unless something keeps customers from finding the shop at all (not verified,
+ * not on the map, pin to confirm), which comes first. Greyed when customers cannot be sent
+ * there. The trust word, the age and anything needing attention live on the agent's page and
+ * the Attention screen. `onOpen` lets a screen note the tap (Search remembers the query).
  */
-export function AgentRowCard({ agent: a, onOpen }: { agent: DealerAgentRow; onOpen?: (() => void) | undefined }) {
+export function AgentRowCard({ agent: a, onOpen, index = 0 }: { agent: DealerAgentRow; onOpen?: (() => void) | undefined; index?: number }) {
   const onMap = a.active && a.located && a.location_confirmed && a.verified
-  const f = flag(a)
+  const block = mapBlock(a)
+  const state = agentState(a)
   return (
-    <Link to={`/dealer/agents/${encodeURIComponent(a.ref)}`} className="block border-b border-finder-line py-3 last:border-b-0" onClick={onOpen}>
-      <div className="flex items-start justify-between gap-3">
-        <p className={`min-w-0 truncate text-base font-bold leading-tight ${onMap ? 'text-finder-ink' : 'text-finder-muted'}`}>{a.name}</p>
-        {f && <Tag tone={f.tone}>{f.text}</Tag>}
-      </div>
-      <p className="truncate text-sm font-medium text-finder-muted">
-        {a.ref.replace(/^Agent /, 'Code ')} · {a.area}
-      </p>
-      <p className="truncate text-sm font-semibold text-finder-muted">
-        <span className={PRESENCE_TONE[a.presence]}>{a.presence_text}</span>
-        {' · '}
-        <span title={a.reliability.text}>{a.reliability.label_text}</span>
-        {' · '}
-        {a.freshness_text}
-      </p>
+    <Link to={`/dealer/agents/${encodeURIComponent(a.ref)}`} className="flex items-center gap-3 border-t border-finder-card-line px-[18px] py-3.5 first:border-t-0" onClick={onOpen}>
+      <RowAvatar name={a.name} index={index} />
+      <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+        <span className={`text-[15px] font-bold leading-tight ${onMap ? 'text-finder-ink' : 'text-finder-muted'}`}>{a.name}</span>
+        <span className="truncate text-[13px] text-finder-muted">
+          {a.ref.replace(/^Agent /, '')} · {a.area}
+        </span>
+      </span>
+      <span className="shrink-0">{block ? <Pill tone="warn">{block}</Pill> : <Pill tone={state.tone}>{state.text}</Pill>}</span>
     </Link>
   )
 }

@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { keepOverview, readOverview } from './overviewCache'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { DealerAction, DealerOverview, Signal, SignalMuteKind } from '@/types/operator'
-import { FinderBox, FinderHeader } from '@/features/end-user/components/finder'
+import { FinderHeader } from '@/features/end-user/components/finder'
 import { PILL_OFF } from '@/features/agent/components/agentChrome'
 import { Line, PillButton, Section, Tag } from './components/dealerChrome'
+import { RowAvatar, ScreenTitle } from './components/designKit'
+import { PAGE } from './components/designClasses'
 
 const SEV: Record<Signal['severity'], { tone: 'danger' | 'warning' | 'muted'; edge: string; label: string }> = {
   high: { tone: 'danger', edge: 'bg-danger', label: 'Investigate today' },
@@ -25,7 +28,8 @@ export default function DealerAttentionPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { session } = useSession()
-  const { data, state, setData } = useAsync<DealerOverview>((s) => operatorApi.dealerOverview(s))
+  const { data, state, setData } = useAsync<DealerOverview>((s) => operatorApi.dealerOverview(s), [], readOverview())
+  useEffect(() => keepOverview(data), [data])
   const [busy, setBusy] = useState(false)
   const signals = data?.signals ?? []
   const open = id ? signals.find((s) => s.id === id) : null
@@ -124,49 +128,62 @@ export default function DealerAttentionPage() {
     )
   }
 
+  const REASON: Record<Signal['severity'], string> = { high: 'bg-design-red-tint text-design-red', medium: 'bg-design-warn-tint text-finder-limited', low: 'bg-design-track text-finder-muted' }
+  const small = 'flex h-9 items-center justify-center rounded-[10px] text-xs font-bold text-finder-muted disabled:opacity-50'
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader back="/dealer" title="Needs attention" />
-      <p className="mt-4 text-sm font-medium text-finder-muted">{signals.length} open · look into it, don't punish</p>
-
-      <div className="mt-5 flex flex-col gap-3">
-        {state === 'loading' && <p className="text-base font-medium text-finder-muted">Loading…</p>}
-        {signals.map((s) => (
-          <div key={s.id} className={`relative rounded-panel ${SEV[s.severity].edge}`}>
-            <div className="ml-[9px] flex flex-col gap-2 rounded-panel bg-finder-bg px-4 py-4 shadow-inset-finder">
-              <Link to={`/dealer/attention/${s.id}`} className="flex flex-col gap-1.5">
-                <Tag tone={SEV[s.severity].tone}>{s.title}</Tag>
-                <span className="mt-1 block text-lg font-bold leading-tight">{s.agent_name}</span>
-                <span className="-mt-1 block text-sm font-bold text-finder-muted">{s.agent_ref.replace(/^Agent /, 'Code ')}</span>
-                <span className="block text-sm font-medium text-finder-muted">{s.sentence}</span>
-              </Link>
-              <div className="mt-1 grid grid-cols-2 gap-2" role="group" aria-label={`Actions for ${s.agent_ref}`}>
-                <PillButton tone="on" className="px-0 text-sm" onClick={() => act(s, 'nudge')} disabled={busy}>
-                  Nudge
-                </PillButton>
+    <div className={PAGE}>
+      <ScreenTitle
+        title="Needs attention"
+        back="/dealer"
+        action={<span className="rounded-pill bg-design-red-tint px-2.5 py-1 text-[13px] font-extrabold text-design-red">{signals.length}</span>}
+      />
+      <div className="flex flex-col gap-3">
+        {state === 'loading' && <p className="text-sm text-finder-muted">Loading…</p>}
+        {signals.map((s, i) => (
+          <article key={s.id} className="flex flex-col gap-3.5 rounded-[18px] bg-finder-card p-[18px]">
+            <Link to={`/dealer/attention/${s.id}`} className="flex items-start gap-3">
+              <RowAvatar name={s.agent_name} index={i} />
+              <span className="flex min-w-0 flex-1 flex-col items-start gap-[5px]">
+                <span className="max-w-full truncate text-[15px] font-bold">{s.agent_name}</span>
+                <span className={`rounded-pill px-2 py-1 text-[11px] font-bold ${REASON[s.severity]}`}>{s.title}</span>
+                <span className="line-clamp-2 text-[13px] text-finder-muted">
+                  {s.agent_ref.replace(/^Agent /, 'Code ')} · {s.sentence}
+                </span>
+              </span>
+            </Link>
+            <div className="flex flex-col gap-2" role="group" aria-label={`Actions for ${s.agent_ref}`}>
+              <div className="grid grid-cols-2 gap-2.5">
                 {s.call_url ? (
-                  <a href={s.call_url} onClick={() => void act(s, 'call')} className={`inline-flex min-h-chip items-center justify-center rounded-pill px-0 text-sm font-bold ${PILL_OFF}`}>
+                  <a href={s.call_url} onClick={() => void act(s, 'call')} className="flex h-[42px] items-center justify-center rounded-xl border-[1.5px] border-design-field-line text-[13px] font-bold">
                     Call
                   </a>
                 ) : (
-                  <PillButton className="px-0 text-sm" disabled title="No number on file">
+                  <button type="button" disabled title="No number on file" className="flex h-[42px] items-center justify-center rounded-xl border-[1.5px] border-design-field-line text-[13px] font-bold opacity-50">
                     Call
-                  </PillButton>
+                  </button>
                 )}
-                <PillButton className="px-0 text-sm" onClick={() => mute(s, 'snooze')} disabled={busy}>
+                <Link to={`/dealer/network/map?focus=${encodeURIComponent(s.agent_ref)}`} className="flex h-[42px] items-center justify-center rounded-xl bg-design-ink text-[13px] font-bold text-white">
+                  View on map
+                </Link>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                <button type="button" className={small} onClick={() => act(s, 'nudge')} disabled={busy}>
+                  Nudge
+                </button>
+                <button type="button" className={small} onClick={() => mute(s, 'snooze')} disabled={busy}>
                   Snooze
-                </PillButton>
-                <PillButton className="px-0 text-sm" onClick={() => mute(s, 'resolve')} disabled={busy}>
+                </button>
+                <button type="button" className={small} onClick={() => mute(s, 'resolve')} disabled={busy}>
                   Resolve
-                </PillButton>
+                </button>
               </div>
             </div>
-          </div>
+          </article>
         ))}
         {state === 'ready' && signals.length === 0 && (
-          <FinderBox className="px-5 py-4">
+          <div className="rounded-[18px] bg-finder-card p-[18px]">
             <p className="text-base font-bold">Nothing needs attention right now.</p>
-          </FinderBox>
+          </div>
         )}
       </div>
     </div>

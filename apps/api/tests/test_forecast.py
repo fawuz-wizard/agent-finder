@@ -158,3 +158,72 @@ async def test_forecast_is_dealer_only_and_never_carries_money(client, agent, de
     text = (await client.get("/api/v1/dealer/forecast", headers=dealer)).text
     for private in ("balance", "float_position", "4,000", "4000", "cash_out_sle", "estimate"):
         assert private not in text, private
+
+
+async def _record(client, agent, clock, token, tx, amount):
+    clock.advance(1)
+    r = await client.post(
+        "/api/v1/agent/transactions",
+        json={"transaction": tx, "amount_sle": amount, "client_token": token},
+        headers=agent,
+    )
+    assert r.status_code == 201, r.text
+
+
+async def _fatmata(client, dealer):
+    rows = (await client.get("/api/v1/dealer/forecast", headers=dealer)).json()
+    return [x for x in rows if x["agent_ref"] == "Agent 024"][0]
+
+
+@pytest.mark.asyncio
+async def test_pace_comes_from_every_recorded_transaction_not_only_finder_visits(
+    client, agent, dealer, frozen_clock
+):
+    # Walk-in customers never touch the finder; the agent's records still count them.
+    r = await client.post(
+        "/api/v1/agent/availability",
+        json={
+            "presence": "open",
+            "cash_out": "most",
+            "deposit": "most",
+            "cash_out_sle": 20_000,
+            "night_mode": False,
+        },
+        headers=agent,
+    )
+    assert r.status_code == 200, r.text
+    for i in range(4):
+        await _record(client, agent, frozen_clock, f"tok-rec-out-{i}", "cash_out", 4_000)
+    f = await _fatmata(client, dealer)
+    assert "Recorded 4 cash outs and 0 cash ins in the last 7 days." in f["reasons"]
+    assert not any(x.startswith("Confirmed visits") for x in f["reasons"])
+    assert f["days_left_text"] is not None
+    drawn_only = f["days_left_text"]
+
+    # Cash ins put notes back in the drawer: the same cash outs now last longer.
+    await _record(client, agent, frozen_clock, "tok-rec-in-1", "deposit", 3_000)
+    f = await _fatmata(client, dealer)
+    assert "Recorded 4 cash outs and 1 cash in in the last 7 days." in f["reasons"]
+    # SLE 20,000 at a net 16,000 a week is about 9 days; 3,000 back makes it about 11.
+    assert drawn_only == "about 9 days of cash at the recent pace"
+    assert f["days_left_text"] == "about 11 days of cash at the recent pace"
+
+    # As much in as out: no pace, so no days-left line, and the reason says why.
+    await _record(client, agent, frozen_clock, "tok-rec-in-2", "deposit", 13_000)
+    f = await _fatmata(client, dealer)
+    assert f["days_left_text"] is None
+    assert "Cash ins brought back as much cash as cash outs took out." in f["reasons"]
+
+
+@pytest.mark.asyncio
+async def test_records_win_over_confirmed_visits_so_no_customer_counts_twice(
+    client, agent, dealer, frozen_clock
+):
+    await _report(client, frozen_clock, "tok-fc-dup", 3_000, "yes")
+    f = await _fatmata(client, dealer)
+    assert "Confirmed visits drew cash 1 time in the last 7 days." in f["reasons"]
+    # The same customer, recorded by the agent: the records take over, the visit is not added.
+    await _record(client, agent, frozen_clock, "tok-rec-dup", "cash_out", 3_000)
+    f = await _fatmata(client, dealer)
+    assert "Recorded 1 cash out and 0 cash ins in the last 7 days." in f["reasons"]
+    assert not any(x.startswith("Confirmed visits") for x in f["reasons"])

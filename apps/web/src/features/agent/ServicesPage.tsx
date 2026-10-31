@@ -4,89 +4,33 @@ import { useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import type { AgentHome, FloatRequest } from '@/types/operator'
-import { FinderBox, FinderCta, FinderHeader } from '@/features/end-user/components/finder'
-import { EdgeCard, FieldLabel, MoneyField, PILL_OFF, PILL_ON, SectionLabel, TextField } from './components/agentChrome'
+import type { AgentHome } from '@/types/operator'
+import { AgentTitle } from './components/agentKit'
+import { BOX, FIELD, PRIMARY, chip } from './components/agentClasses'
 import { formatSle } from './money'
 
 function newToken(): string {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-const STEPS: { state: FloatRequest['state']; label: string }[] = [
-  { state: 'pending', label: 'Waiting for your aggregator' },
-  { state: 'approved', label: 'Approved' },
-  { state: 'completed', label: 'Completed' },
-]
-
-const STATE_TEXT: Record<FloatRequest['state'], string> = {
-  pending: 'Pending',
-  approved: 'Approved',
-  completed: 'Completed',
-  declined: 'Declined',
-  cancelled: 'Cancelled',
-}
-
-function Progress({ request }: { request: FloatRequest }) {
-  const order = ['pending', 'approved', 'completed']
-  const current = order.indexOf(request.state)
-  return (
-    <ol className="mt-1 flex flex-col gap-1.5">
-      <li className="flex items-center gap-2 text-sm font-bold text-finder-likely">
-        <span className="h-3 w-3 rounded-full bg-finder-likely" />
-        Requested · {new Date(request.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </li>
-      {STEPS.map((s, i) => {
-        const done = current > i
-        const now = current === i
-        return (
-          <li key={s.state} className={`flex items-center gap-2 text-sm font-bold ${done ? 'text-finder-likely' : now ? 'text-finder-link' : 'text-finder-muted'}`}>
-            <span className={`h-3 w-3 rounded-full ${done ? 'bg-finder-likely' : now ? 'bg-finder-accent' : 'bg-finder-line'}`} />
-            {s.label}
-          </li>
-        )
-      })}
-    </ol>
-  )
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 /**
- * Services: what the agent does in the app, laid out like the finder's first screen. One
- * question with two pills, the bands as quick amounts; then Float: your position, the
- * request you are waiting on, the form, and what came before.
+ * Record Transaction (the design's "Do Transaction" tile: the app records what the agent did
+ * in Orange Money, it never moves money). Which side, then what Orange's own flow asks for:
+ * the customer's number for a cash in, and the amount. One token per attempt, so a retry after
+ * a timeout cannot record the same transaction twice. Float requests have their own screen.
  */
 export default function ServicesPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
   const home = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
-  const list = useAsync<FloatRequest[]>((s) => operatorApi.floatRequests(ref, s), [ref])
   const toast = useToast()
   const ids = useId()
-
-  // Recording: the side, then what Orange's own flow asks for: the customer's number for a
-  // cash in, and the amount. One token per attempt, so a retry after a timeout cannot record
-  // the same transaction twice.
   const [side, setSide] = useState<'cash_out' | 'deposit' | null>(null)
   const [txAmount, setTxAmount] = useState('')
   const [customer, setCustomer] = useState('')
   const [logging, setLogging] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
   const [token, setToken] = useState(newToken)
-
-  // Float request form.
-  const [amount, setAmount] = useState('')
-  const [reason, setReason] = useState('')
-  const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [tok, setTok] = useState(newToken)
-
-  const requests = list.data ?? []
-  const pending = requests.find((r) => r.state === 'pending' || r.state === 'approved')
-  const history = requests.filter((r) => r !== pending)
-  const position = home.data?.float_position ?? null
 
   async function recordTransaction() {
     if (!side || logging) return
@@ -122,170 +66,89 @@ export default function ServicesPage() {
     }
   }
 
-  async function submit() {
-    const value = Number(amount)
-    if (!Number.isFinite(value) || value <= 0) {
-      setError('Enter the amount you need.')
-      return
-    }
-    setBusy(true)
-    setError(null)
-    try {
-      await operatorApi.requestFloat(ref, value, reason.trim() || 'No reason given', tok)
-      setTok(newToken())
-      setAmount('')
-      setReason('')
-      setOpen(false)
-      list.refresh()
-      home.refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not send the request.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function cancel(id: string) {
-    setBusy(true)
-    try {
-      await operatorApi.moveFloat(id, 'cancelled', ref, null)
-      list.refresh()
-      home.refresh()
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const unlocated = home.data?.customers_see.state === 'unlocated'
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader title="Services" />
-
-      {unlocated && (
-        <EdgeCard className="mt-6">
-          <p className="text-lg font-bold leading-tight">Your shop is not on the map yet</p>
-          <p className="text-sm font-medium text-finder-muted">Customers cannot find you until it is. Stand inside the shop and pin it.</p>
-          <Link to="/agent/profile" className={`inline-flex h-chip w-fit items-center rounded-pill px-5 text-base font-bold ${PILL_ON}`}>
-            Pin my shop
-          </Link>
-        </EdgeCard>
-      )}
-
-      <h1 className="mt-6 text-lg font-bold leading-tight">What did you just do?</h1>
-      <p className="mt-1 text-sm font-medium text-finder-muted">
-        After you serve someone, the same details Orange asks you for. <span className="font-bold text-finder-ink">Logged today: {home.data?.today.logged ?? 0}</span>
-      </p>
-      <div role="radiogroup" aria-label="What did you just do?" className="mt-5 flex gap-10">
-        {(
-          [
-            ['deposit', 'Cash in'],
-            ['cash_out', 'Cash out'],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={side === value}
-            onClick={() => setSide(value)}
-            className={`h-[2.9rem] w-[7rem] rounded-pill text-base font-bold transition-colors ${side === value ? PILL_ON : PILL_OFF}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {side && (
-        <div className="mt-4 flex flex-col gap-3">
-          {side === 'deposit' && (
-            <>
-              <FieldLabel htmlFor={`${ids}-customer`}>Customer's number</FieldLabel>
-              <TextField id={`${ids}-customer`} value={customer} onChange={(e) => setCustomer(e.target.value.replace(/[^\d ]/g, '').slice(0, 15))} inputMode="tel" placeholder="e.g. 076 000 000" />
-              <p className="-mt-1 text-sm font-medium text-finder-muted">The Orange Money number the cash goes to, as you typed it for Orange. Only its last three digits are kept.</p>
-            </>
-          )}
-          <FieldLabel htmlFor={`${ids}-tx-amount`}>Amount (SLE)</FieldLabel>
-          <MoneyField id={`${ids}-tx-amount`} value={txAmount} onChange={(e) => setTxAmount(e.target.value.replace(/\D/g, '').slice(0, 7))} />
-          <FinderCta className="mt-1" onClick={() => void recordTransaction()} disabled={logging}>
-            {logging ? 'Recording…' : side === 'deposit' ? 'Record cash in' : 'Record cash out'}
-          </FinderCta>
-        </div>
-      )}
-      {logError && (
-        <p role="alert" className="mt-2 text-sm font-semibold text-danger">
-          {logError}
-        </p>
-      )}
-
-      <SectionLabel className="mt-8">Float</SectionLabel>
-      <FinderBox className="mt-3 flex min-h-[3.5rem] items-center justify-between gap-3 px-5 py-2">
-        <span className="text-base font-bold">Your position</span>
-        {position ? (
-          <span className="text-right">
-            <span className="block text-lg font-bold">{formatSle(position.amount_sle)}</span>
-            <span className="block text-xs font-semibold text-finder-muted">
-              from {position.source} · {new Date(position.read_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </span>
-        ) : (
-          <span className="text-base font-bold text-finder-muted">Not connected</span>
+    <div className="flex flex-1 flex-col text-finder-ink">
+      <AgentTitle title="Record Transaction" />
+      <div className="flex flex-1 flex-col gap-2.5 px-[18px] pb-8 pt-6">
+        {unlocated && (
+          <section className={`${BOX} mb-2 flex flex-col gap-2 border-finder-accent px-4 py-4`}>
+            <p className="text-base font-bold leading-tight">Your shop is not on the map yet</p>
+            <p className="text-sm text-finder-muted">Customers cannot find you until it is. Stand inside the shop and pin it.</p>
+            <Link to="/agent/profile" className={`${PRIMARY} h-12 w-fit px-5`}>
+              Pin my shop
+            </Link>
+          </section>
         )}
-      </FinderBox>
 
-      {pending && (
-        <EdgeCard className="mt-3">
-          <span className="w-fit rounded-tag bg-finder-limited-tint px-3 py-1 text-xs font-bold text-finder-limited">
-            {STATE_TEXT[pending.state]} · waiting {pending.waiting_text}
-          </span>
-          <p className="text-lg font-bold leading-tight">{formatSle(pending.amount_sle)}</p>
-          <Progress request={pending} />
-          <p className="text-sm font-medium text-finder-muted">Reason you gave: “{pending.reason}”</p>
-          {pending.state === 'pending' && (
-            <button type="button" disabled={busy} onClick={() => cancel(pending.id)} className="h-control self-start text-base font-bold text-finder-link">
-              Cancel request ›
+        <h2 className="text-[17px] font-bold">What did you just do?</h2>
+        <p className="text-sm text-finder-muted">
+          After you serve someone, the same details Orange asks you for. <span className="font-bold text-finder-ink">Logged today: {home.data?.today.logged ?? 0}</span>
+        </p>
+        <div role="radiogroup" aria-label="What did you just do?" className="mt-2 flex gap-2">
+          {(
+            [
+              ['deposit', 'Cash in'],
+              ['cash_out', 'Cash out'],
+            ] as const
+          ).map(([value, label]) => (
+            <button key={value} type="button" role="radio" aria-checked={side === value} onClick={() => setSide(value)} className={`${chip(side === value)} h-11 px-6 text-sm`}>
+              {label}
             </button>
-          )}
-        </EdgeCard>
-      )}
+          ))}
+        </div>
 
-      {!pending &&
-        (open ? (
-          <div className="mt-4 flex flex-col gap-3">
-            <FieldLabel htmlFor={`${ids}-amount`}>Amount (SLE)</FieldLabel>
-            <MoneyField id={`${ids}-amount`} value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, '').slice(0, 7))} />
-            <FieldLabel htmlFor={`${ids}-reason`}>Reason</FieldLabel>
-            <TextField id={`${ids}-reason`} value={reason} onChange={(e) => setReason(e.target.value.slice(0, 120))} placeholder="Customer demand is high this morning" />
-            {error && (
-              <p role="alert" className="text-sm font-semibold text-danger">
-                {error}
-              </p>
+        {side && (
+          <div className="mt-3 flex flex-col gap-2.5">
+            {side === 'deposit' && (
+              <>
+                <label htmlFor={`${ids}-customer`} className="text-sm font-semibold">
+                  Customer's number
+                </label>
+                <div className={FIELD}>
+                  <input
+                    id={`${ids}-customer`}
+                    value={customer}
+                    onChange={(e) => setCustomer(e.target.value.replace(/[^\d ]/g, '').slice(0, 15))}
+                    inputMode="tel"
+                    placeholder="e.g. 076 000 000"
+                    className="h-full min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:font-normal placeholder:text-finder-muted"
+                  />
+                </div>
+                <p className="text-[13px] text-finder-muted">The Orange Money number the cash goes to, as you typed it for Orange. Only its last three digits are kept.</p>
+              </>
             )}
-            <FinderCta className="mt-2" onClick={submit} disabled={busy}>
-              {busy ? 'Sending…' : 'Submit request'}
-            </FinderCta>
-          </div>
-        ) : (
-          <FinderCta className="mt-4" onClick={() => setOpen(true)}>
-            Request float
-          </FinderCta>
-        ))}
-
-      <SectionLabel className="mt-8">Recent requests</SectionLabel>
-      <div className="mt-3 flex flex-col gap-2">
-        {history.length === 0 && <p className="text-sm font-medium text-finder-muted">Nothing yet.</p>}
-        {history.map((r) => (
-          <FinderBox key={r.id} className="flex min-h-[3.5rem] flex-col justify-center gap-1 px-5 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-base font-bold">
-                {formatSle(r.amount_sle)} <span className="font-semibold text-finder-muted">· {new Date(r.requested_at).toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
-              </span>
-              <span className={`shrink-0 rounded-tag px-3 py-1 text-xs font-bold ${r.state === 'declined' ? 'bg-danger-tint text-danger' : r.state === 'cancelled' ? 'bg-finder-line text-finder-muted' : 'bg-finder-likely-tint text-finder-likely'}`}>
-                {STATE_TEXT[r.state]}
-              </span>
+            <label htmlFor={`${ids}-tx-amount`} className="text-sm font-semibold">
+              Amount (SLE)
+            </label>
+            <div className={FIELD}>
+              <span className="text-[17px] font-semibold">SLE</span>
+              <input
+                id={`${ids}-tx-amount`}
+                value={txAmount}
+                onChange={(e) => setTxAmount(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="0"
+                className="h-full min-w-0 flex-1 bg-transparent text-[19px] font-extrabold outline-none placeholder:text-finder-muted"
+              />
             </div>
-            {r.decision_reason && <p className="text-sm font-medium text-finder-muted">“{r.decision_reason}”</p>}
-          </FinderBox>
-        ))}
+            <button type="button" className={`${PRIMARY} mt-2`} onClick={() => void recordTransaction()} disabled={logging}>
+              {logging ? 'Recording…' : side === 'deposit' ? 'Record cash in' : 'Record cash out'}
+            </button>
+          </div>
+        )}
+        {logError && (
+          <p role="alert" className="text-sm font-semibold text-danger">
+            {logError}
+          </p>
+        )}
+
+        <Link to="/agent/float" className={`${BOX} mt-6 flex min-h-14 items-center justify-between px-4`}>
+          <span className="text-sm font-semibold">Need float?</span>
+          <span className="text-[13px] font-bold text-finder-link">Request float ›</span>
+        </Link>
       </div>
     </div>
   )

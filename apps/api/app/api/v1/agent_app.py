@@ -663,12 +663,99 @@ def feedback_item(r: OutcomeReport, now: datetime) -> dict | None:
         "id": "fb-" + hashlib.sha256(r.id.encode()).hexdigest()[:10],
         "day_text": day_text(r.at, now),
         "kind": "not_served" if failed else "comment",
+        "reason_code": (
+            (r.reason_code if r.reason_code in REASON_TEXT else "other") if failed else None
+        ),
         "transaction_label": TRANSACTION_LABELS.get(r.transaction or "", None),
         "reason_text": (
             REASON_TEXT.get(r.reason_code or "", REASON_TEXT["other"]) if failed else None
         ),
         "rating": r.rating,
         "comment": comment,
+    }
+
+
+async def feedback_for(
+    db: AsyncSession,
+    ref: str,
+    now: datetime,
+    *,
+    kind: str | None = None,
+    reason: str | None = None,
+    offset: int = 0,
+    limit: int = FEEDBACK_LIMIT,
+) -> dict:
+    """What customers said about one shop, without who said it. The agent reads it in their app
+    and their aggregator on the agent's page: the same anonymous items for both.
+
+    The counts, the reasons and the trend always cover every report in the window. The items
+    can be narrowed for the aggregator's tabs, a page at a time: kind "not_served" (failed
+    visits, optionally one reason) or "comment" (every report with the customer's words);
+    `total` says how many match, so a screen knows how many are left."""
+    start = now - timedelta(days=FEEDBACK_DAYS)
+    rows = (
+        (
+            await db.execute(
+                select(OutcomeReport)
+                .where(OutcomeReport.agent_ref == ref, OutcomeReport.at >= start)
+                .order_by(OutcomeReport.at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if kind == "not_served":
+        picked = [r for r in rows if r.answer == "no"]
+        if reason:
+            picked = [
+                r
+                for r in picked
+                if (r.reason_code if r.reason_code in REASON_TEXT else "other") == reason
+            ]
+    elif kind == "comment":
+        picked = [r for r in rows if (r.comment or "").strip()]
+    else:
+        picked = list(rows)
+    matching = [x for x in (feedback_item(r, now) for r in picked) if x is not None]
+    items = matching[offset : offset + limit]
+    ratings = [r.rating for r in rows if r.rating is not None]
+    failed = [r for r in rows if r.answer == "no"]
+    # Failed visits by reason, over every report in the window (the items stop at the newest
+    # FEEDBACK_LIMIT): what keeps going wrong, worst first.
+    by_reason: dict[str, int] = {}
+    for r in failed:
+        code = r.reason_code if r.reason_code in REASON_TEXT else "other"
+        by_reason[code] = by_reason.get(code, 0) + 1
+    reasons = [
+        {"code": code, "text": REASON_TEXT[code], "count": n}
+        for code, n in sorted(by_reason.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+    # This week against last week, only once there is a week before this one to compare.
+    week_ago = now - timedelta(days=7)
+    trend = None
+    if any(_aware(r.at) < week_ago for r in rows):
+        two_weeks_ago = now - timedelta(days=14)
+        trend = {
+            "this_week": sum(1 for r in failed if _aware(r.at) >= week_ago),
+            "last_week": sum(1 for r in failed if two_weeks_ago <= _aware(r.at) < week_ago),
+        }
+    return {
+        "days": FEEDBACK_DAYS,
+        "reasons": reasons,
+        "trend": trend,
+        "summary": {
+            "served": sum(1 for r in rows if r.answer == "yes"),
+            "not_served": sum(1 for r in rows if r.answer == "no"),
+            "comments": sum(1 for r in rows if (r.comment or "").strip()),
+            "ratings": len(ratings),
+            # Shown on the same rule as to customers: three ratings or nothing.
+            "rating_average": round(sum(ratings) / len(ratings), 1) if len(ratings) >= 3 else None,
+        },
+        "privacy_text": (
+            "Customers are anonymous. No name, number, time or amount is kept with their words."
+        ),
+        "items": items,
+        "total": len(matching),
     }
 
 
@@ -680,36 +767,7 @@ def feedback_item(r: OutcomeReport, now: datetime) -> dict | None:
 async def feedback(
     p: Principal = Depends(require_role("agent")), db: AsyncSession = Depends(get_session)
 ) -> dict:
-    now = now_utc()
-    start = now - timedelta(days=FEEDBACK_DAYS)
-    rows = (
-        (
-            await db.execute(
-                select(OutcomeReport)
-                .where(OutcomeReport.agent_ref == p.subject, OutcomeReport.at >= start)
-                .order_by(OutcomeReport.at.desc())
-            )
-        )
-        .scalars()
-        .all()
-    )
-    items = [x for x in (feedback_item(r, now) for r in rows) if x is not None][:FEEDBACK_LIMIT]
-    ratings = [r.rating for r in rows if r.rating is not None]
-    return {
-        "days": FEEDBACK_DAYS,
-        "summary": {
-            "served": sum(1 for r in rows if r.answer == "yes"),
-            "not_served": sum(1 for r in rows if r.answer == "no"),
-            "comments": sum(1 for r in rows if (r.comment or "").strip()),
-            "ratings": len(ratings),
-            # Shown to the agent on the same rule as to customers: three ratings or nothing.
-            "rating_average": round(sum(ratings) / len(ratings), 1) if len(ratings) >= 3 else None,
-        },
-        "privacy_text": (
-            "Customers are anonymous. No name, number, time or amount is kept with their words."
-        ),
-        "items": items,
-    }
+    return await feedback_for(db, p.subject, now_utc())
 
 
 @router.get("/activity", summary="Today's timeline: operator rows and ours, each labelled")

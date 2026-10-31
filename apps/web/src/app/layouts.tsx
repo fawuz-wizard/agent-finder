@@ -1,7 +1,7 @@
 import { Outlet, Link } from 'react-router-dom'
-import { AgentStrip, AgentTabBar } from '@/features/agent/components/agentChrome'
+import { AgentTabBar } from '@/features/agent/components/agentChrome'
 import { ShopPresenceWatch } from '@/features/agent/components/ShopPresence'
-import { AggregatorStrip, DealerTabBar } from '@/features/dealer/components/DealerTabBar'
+import { DealerTabBar } from '@/features/dealer/components/DealerTabBar'
 import { Wordmark } from '@/design'
 import { HostStrip } from '@/features/end-user/components/finder'
 import { config } from '@/lib/config'
@@ -35,19 +35,36 @@ export function CustomerLayout() {
 }
 
 
-const PLATFORM_SHELL = 'mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-finder-bg font-finder text-finder-ink md:min-h-0 md:my-8 md:border-2 md:border-finder-line'
+/**
+ * The agent and aggregator platform's frame. On a phone the app is the whole screen. On a
+ * laptop it sits in a phone, as the approved design presents it: 390 x 844, a 10 px black
+ * bezel with 54 px corners, a soft shadow on the warm grey page, the screen scrolling inside.
+ * The demo label sits above the phone, never on the screen.
+ */
+function PlatformFrame({ theme, app, children }: { theme: string; app?: 'agent' | 'aggregator'; children: React.ReactNode }) {
+  return (
+    <div data-theme={theme} data-platform={theme} data-app={app} className="flex min-h-dvh flex-col bg-finder-bg font-finder text-finder-ink md:items-center md:justify-center md:gap-4 md:bg-design-nav-line md:py-8">
+      {config.isDemo && (
+        <p className="bg-night px-4 py-1.5 text-center text-xs font-semibold text-night-text md:rounded-pill md:px-4 md:py-1" role="note">
+          {t('demo.banner')}
+        </p>
+      )}
+      <div className="flex w-full flex-1 flex-col md:h-[min(844px,calc(100dvh-6rem))] md:w-[390px] md:flex-none md:rounded-[54px] md:bg-black md:p-[10px] md:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.35)]">
+        <div className="no-scrollbar flex min-h-0 flex-1 flex-col bg-finder-bg md:overflow-y-auto md:rounded-[44px]">{children}</div>
+      </div>
+    </div>
+  )
+}
 
 /** Agent shell: the platform surface (dark by default, daylight on request) and the tabs that never leave the screen. */
 export function AgentLayout() {
   const [theme] = usePlatformTheme()
   return (
-    <div data-theme={theme} data-platform={theme} className={PLATFORM_SHELL}>
-      <DemoRibbon />
-      <AgentStrip />
+    <PlatformFrame theme={theme} app="agent">
       <ShopPresenceWatch />
       <Outlet />
       <AgentTabBar />
-    </div>
+    </PlatformFrame>
   )
 }
 
@@ -55,12 +72,20 @@ export function AgentLayout() {
 export function DealerLayout() {
   const [theme] = usePlatformTheme()
   return (
-    <div data-theme={theme} data-platform={theme} className={PLATFORM_SHELL}>
-      <DemoRibbon />
-      <AggregatorStrip />
+    <PlatformFrame theme={theme}>
       <Outlet />
       <DealerTabBar />
-    </div>
+    </PlatformFrame>
+  )
+}
+
+/** The aggregator's full-screen pages (the Full map): the same frame, no tabs. */
+export function DealerBareLayout() {
+  const [theme] = usePlatformTheme()
+  return (
+    <PlatformFrame theme={theme}>
+      <Outlet />
+    </PlatformFrame>
   )
 }
 
@@ -68,10 +93,9 @@ export function DealerLayout() {
 export function SignInLayout() {
   const [theme] = usePlatformTheme()
   return (
-    <div data-theme={theme} data-platform={theme} className={PLATFORM_SHELL}>
-      <DemoRibbon />
+    <PlatformFrame theme={theme}>
       <Outlet />
-    </div>
+    </PlatformFrame>
   )
 }
 

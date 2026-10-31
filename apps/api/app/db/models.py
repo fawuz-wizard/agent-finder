@@ -216,6 +216,26 @@ class FloatRequestEvent(Base):
     reason: Mapped[str | None] = mapped_column(Text)
 
 
+class FloatSend(Base):
+    """Float an aggregator sent an agent in Orange Money, recorded here afterwards. The app
+    never moves money: this row is the aggregator's statement, with the Orange Money
+    reference when they give it, and completes the request it answers. Idempotent on the
+    client token."""
+
+    __tablename__ = "float_sends"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    dealer_id: Mapped[str] = mapped_column(ForeignKey("dealers.id"), nullable=False, index=True)
+    agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
+    amount_sle: Mapped[int] = mapped_column(Integer, nullable=False)
+    om_reference: Mapped[str | None] = mapped_column(String(40))
+    request_id: Mapped[str | None] = mapped_column(ForeignKey("float_requests.id"))
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    client_token: Mapped[str | None] = mapped_column(String(64), unique=True)
+
+
 class Action(Base):
     __tablename__ = "actions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

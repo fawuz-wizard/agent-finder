@@ -11,6 +11,7 @@
 import type {
   ActivityEvent,
   AgentFeedback,
+  ReportsQuery,
   FeedbackItem,
   AgentHome,
   AgentInsights,
@@ -59,8 +60,8 @@ import type {
   LowToday,
 } from '@/types/operator'
 import { config } from '@/lib/config'
-import { bandOf as weekBand, sideOf, weekNote } from './weekRule'
-import { addWeekTransaction, weekFor } from './demoWeek'
+import { BAND_ORDER, bandOf as weekBand, sideOf, weekNote } from './weekRule'
+import { addWeekTransaction, weekFor, weekRecords } from './demoWeek'
 import { TARIFF_NOTE, commissionFor, commissionForBand } from '@/features/agent/commission'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS, WEEKDAYS, wordForFigure } from '@/types/operator'
 
@@ -463,6 +464,7 @@ export function demoAgentFeedback(ref: string): AgentFeedback {
       id: feedbackId(a.ref, f.at, i),
       day_text: dayText(f.at),
       kind: failed ? 'not_served' : 'comment',
+      reason_code: failed ? (REASON_TEXT[f.reason ?? ''] ? f.reason : 'other') : null,
       transaction_label: f.transaction === 'cash_out' ? 'Cash out' : f.transaction === 'deposit' ? 'Cash in' : null,
       reason_text: failed ? (REASON_TEXT[f.reason ?? ''] ?? REASON_TEXT.other!) : null,
       rating: f.rating,
@@ -470,8 +472,23 @@ export function demoAgentFeedback(ref: string): AgentFeedback {
     })
   })
   const ratings = rows.map((f) => f.rating).filter((r): r is number => r !== null)
+  // As the API: failed visits by reason over the whole window, worst first, and this week
+  // against last week only once there is a week before this one.
+  const counts = new Map<string, number>()
+  for (const f of rows.filter((x) => x.answer === 'no')) {
+    const code = REASON_TEXT[f.reason ?? ''] ? f.reason! : 'other'
+    counts.set(code, (counts.get(code) ?? 0) + 1)
+  }
+  const reasons = [...counts].map(([code, count]) => ({ code, text: REASON_TEXT[code]!, count })).sort((x, y) => y.count - x.count || x.code.localeCompare(y.code))
+  const weekAgo = Date.now() - 7 * 86_400_000
+  const failedRows = rows.filter((f) => f.answer === 'no')
+  const trend = rows.some((f) => f.at < weekAgo)
+    ? { this_week: failedRows.filter((f) => f.at >= weekAgo).length, last_week: failedRows.filter((f) => f.at < weekAgo && f.at >= weekAgo - 7 * 86_400_000).length }
+    : null
   return {
     days: FEEDBACK_DAYS,
+    reasons,
+    trend,
     summary: {
       served: rows.filter((f) => f.answer === 'yes').length,
       not_served: rows.filter((f) => f.answer === 'no').length,
@@ -482,6 +499,14 @@ export function demoAgentFeedback(ref: string): AgentFeedback {
     privacy_text: FEEDBACK_PRIVACY,
     items: items.slice(0, 50),
   }
+}
+/** As the API's tabs: the feedback narrowed to failed visits (one reason) or to words, 20 at a time. */
+export function demoReportsPage(ref: string, q: ReportsQuery): AgentFeedback {
+  const all = demoAgentFeedback(ref)
+  const matching =
+    q.kind === 'not_served' ? all.items.filter((i) => i.kind === 'not_served' && (!q.reason || i.reason_code === q.reason)) : q.kind === 'comment' ? all.items.filter((i) => i.comment) : all.items
+  const offset = q.offset ?? 0
+  return { ...all, items: matching.slice(offset, offset + 20), total: matching.length }
 }
 const NETWORK = { small: 500, some: 10_000 } as const
 const BANDS: [number, string, number, number][] = [
@@ -1544,7 +1569,15 @@ export function demoFloatForecast(): FloatForecast[] {
     const mine = visits.filter((v) => v.ref === a.ref && v.tx === 'cash_out' && v.at >= since)
     const confirmed = mine.filter((v) => v.answer === 'yes')
     const drawn = confirmed.reduce((sum, v) => sum + bandOf(v.amount)[2], 0)
-    const pace = drawn / WINDOW_DAYS
+    // As the API: the agent's own records give the pace, every customer and not only the
+    // finder's. Cash outs draw cash, cash ins bring it back; confirmed visits stand in only
+    // for an agent who recorded nothing, so no customer counts twice.
+    const rec = weekRecords(a.shop)
+    const midpoint = (b: string) => BANDS[BAND_ORDER.indexOf(b as (typeof BAND_ORDER)[number])]?.[2] ?? 0
+    const outSle = rec.cash.reduce((s, b) => s + midpoint(b), 0)
+    const inSle = rec.float.reduce((s, b) => s + midpoint(b), 0)
+    const recorded = rec.cash.length + rec.float.length > 0
+    const pace = recorded ? Math.max(0, outSle - inSle) / WINDOW_DAYS : drawn / WINDOW_DAYS
     const { cash } = ledgerFor(a)
     const ceiling = ceilingOf(cash)
     const daysLeft = ceiling !== null && pace > 0 ? ceiling / pace : null
@@ -1562,8 +1595,13 @@ export function demoFloatForecast(): FloatForecast[] {
     if (cash.cap !== null) reasons.push('A customer could not be served for lack of cash since the last update.')
     if (failuresToday) reasons.push(`${failuresToday} failed visit${failuresToday === 1 ? '' : 's'} for lack of cash today.`)
     if (daysLeft !== null) reasons.push(daysLeftText(daysLeft).charAt(0).toUpperCase() + daysLeftText(daysLeft).slice(1) + '.')
-    if (confirmed.length) reasons.push(`Confirmed visits drew cash ${confirmed.length} time${confirmed.length === 1 ? '' : 's'} in the last ${WINDOW_DAYS} days.`)
-    else if (a.cash_out === 'most' || a.cash_out === 'some') reasons.push('No confirmed visits in the last 7 days to learn a pace from yet.')
+    if (recorded) {
+      const o = rec.cash.length
+      const i = rec.float.length
+      reasons.push(`Recorded ${o} cash out${o === 1 ? '' : 's'} and ${i} cash in${i === 1 ? '' : 's'} in the last ${WINDOW_DAYS} days.`)
+      if (o && outSle <= inSle) reasons.push('Cash ins brought back as much cash as cash outs took out.')
+    } else if (confirmed.length) reasons.push(`Confirmed visits drew cash ${confirmed.length} time${confirmed.length === 1 ? '' : 's'} in the last ${WINDOW_DAYS} days.`)
+    else if (a.cash_out === 'most' || a.cash_out === 'some') reasons.push('No transactions recorded in the last 7 days to learn a pace from yet.')
     reasons.push(lastText ? `${lastText}.` : 'No top-up on record.')
     if (pending) reasons.push('A request is waiting for your decision.')
     return {
@@ -1815,6 +1853,9 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
     shop_name: a.shop,
     area: a.area,
     declaration: declarationOf(a),
+    bucket: bucketOf(a),
+    freshness_text: ageText(declarationOf(a).age_min),
+    call_url: callUrl(a),
     customers_see: { state: customersSee(a).state, headline: customersSee(a).headline },
     seen_as: seenAs(a, 'dealer'),
     today: {

@@ -65,7 +65,7 @@ export default function AgentDirectionsPage() {
         </p>
       </div>
 
-      <div className="min-h-[24rem] flex-1">
+      <div className="flex min-h-[24rem] flex-1 flex-col">
         <RouteMap
           fill
           agent={{ name: agent.name, lat: agent.lat, lng: agent.lng }}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { TILE, fromTile, toTile } from '@/lib/tiles'
+import { TILE, fromTile, tileSource, toTile } from '@/lib/tiles'
 
 /**
  * A street map for placing or checking one pin, drawn from OpenStreetMap tiles with plain
@@ -110,7 +110,7 @@ export function PinMap({
         {tiles.map((t) => (
           <img
             key={`${zoom}/${t.x}/${t.y}`}
-            src={`https://tile.openstreetmap.org/${zoom}/${t.x}/${t.y}.png`}
+            src={tileSource().url(zoom, t.x, t.y)}
             alt=""
             draggable={false}
             loading="lazy"
@@ -148,7 +148,9 @@ export function PinMap({
         </span>
       </div>
       <p className="text-right text-[0.7rem] font-medium text-finder-muted">
-        © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">OpenStreetMap</a> contributors
+        <a href={tileSource().credit.href} target="_blank" rel="noreferrer" className="underline">
+          {tileSource().credit.text}
+        </a>
       </p>
     </div>
   )

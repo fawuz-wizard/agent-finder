@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
-import { AgentLayout, CustomerLayout, DealerLayout, SignInLayout } from './layouts'
+import { AgentLayout, CustomerLayout, DealerBareLayout, DealerLayout, SignInLayout } from './layouts'
 import { RequireRole } from '@/features/auth/RequireRole'
 import { ResultCardSkeleton } from '@/design'
 import { config } from '@/lib/config'
@@ -22,10 +22,17 @@ const AgentProfile = lazy(() => import('@/features/agent/ProfilePage'))
 const AgentSettings = lazy(() => import('@/features/agent/SettingsPage'))
 const AgentNotifications = lazy(() => import('@/features/agent/NotificationsPage'))
 const AgentHours = lazy(() => import('@/features/agent/HoursPage'))
+const AgentStatus = lazy(() => import('@/features/agent/StatusPage'))
+const AgentFloat = lazy(() => import('@/features/agent/FloatPage'))
+const DealerNetwork = lazy(() => import('@/features/dealer/NetworkPage'))
+const DealerFullMap = lazy(() => import('@/features/dealer/FullMapPage'))
+const DealerSendFloat = lazy(() => import('@/features/dealer/SendFloatPage'))
+const DealerNotifications = lazy(() => import('@/features/dealer/NotificationsPage'))
 const DealerDashboard = lazy(() => import('@/features/dealer/DashboardPage'))
 const DealerAgents = lazy(() => import('@/features/dealer/AgentsPage'))
 const DealerSearch = lazy(() => import('@/features/dealer/SearchPage'))
 const DealerAgentDetail = lazy(() => import('@/features/dealer/AgentDetailPage'))
+const DealerAgentReports = lazy(() => import('@/features/dealer/AgentReportsPage'))
 const DealerRegisterAgent = lazy(() => import('@/features/dealer/RegisterAgentPage'))
 const DealerFloatQueue = lazy(() => import('@/features/dealer/FloatQueuePage'))
 const DealerFloatReview = lazy(() => import('@/features/dealer/FloatReviewPage'))
@@ -83,11 +90,12 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: withSuspense(<AgentDashboard />) },
           { path: 'services', element: withSuspense(<AgentServices />) },
+          { path: 'status', element: withSuspense(<AgentStatus />) },
           // The five old modules fold into three tabs; old links still land somewhere right.
           { path: 'availability', element: <Navigate to="/agent" replace /> },
           { path: 'dashboard', element: <Navigate to="/agent" replace /> },
           { path: 'activity', element: withSuspense(<AgentActivity />) },
-          { path: 'float', element: <Navigate to="/agent/services" replace /> },
+          { path: 'float', element: withSuspense(<AgentFloat />) },
           { path: 'profile', element: withSuspense(<AgentProfile />) },
           { path: 'settings', element: withSuspense(<AgentSettings />) },
           { path: 'notifications', element: withSuspense(<AgentNotifications />) },
@@ -107,6 +115,7 @@ const router = createBrowserRouter([
           { path: 'agents', element: withSuspense(<DealerAgents />) },
           { path: 'agents/new', element: withSuspense(<DealerRegisterAgent />) },
           { path: 'agents/:ref', element: withSuspense(<DealerAgentDetail />) },
+          { path: 'agents/:ref/reports', element: withSuspense(<DealerAgentReports />) },
           { path: 'search', element: withSuspense(<DealerSearch />) },
           { path: 'float', element: withSuspense(<DealerFloatQueue />) },
           { path: 'float/:id', element: withSuspense(<DealerFloatReview />) },
@@ -115,7 +124,17 @@ const router = createBrowserRouter([
           { path: 'profile', element: withSuspense(<DealerProfile />) },
           { path: 'settings', element: withSuspense(<DealerSettings />) },
           { path: 'records', element: withSuspense(<DealerRecords />) },
+          { path: 'network', element: withSuspense(<DealerNetwork />) },
           { path: 'reveals', element: withSuspense(<DealerReveals />) },
+        ],
+      },
+      // Full-screen aggregator pages: the frame without the tabs.
+      {
+        element: <DealerBareLayout />,
+        children: [
+          { path: 'network/map', element: withSuspense(<DealerFullMap />) },
+          { path: 'float/send', element: withSuspense(<DealerSendFloat />) },
+          { path: 'notifications', element: withSuspense(<DealerNotifications />) },
         ],
       },
       // The national map is full width, outside the phone-sized console frame.

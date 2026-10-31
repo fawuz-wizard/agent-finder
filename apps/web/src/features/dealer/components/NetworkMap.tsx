@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { TILE, fromTile, toTile } from '@/lib/tiles'
+import { TILE, fromTile, tileSource, toTile } from '@/lib/tiles'
 import { MAX_ZOOM, MIN_ZOOM, PIN_ZOOM, fitView } from './networkMapView'
 
 /**
@@ -106,6 +106,7 @@ export function NetworkMap({
     setDrag(null)
   }
   const zoomBy = (d: number) => setView((v) => ({ ...v, zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, v.zoom + d)) }))
+  const src = tileSource()
   const btn = 'flex h-11 w-11 items-center justify-center rounded-full border border-finder-line bg-finder-bg text-xl font-bold text-finder-ink'
 
   return (
@@ -125,11 +126,12 @@ export function NetworkMap({
         onPointerUp={release}
         onPointerCancel={release}
       >
-        <div className="absolute inset-0" style={{ filter: 'invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.9)' }}>
+        {/* TomTom draws its own night style; OpenStreetMap's light tiles are inverted to match the dark page. */}
+        <div className="absolute inset-0" style={src.provider === 'osm' ? { filter: 'invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.9)' } : undefined}>
           {tiles.map((t) => (
             <img
               key={`${zoom}/${t.x}/${t.y}`}
-              src={`https://tile.openstreetmap.org/${zoom}/${t.x}/${t.y}.png`}
+              src={src.url(zoom, t.x, t.y, 'night')}
               alt=""
               draggable={false}
               decoding="async"
@@ -186,7 +188,9 @@ export function NetworkMap({
         )}
       </div>
       <p className="text-right text-[0.7rem] font-medium text-finder-muted">
-        © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">OpenStreetMap</a> contributors
+        <a href={tileSource().credit.href} target="_blank" rel="noreferrer" className="underline">
+          {tileSource().credit.text}
+        </a>
       </p>
     </div>
   )

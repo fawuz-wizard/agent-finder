@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { cn, LogoMark, TextInput } from '@/design'
+import { LogoMark } from '@/design'
 import { config } from '@/lib/config'
 import { useSession } from './session'
 
 /**
- * Sign in. Nobody is asked who they are and nothing is explained: every agent and every
+ * Sign in, in the approved design (2026-10-29): the mark and the word, "Welcome back", the
+ * number, Continue; then the PIN. Nobody is asked who they are: every agent and every
  * aggregator has their own number, the server knows whose it is, and the PIN settles the
- * rest. The mark, the word, one number, one PIN, one button. The first-time code and the
- * demo credentials are told in person and written in RUNNING.md, not on the screen.
+ * rest. The first-time code and the demo credentials are told in person, not on the screen.
  */
 export default function SignInPage() {
   const { signIn } = useSession()
@@ -19,6 +19,8 @@ export default function SignInPage() {
   const [showPin, setShowPin] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The number first, then the PIN: two steps on one screen, one sign-in call at the end.
+  const [step, setStep] = useState<'number' | 'pin'>('number')
 
   const ready = pin.length >= 4 && ref.trim().length > 0
 
@@ -44,118 +46,121 @@ export default function SignInPage() {
     }
   }
 
-  // Presentation only: the flow, the fields and their rules are above and unchanged.
-  // Built to OUDS Web v1.4.0 (Orange theme): square corners (business use), a filled text
-  // input with its label inside, one brand button, and the 3px Orange focus ring.
-  return (
-    <div className="flex flex-1 flex-col bg-ouds-bg font-ouds text-ouds-content">
-      <header className="flex h-[max(3.5rem,52px)] items-center justify-between gap-[12px] px-[1rem] shadow-[inset_0_-1px_0_0_var(--color-ouds-border-muted)]">
-        <span className="flex items-center gap-[12px] text-[1rem] font-bold leading-[1.5]">
-          <LogoMark size={32} />
-          <span className="sr-only">Agent App</span>
-        </span>
-        {config.surface === 'customer' && (
-          <Link
-            to="/"
-            className="ouds-focus -mr-[8px] flex min-h-[48px] min-w-[48px] items-center gap-[8px] px-[8px] text-[1rem] font-bold leading-[1.5] text-ouds-action hover:text-ouds-action-hover hover:underline"
-          >
-            <svg viewBox="0 0 20 20" aria-hidden="true" className="h-[20px] w-[20px]">
-              <path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Back
-          </Link>
-        )}
-      </header>
+  // Measured from the approved design: 56 px field and button, 14 px corners, 1.5 px edge.
+  const field = 'flex h-14 items-center gap-3 rounded-[14px] border-[1.5px] border-design-field-line bg-design-field px-4 focus-within:border-finder-accent'
+  const primary = 'mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-finder-accent text-base font-extrabold text-finder-on-orange transition-opacity'
+  const on = 'opacity-100'
+  const off = 'cursor-not-allowed opacity-55'
 
+  return (
+    <div className="flex flex-1 flex-col bg-white text-design-ink">
+      {config.surface === 'customer' && (
+        <Link to="/" className="flex h-control items-center gap-1 px-5 text-base font-bold text-finder-link">
+          ‹ Back
+        </Link>
+      )}
       <form
-        className="flex flex-1 flex-col px-[1rem] pb-[2rem]"
+        className="flex flex-1 flex-col px-7 pb-8 pt-12"
         noValidate
         onSubmit={(e) => {
           e.preventDefault()
-          void submit()
+          if (step === 'number') {
+            if (ref.trim()) {
+              setError(null)
+              setStep('pin')
+            }
+          } else void submit()
         }}
       >
-        <h1 className="mt-[2.5rem] text-[1.5rem] font-bold leading-[1.3333] tracking-[-0.0075rem]">Sign in</h1>
+        <LogoMark size={64} className="!rounded-[18px]" />
+        <p className="mt-4 text-[22px] font-extrabold tracking-[-0.02em]">
+          Agent <span className="text-finder-link">Finder</span>
+          {config.surface === 'agent' && <span className="sr-only">Agent App</span>}
+        </p>
 
-        {/* One number, no words around it: every agent and every aggregator has their own, and
-            the server knows whose it is. */}
-        <TextInput
-          id="sign-in-ref"
-          className="mt-[2rem]"
-          label="Phone number"
-          prefix="+232"
-          value={ref}
-          onChange={setRef}
-          autoComplete="username"
-          autoCapitalize="off"
-          spellCheck={false}
-          inputMode="tel"
-        />
-
-        <TextInput
-          id="sign-in-pin"
-          className="mt-[1.5rem]"
-          label="PIN"
-          helper="Your PIN, or the one-time code you were given"
-          value={pin}
-          onChange={(v) => setPin(v.replace(/\D/g, '').slice(0, 6))}
-          inputMode="numeric"
-          type={showPin ? 'text' : 'password'}
-          autoComplete="current-password"
-          trailing={
-            <button
-              type="button"
-              onClick={() => setShowPin((v) => !v)}
-              aria-pressed={showPin}
-              className="ouds-focus flex h-[48px] w-[48px] items-center justify-center text-ouds-action hover:bg-ouds-field-hover hover:text-ouds-action-hover active:bg-ouds-field-pressed"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[24px] w-[24px]">
-                <path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-                <circle cx="12" cy="12" r="3" fill="currentColor" />
-                {showPin && <path d="M4.5 19.5 19.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
-              </svg>
-              <span className="sr-only">{showPin ? 'Hide PIN' : 'Show PIN'}</span>
+        {step === 'number' ? (
+          <>
+            <h1 className="mt-14 text-[30px] font-extrabold leading-tight tracking-[-0.03em]">Welcome back</h1>
+            <p className="mt-2 text-[15px] leading-normal text-design-muted">Enter your Orange phone number to continue.</p>
+            <label htmlFor="sign-in-ref" className="sr-only">
+              Phone number
+            </label>
+            <div className={`mt-8 ${field}`}>
+              <span className="text-base font-bold">+232</span>
+              <span aria-hidden="true" className="h-6 w-px bg-design-field-line" />
+              <input
+                id="sign-in-ref"
+                value={ref}
+                onChange={(e) => setRef(e.target.value)}
+                placeholder="76X XXX XXX"
+                autoComplete="username"
+                autoCapitalize="off"
+                spellCheck={false}
+                inputMode="tel"
+                className="h-full min-w-0 flex-1 bg-transparent text-base font-semibold tracking-[0.04em] outline-none placeholder:text-design-faint"
+              />
+            </div>
+            <button type="submit" disabled={!ref.trim()} className={`${primary} ${ref.trim() ? on : off}`}>
+              Continue
             </button>
-          }
-        />
-
-        {/* OUDS alert message, negative: tinted surface, the icon carries the colour, the text stays default. */}
-        {error && (
-          <div role="alert" className="mt-[1.5rem] flex min-h-[48px] items-start gap-[12px] bg-ouds-negative-muted px-[1rem] py-[12px]">
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[24px] w-[24px] shrink-0 text-ouds-negative">
-              <circle cx="12" cy="12" r="10" fill="currentColor" />
-              <path d="M12 7v6" stroke="var(--color-ouds-bg)" strokeWidth="2.2" strokeLinecap="round" />
-              <circle cx="12" cy="16.8" r="1.3" fill="var(--color-ouds-bg)" />
-            </svg>
-            <p className="text-[1rem] font-bold leading-[1.5]">{error}</p>
-          </div>
+          </>
+        ) : (
+          <>
+            <h1 className="mt-14 text-[30px] font-extrabold leading-tight tracking-[-0.03em]">Enter your PIN</h1>
+            <p className="mt-2 text-[15px] leading-normal text-design-muted">
+              For <span className="font-bold text-finder-ink">{ref.trim()}</span> ·{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('number')
+                  setPin('')
+                  setError(null)
+                }}
+                className="font-bold text-finder-link"
+              >
+                Change number
+              </button>
+            </p>
+            <label htmlFor="sign-in-pin" className="sr-only">
+              PIN
+            </label>
+            <div className={`mt-8 ${field}`}>
+              <input
+                id="sign-in-pin"
+                autoFocus
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="4 to 6 digits"
+                inputMode="numeric"
+                type={showPin ? 'text' : 'password'}
+                autoComplete="current-password"
+                aria-describedby="sign-in-pin-help"
+                className="h-full min-w-0 flex-1 bg-transparent text-lg font-bold tracking-widest outline-none placeholder:font-medium placeholder:tracking-normal placeholder:text-finder-muted"
+              />
+              <button type="button" onClick={() => setShowPin((v) => !v)} aria-pressed={showPin} className="text-sm font-bold text-finder-link">
+                {showPin ? 'Hide PIN' : 'Show PIN'}
+              </button>
+            </div>
+            <p id="sign-in-pin-help" className="mt-2 text-sm font-medium text-finder-muted">
+              Your PIN, or the one-time code you were given.
+            </p>
+            {error && (
+              <p role="alert" className="mt-4 rounded-xl bg-danger/10 px-4 py-3 text-base font-bold text-danger">
+                {error}
+              </p>
+            )}
+            <button type="submit" disabled={busy || !ready} className={`${primary} ${busy ? 'cursor-progress ' + on : ready ? on : off}`}>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
+            <span role="status" className="sr-only">
+              {busy ? 'Signing in' : ''}
+            </span>
+          </>
         )}
 
-        {/* The one brand (orange) button on the screen. Full width on phones only: OUDS keeps
-            block buttons off desktop. Hover and press follow OUDS: grey, then black. */}
-        <button
-          type="submit"
-          disabled={busy || !ready}
-          className={cn(
-            'ouds-focus mt-[2rem] flex min-h-[max(3rem,48px)] w-full items-center justify-center gap-[8px] px-[32px] py-[12px] text-[1rem] font-bold leading-[1.5] tracking-[0.0125rem] md:w-auto md:self-start',
-            busy
-              ? 'cursor-progress bg-ouds-brand-pressed text-ouds-on-brand-pressed'
-              : ready
-                ? 'bg-ouds-brand text-ouds-on-brand hover:bg-ouds-action-hover hover:text-ouds-on-action active:bg-ouds-brand-pressed active:text-ouds-on-brand-pressed'
-                : 'cursor-not-allowed bg-ouds-action-disabled text-ouds-on-disabled',
-          )}
-        >
-          {busy && (
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[20px] w-[20px] animate-spin">
-              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
-              <path d="M21 12a9 9 0 0 0-9-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          )}
-          Sign in
-        </button>
-        <span role="status" className="sr-only">
-          {busy ? 'Signing in' : ''}
-        </span>
+        <p className="mt-auto pt-10 text-center text-sm font-semibold text-design-muted">
+          Need help? <span className="text-finder-link">Contact the Agent Finder team</span>
+        </p>
       </form>
     </div>
   )

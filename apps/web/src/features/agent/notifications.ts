@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { operatorApi } from '@/services/operatorApi'
-import type { AgentFeedback, AgentHome } from '@/types/operator'
+import type { AgentFeedback, AgentHome, FloatSend } from '@/types/operator'
 
 /**
  * The bell. Nothing new on the server: the things an agent should hear about already exist
@@ -41,8 +41,18 @@ const dayKey = () => new Date().toISOString().slice(0, 10)
 const shorten = (s: string, n = 90) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
 /** The list, newest concern first, from what the home and the feedback already say. */
-export function buildNotifications(home: AgentHome | null, feedback: AgentFeedback | null): Notification[] {
+export function buildNotifications(home: AgentHome | null, feedback: AgentFeedback | null, sends: FloatSend[] = []): Notification[] {
   const out: Notification[] = []
+  // Float the aggregator recorded as sent today: the agent hears it here.
+  for (const s of sends.filter((x) => x.sent_at.slice(0, 10) === dayKey())) {
+    out.push({
+      id: `float-sent-${s.id}`,
+      text: `${s.sent_by} sent you ${s.amount_sle.toLocaleString('en-US')} float in Orange Money${s.om_reference ? ` · ref ${s.om_reference}` : ''}`,
+      when: 'Today',
+      to: '/agent/float',
+      tone: 'good',
+    })
+  }
   const f = home?.latest_float
   if (f && f.decided_at && f.state !== 'pending' && f.state !== 'cancelled') {
     const decidedToday = f.decided_at.slice(0, 10) === dayKey()
@@ -51,7 +61,7 @@ export function buildNotifications(home: AgentHome | null, feedback: AgentFeedba
         id: `float-${f.id}-${f.state}`,
         text: `Your float request of ${f.amount_sle.toLocaleString('en-US')} was ${f.state}${f.decision_reason ? `: “${f.decision_reason}”` : ''}`,
         when: 'Today',
-        to: '/agent/services',
+        to: '/agent/float',
         tone: f.state === 'declined' ? 'warning' : 'good',
       })
   }
@@ -76,12 +86,15 @@ export function buildNotifications(home: AgentHome | null, feedback: AgentFeedba
 export function useNotifications(ref: string): { items: Notification[]; unseen: number; markSeen: () => void; loading: boolean } {
   const [home, setHome] = useState<AgentHome | null>(null)
   const [feedback, setFeedback] = useState<AgentFeedback | null>(null)
+  const [sends, setSends] = useState<FloatSend[]>([])
   const [loading, setLoading] = useState(true)
   const [seen, setSeen] = useState<Set<string>>(readSeen)
 
   useEffect(() => {
     const ctrl = new AbortController()
     let alive = true
+    // Float sent arrives on its own, so the rest of the bell never waits for it.
+    operatorApi.floatSends(ref, 2, ctrl.signal).then((s) => alive && setSends(s), () => undefined)
     Promise.allSettled([operatorApi.home(ref, ctrl.signal), operatorApi.feedback(ref, ctrl.signal)]).then(([h, f]) => {
       if (!alive) return
       if (h.status === 'fulfilled') setHome(h.value)
@@ -104,7 +117,7 @@ export function useNotifications(ref: string): { items: Notification[]; unseen: 
     }
   }, [])
 
-  const items = useMemo(() => buildNotifications(home, feedback), [home, feedback])
+  const items = useMemo(() => buildNotifications(home, feedback, sends), [home, feedback, sends])
   const unseen = items.filter((n) => !seen.has(n.id)).length
   const markSeen = useCallback(() => {
     const next = new Set(readSeen())

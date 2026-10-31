@@ -7,9 +7,12 @@ import { operatorApi } from '@/services/operatorApi'
 import { CAPACITY_RANGES, PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
 import type { DealerAgentDetail, FloatRequest } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
-import { FinderCta, FinderHeader, FinderSheet } from '@/features/end-user/components/finder'
-import { EdgeCard, FieldLabel, TextField } from '@/features/agent/components/agentChrome'
-import { Line, PillButton, Section } from './components/dealerChrome'
+import { FinderHeader, FinderSheet } from '@/features/end-user/components/finder'
+import { FieldLabel, TextField } from '@/features/agent/components/agentChrome'
+import { Line, PillButton } from './components/dealerChrome'
+import { Info } from 'lucide-react'
+import { Pill, RowAvatar, ScreenTitle } from './components/designKit'
+import { CARD, OUTLINE, PAGE, SOLID } from './components/designClasses'
 import { MaskedValue } from './components/MaskedValue'
 
 /**
@@ -66,55 +69,71 @@ export default function DealerFloatReviewPage() {
   const a = agent.data
   const word = (w: DealerAgentDetail['declaration']['cash_out']) => CAPACITY_RANGES.find((c) => c.word === w)?.label ?? w
 
+  const open = req.state === 'pending' || req.state === 'approved'
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader back="/dealer/float" title="Float request" />
-      <p className="mt-4 text-sm font-bold text-finder-muted">
-        {req.agent_name} · {req.agent_ref.replace(/^Agent /, 'Code ')} · requested {new Date(req.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </p>
+    <div className={PAGE}>
+      <ScreenTitle title="Float request" back="/dealer/float" />
 
-      <div className="mt-4 flex flex-col gap-3">
-        <EdgeCard muted={req.state !== 'pending'}>
-          <p className="text-xs font-bold uppercase tracking-wider text-finder-muted">Amount requested</p>
-          <p className="text-2xl font-bold leading-none">{formatSle(req.amount_sle)}</p>
-          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-finder-muted">Reason given</p>
-          <p className="text-base font-medium">“{req.reason}”</p>
-          {req.state !== 'pending' && (
-            <p className="text-sm font-semibold text-finder-muted">
-              Already {req.state}
-              {req.decision_reason ? ` — “${req.decision_reason}”` : ''}
-            </p>
-          )}
-        </EdgeCard>
+      <section className={`${CARD} flex flex-col gap-3.5 p-[18px]`}>
+        <div className="flex items-center gap-3">
+          <RowAvatar name={req.agent_name} index={1} />
+          <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+            <span className="text-[15px] font-bold leading-tight">{req.agent_name}</span>
+            <span className="text-[12.5px] text-finder-muted">
+              {req.agent_ref.replace(/^Agent /, 'Code ')} · requested {new Date(req.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            <Pill tone={req.state === 'pending' ? 'warn' : req.state === 'declined' ? 'bad' : 'good'}>{req.state === 'pending' ? `Waiting ${req.waiting_text}` : req.state === 'approved' ? 'Approved · not sent yet' : `Already ${req.state}`}</Pill>
+          </span>
+        </div>
+        <div className="py-1 text-center">
+          <p className="text-[13px] text-finder-muted">Amount requested</p>
+          <p className="text-[36px] font-extrabold leading-tight tracking-[-0.02em]">{formatSle(req.amount_sle)}</p>
+        </div>
+        <p className="flex gap-2.5 rounded-[14px] bg-finder-tile px-3.5 py-3 text-[13px] leading-snug">
+          <Info size={16} strokeWidth={2.2} className="mt-0.5 shrink-0 text-finder-link" aria-hidden />
+          <span>
+            “{req.reason}” <span className="text-finder-muted">· the agent's reason</span>
+          </span>
+        </p>
+        {!open && req.decision_reason && <p className="text-[13px] text-finder-muted">“{req.decision_reason}”</p>}
+      </section>
 
-        <Section heading="Context">
-          <Line label="Declared now" value={a ? `${PRESENCE_LABELS[a.declaration.presence].split(' ·')[0]} · ${word(a.declaration.cash_out)} · ${word(a.declaration.deposit)}` : '…'} />
-          <Line label="Transactions today" value={a ? (a.today.transactions ?? '—') : '…'} />
-          <Line label="Reported problems today" value={a ? a.today.reported_problems : '…'} tone={a && a.today.reported_problems > 0 ? 'text-danger' : ''} />
-          <MaskedValue agentRef={req.agent_ref} field="float" label="Float position" />
-        </Section>
+      <section className={`${CARD} px-[18px] py-1`} aria-label="What the app knows">
+        <h2 className="pb-1 pt-3 text-sm font-extrabold">What the app knows</h2>
+        <Line label="Declared now" value={a ? `${PRESENCE_LABELS[a.declaration.presence].split(' ·')[0]} · ${word(a.declaration.cash_out)} · ${word(a.declaration.deposit)}` : '…'} />
+        <Line label="Transactions today" value={a ? (a.today.transactions ?? '—') : '…'} />
+        <Line label="Reported problems today" value={a ? a.today.reported_problems : '…'} tone={a && a.today.reported_problems > 0 ? 'text-danger' : ''} />
+        <MaskedValue agentRef={req.agent_ref} field="float" label="Float position" />
+      </section>
 
-        {req.state === 'pending' && may && (
-          <>
-            <FinderCta onClick={() => decide('approved')} disabled={busy}>
+      {open && may && (
+        <div className="mt-auto flex flex-col gap-2.5">
+          <div className="grid grid-cols-2 gap-3">
+            {req.state === 'pending' ? (
+              <button type="button" className={`${OUTLINE} text-[15px]`} onClick={() => setDeclining(true)} disabled={busy}>
+                Decline
+              </button>
+            ) : (
+              <span />
+            )}
+            <Link to={`/dealer/float/send?request=${encodeURIComponent(req.id)}`} className={`${SOLID} text-[15px]`}>
+              {req.state === 'pending' ? 'Approve & send' : 'Send now'}
+            </Link>
+          </div>
+          {req.state === 'pending' && (
+            <button type="button" onClick={() => decide('approved')} disabled={busy} className="h-control text-sm font-bold text-finder-link">
               Approve
-            </FinderCta>
-            <PillButton className="h-[2.9rem]" onClick={() => toast.show(`Contact ${req.agent_name} — logged`)} disabled={busy}>
-              Contact agent first
-            </PillButton>
-            <PillButton tone="danger" className="h-[2.9rem]" onClick={() => setDeclining(true)} disabled={busy}>
-              Decline
-            </PillButton>
-            <p className="text-center text-xs font-medium text-finder-muted">A decline needs a reason. The agent reads it in their app; no phone call is needed to find out what happened.</p>
-          </>
-        )}
-        {req.state === 'pending' && !may && <p className="text-center text-sm font-semibold text-finder-muted">You can see this request but not decide it.</p>}
-        {error && (
-          <p role="alert" className="text-sm font-semibold text-danger">
-            {error}
-          </p>
-        )}
-      </div>
+            </button>
+          )}
+          <p className="text-center text-xs text-finder-muted">Approve now and send later, or Approve &amp; send records the Orange Money transfer at once. A decline needs a reason the agent reads.</p>
+        </div>
+      )}
+      {open && !may && <p className="text-center text-sm font-semibold text-finder-muted">You can see this request but not decide it.</p>}
+      {error && (
+        <p role="alert" className="text-sm font-semibold text-danger">
+          {error}
+        </p>
+      )}
 
       <FinderSheet open={declining} onClose={() => setDeclining(false)} title="Decline this request">
         <p className="text-sm font-medium text-finder-muted">Write it as you would say it to them. They will see these exact words.</p>

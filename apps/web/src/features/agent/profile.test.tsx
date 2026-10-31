@@ -54,6 +54,7 @@ describe('agent profile', () => {
   it('photographs the shop, shows it, and can take it down again', async () => {
     const user = userEvent.setup()
     renderProfile()
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Shop & Location' }))
     await screen.findByText('Add a photo of your shop')
     expect(screen.queryByRole('img', { name: /photographed by you/i })).not.toBeInTheDocument()
     const input = screen.getByLabelText('Photo of your shop') as HTMLInputElement
@@ -75,6 +76,7 @@ describe('agent profile', () => {
 
   it('shows the Orange record in full, never editable, with Settings behind the gear', async () => {
     renderProfile()
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Personal Information' }))
     await screen.findByText('Orange record')
     expect(screen.getByText('Region')).toBeInTheDocument()
     expect(screen.getByText('Status at Orange')).toBeInTheDocument()
@@ -86,6 +88,7 @@ describe('agent profile', () => {
   it('sends a wrong record to the aggregator without touching the record', async () => {
     const user = userEvent.setup()
     renderProfile()
+    await user.click(await screen.findByRole('button', { name: 'Personal Information' }))
     await screen.findByText('Orange record')
     const before = (await operatorApi.profile('Agent 024')).street
     await user.click(screen.getByRole('button', { name: 'Report a mistake' }))
@@ -138,16 +141,16 @@ describe('agent profile', () => {
 
 
 describe('appearance', () => {
-  it('opens dark, and Light turns the whole agent shell white on this phone', async () => {
+  it('opens light, and Dark turns the whole agent shell dark on this phone', async () => {
     const user = userEvent.setup()
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', role: 'agent', name: "Fatmata's Shop", ref: 'Agent 024', permissions: [] }))
     const { container } = renderSettings()
     const group = await screen.findByRole('radiogroup', { name: 'Appearance' })
-    expect(container.querySelector('[data-platform="dark"]')).not.toBeNull()
-    expect(within(group).getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true')
-    await user.click(within(group).getByRole('radio', { name: 'Light' }))
     expect(container.querySelector('[data-platform="light"]')).not.toBeNull()
-    expect(container.querySelector('[data-platform="dark"]')).toBeNull()
-    expect(localStorage.getItem('af.platformTheme')).toBe('light')
+    expect(within(group).getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(within(group).getByRole('radio', { name: 'Dark' }))
+    expect(container.querySelector('[data-platform="dark"]')).not.toBeNull()
+    expect(container.querySelector('[data-platform="light"]')).toBeNull()
+    expect(localStorage.getItem('af.platformTheme')).toBe('dark')
   })
 })

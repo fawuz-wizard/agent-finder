@@ -67,8 +67,8 @@ export function AgentResultCard({
   if (recommended)
     return (
       <article className="relative my-2 rounded-panel bg-finder-link">
-        <div className="ml-[9px] flex flex-col gap-4 rounded-panel bg-finder-bg px-4 py-5 shadow-inset-finder">{body}</div>
+        <div className="ml-[9px] flex flex-col gap-3 rounded-panel bg-finder-bg px-4 py-4 shadow-inset-finder">{body}</div>
       </article>
     )
-  return <article className="relative flex flex-col gap-4 border-b border-finder-line py-6 last:border-b-0">{body}</article>
+  return <article className="relative flex flex-col gap-3 border-b border-finder-line py-4 last:border-b-0">{body}</article>
 }

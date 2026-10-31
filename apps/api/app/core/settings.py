@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     # transaction, customer reports; never 100, 95 at best. Agents and aggregators read it in
     # words, never as a figure. "activity": the success probability the older ranker computes
     # (position or ledger, recency, failures, trust, distance). "rules": the fixed order.
-    ranker: Literal["activity", "rules", "week"] = "week"
+    # "learned": the customer still reads the 7-day rule's percentage, while weights learned
+    # from real visits on the same 7-day facts order the agents (scripts.train_ranker says
+    # when they beat the rule).
+    ranker: Literal["activity", "rules", "week", "learned"] = "week"
     # The fixture network (one dealer, demo agents, PIN 1234) exists for the test suite. Unset
     # means: only in tests. A laptop or a server starts empty and is filled by the Orange import
     # (scripts/import_orange.py) or by registering agents in the app.

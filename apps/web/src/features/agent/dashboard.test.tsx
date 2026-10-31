@@ -59,14 +59,17 @@ describe('agent activity', () => {
     await screen.findByText(/Indicative tariff/)
     const hero = screen.getByLabelText("Today's commission")
     expect(hero).toHaveTextContent(/SLE/)
-    // Only two rows show until asked: the agent's own log (newest) and the latest operator row.
+    // Every row of the day, as the design lists them; the agent's own log is an estimate.
     expect(screen.getByText('≈ SLE 6')).toBeInTheDocument()
     expect(screen.getByText(/Logged by you · estimate/)).toBeInTheDocument()
-    expect(await screen.findByText('+SLE 25')).toBeInTheDocument()
-    expect(screen.queryByText(/Could not complete/)).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: /show all 6/i }))
+    expect((await screen.findAllByText('+SLE 25')).length).toBeGreaterThan(0)
     // Seeded operator rows: the failed one earns nothing.
     expect(screen.getByText(/Could not complete/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /show fewer/i })).toBeInTheDocument()
+    // The chips filter by side.
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Cash in' }))
+    expect(screen.getByRole('button', { name: 'Cash in' })).toHaveAttribute('aria-pressed', 'true')
+    // Only the chip still says Cash out: no cash-out row is left in the list.
+    expect(screen.getAllByText('Cash out')).toHaveLength(1)
   })
 })

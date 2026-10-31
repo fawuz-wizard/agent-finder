@@ -1,7 +1,10 @@
 """Float demand forecast for dealers: which agents will probably run short of cash by
-tomorrow, from the pilot's own evidence. The pace is learned from the visits customers
-confirmed over the last seven days; the remaining cash comes from the agent's own words or
-figure through the ledger; failed visits and the top-up history sharpen it.
+tomorrow, from the pilot's own evidence. The pace is learned from the transactions the agent
+recorded over the last seven days, every customer and not only those who came through the
+finder: cash outs take notes out of the drawer, cash ins put them back, so the pace is the
+net, never below zero. Visits customers confirmed stand in only for an agent who recorded
+nothing, so no customer is counted twice. The remaining cash comes from the agent's own words
+or figure through the ledger; failed visits and the top-up history sharpen it.
 
 Only ever a ranking with reasons. No operator balance is read, no figure of the agent's is
 shown to the dealer, and nothing here decides a float request: the dealer does.
@@ -15,7 +18,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Agent, FloatRequest, OutcomeReport
+from app.db.models import Agent, AgentTransaction, FloatRequest, OutcomeReport
 from app.services.ledger import BAND_MIDPOINT, CAPACITY_FAILURES, _aware, ledgers_for, side_of
 from app.services.phrasing import NETWORK_RANGES, age_text
 
@@ -104,6 +107,17 @@ async def forecasts_for(db: AsyncSession, agents: list[Agent], now: datetime) ->
         .scalars()
         .all()
     )
+    records = (
+        await db.execute(
+            select(
+                AgentTransaction.agent_ref,
+                AgentTransaction.at,
+                AgentTransaction.transaction,
+                AgentTransaction.amount_band,
+                AgentTransaction.amount_sle,
+            ).where(AgentTransaction.agent_ref.in_(refs), AgentTransaction.at >= since)
+        )
+    ).all()
     requests = (
         (
             await db.execute(
@@ -131,7 +145,23 @@ async def forecasts_for(db: AsyncSession, agents: list[Agent], now: datetime) ->
                 drawn += BAND_MIDPOINT.get(r.amount_band or "", 0)
             elif at >= start_today and (r.reason_code or "") in CAPACITY_FAILURES:
                 failures_today += 1
-        pace = drawn / WINDOW_DAYS
+        # The agent's own records: the exact amount where they typed one, else the band's
+        # middle. Cash outs draw cash; cash ins bring it back.
+        outs = ins = 0
+        out_sle = in_sle = 0
+        for ref, at, tx, band, amount in records:
+            when = _aware(at)
+            if ref != a.ref or when is None or when > now:
+                continue
+            value = amount if amount else BAND_MIDPOINT.get(band or "", 0)
+            if side_of(tx) == "cash":
+                outs += 1
+                out_sle += value
+            else:
+                ins += 1
+                in_sle += value
+        recorded = outs + ins > 0
+        pace = max(0, out_sle - in_sle) / WINDOW_DAYS if recorded else drawn / WINDOW_DAYS
         ledger = ledgers[a.ref]
         ceiling = ledger.cash.ceiling(NETWORK_RANGES)
         days_left = (ceiling / pace) if (ceiling is not None and pace > 0) else None
@@ -163,12 +193,18 @@ async def forecasts_for(db: AsyncSession, agents: list[Agent], now: datetime) ->
             reasons.append(f"{n} failed visit{'s' if n != 1 else ''} for lack of cash today.")
         if days_left is not None:
             reasons.append(days_left_text(days_left).capitalize() + ".")
-        if visits:
+        if recorded:
+            reasons.append(
+                f"Recorded {outs} cash out{'s' if outs != 1 else ''} and {ins} cash in{'s' if ins != 1 else ''} in the last {WINDOW_DAYS} days."  # noqa: E501
+            )
+            if out_sle <= in_sle and outs:
+                reasons.append("Cash ins brought back as much cash as cash outs took out.")
+        elif visits:
             reasons.append(
                 f"Confirmed visits drew cash {visits} time{'s' if visits != 1 else ''} in the last {WINDOW_DAYS} days."  # noqa: E501
             )
         elif a.cash_out in ("most", "some"):
-            reasons.append("No confirmed visits in the last 7 days to learn a pace from yet.")
+            reasons.append("No transactions recorded in the last 7 days to learn a pace from yet.")
         reasons.append(f"{last_text}." if last_text else "No top-up on record.")
         if pending:
             reasons.append("A request is waiting for your decision.")

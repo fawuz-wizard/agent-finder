@@ -9,13 +9,13 @@ import re
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.agent_app import declaration_of, float_out, seen_as
+from app.api.v1.agent_app import declaration_of, feedback_for, float_out, seen_as
 from app.core.auth import Principal, hash_pin, new_code, require_permission, require_role
 from app.core.errors import AppError, NotFoundError
 from app.db.models import (
@@ -485,12 +485,18 @@ async def agent_detail(
     sigs = [s for s in await signals_for(db, [a], now)]
     trust = (await trust_for(db, [a], now))[a.ref]
     ledger = (await ledgers_for(db, [a], now))[a.ref]
+    decl = declaration_of(a, now, ledger)
     return {
         "ref": a.ref,
         "name": a.person_name,
         "shop_name": a.shop_name,
         "area": a.street,
-        "declaration": declaration_of(a, now, ledger).model_dump(),
+        "declaration": decl.model_dump(),
+        # The same state and age the agent list shows, so the two screens never disagree, and
+        # the aggregator's way to call the shop.
+        "bucket": bucket_of(a, now, ledger),
+        "freshness_text": age_text(decl.age_min if decl.age_min < 10**6 else None),
+        "call_url": f"tel:{a.phone}" if a.phone else None,
         "reliability": trust.as_dict(),
         "capacity_text": capacity_text(ledger),
         # How customers see this agent, in words, and the same note the agent reads. Only the
@@ -662,6 +668,31 @@ async def act(
         "signal_id": signal_id,
         "until": until.isoformat() if until else None,
     }
+
+
+@router.get(
+    "/dealer/agents/{ref}/reports",
+    summary="What customers reported about one of my agents, without who: served and not "
+    "served, each failed visit with its reason, comments, ratings",
+)
+async def agent_reports(
+    ref: str,
+    kind: Literal["not_served", "comment"] | None = Query(default=None),
+    reason: str | None = Query(default=None, max_length=40),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=50),
+    p: Principal = Depends(require_permission("VIEW_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    a = (
+        await db.execute(select(Agent).where(Agent.ref == ref, Agent.dealer_id == p.subject))
+    ).scalar_one_or_none()
+    if a is None:
+        raise NotFoundError("Not available.")
+    out = await feedback_for(
+        db, a.ref, now_utc(), kind=kind, reason=reason, offset=offset, limit=limit
+    )
+    return {"shop_name": a.shop_name, **out}
 
 
 @router.get("/actions", summary="Actions I have taken")

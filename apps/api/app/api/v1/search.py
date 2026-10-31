@@ -37,9 +37,17 @@ from app.services.phrasing import (
     side_for,
 )
 from app.services.points import on_map
-from app.services.ranker import current_model, features, probability, served_pct
+from app.services.ranker import (
+    WEEK_FEATURES,
+    current_model,
+    current_week_model,
+    features,
+    probability,
+    served_pct,
+    week_features,
+)
 from app.services.trust import RANK_TIER, trust_for
-from app.services.week_rule import Week, weeks_for
+from app.services.week_rule import Week, size_done, weeks_for
 from app.services.week_rule import score as week_score
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -254,8 +262,12 @@ async def search(
     # goes first. It reorders; it never hides, and it never reaches the payload.
     rank = {a.ref.replace("Agent ", "af-"): RANK_TIER[trust[a.ref].label] for a in agents}
     by_activity = get_settings().ranker == "activity"
-    by_week = get_settings().ranker == "week"
+    # "learned": the 7-day rule still writes what the customer reads; the learned weights on the
+    # same 7-day facts order the agents. Switched on only once training beats the rule.
+    learned = get_settings().ranker == "learned"
+    by_week = get_settings().ranker == "week" or learned
     model = await current_model(db) if by_activity else None
+    week_model = await current_week_model(db) if learned else None
     weeks = await weeks_for(db, [a.ref for a in agents if on_map(a)], now) if by_week else {}
     last_tx: dict[str, float] = {}
     scored = []
@@ -272,15 +284,27 @@ async def search(
         scored.append(r)
         if by_week:
             w = weeks[a.ref]
-            prob[r.id] = apply_week(r, a, w, tx, req.amount_sle, now) / 100
+            pct = apply_week(r, a, w, tx, req.amount_sle, now)
             side = side_for(tx)
-            # The week's counts behind the figure, for the records and the training log.
+            cash_low, float_low = low_today(a, now)
+            # The 7-day facts behind the figure, as the learned ranker reads them, with the
+            # rule's own percentage beside them: the training log and the bar to beat.
             feats[r.id] = {
-                "active_days": w.active_days,
-                "type_seen": float(bool(w.bands[side])),
-                "served": w.served[side],
-                "failed": w.failed[side],
+                **week_features(
+                    active_days=w.active_days,
+                    size_done=size_done(w, tx, req.amount_sle),
+                    served=w.served[side],
+                    failed=w.failed[side],
+                    distance_m=dist,
+                    low=(cash_low if side == "cash" else float_low) is not None,
+                ),
+                "rule_pct": float(pct),
             }
+            prob[r.id] = (
+                probability(feats[r.id], week_model.weights, WEEK_FEATURES)
+                if week_model is not None
+                else pct / 100
+            )
             seen = ledger.last_tx_at if ledger is not None else None
             last_tx[r.id] = seen.timestamp() if seen is not None else 0.0
         elif model is not None and ledger is not None:

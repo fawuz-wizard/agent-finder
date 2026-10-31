@@ -4,6 +4,8 @@
 @font-face { font-family: 'Poppins'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/poppins-500-latin.woff2') format('woff2'); }
 @font-face { font-family: 'Poppins'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/poppins-600-latin.woff2') format('woff2'); }
 @font-face { font-family: 'Poppins'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/poppins-700-latin.woff2') format('woff2'); }
+/* Manrope, bundled (OFL, public/fonts): the agent and aggregator platform's type in the approved design (2026-10-29). */
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 500 800; font-display: swap; src: url('/fonts/manrope-latin-var.woff2') format('woff2'); }
 
 /*
   Agent Finder design tokens — the single source of every colour, radius and size.
@@ -115,6 +117,13 @@
   --color-finder-limited-tint: #f4e7b5;
   --color-finder-open: #03ca55;
   --color-finder-star: #ffb84a;
+  /* The Agent App's card design (approved picture, 2026-10-29): cards and tiles on the page,
+     and the dark header of the two home screens, which stays dark in both themes. */
+  --color-finder-card: #262626;
+  --color-finder-card-line: #353535;
+  --color-finder-tile: #2b2118;
+  --color-finder-head: #1b1b1b;
+  --color-finder-on-head: #ffffff;
   --font-finder: 'Poppins', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
   --text-md: 1.25rem;    /* 20 — finder titles, names, distances */
   --text-3xl: 2.25rem;   /* 36 — the amount */
@@ -130,14 +139,21 @@
    actions and accents, so one component serves both. The customer module never carries it. */
 [data-platform='light'] {
   color-scheme: light;
-  --color-finder-bg: #ffffff;
+  /* The approved Claude Design file (Aggregator .html, 2026-10-29): warm grey page, borderless
+     white cards, near-black ink, the pale orange of icon boxes. Muted text is the file's darker
+     grey (#6b6862, 5.3:1) so small labels pass WCAG AA on the page. */
+  --color-finder-bg: #f7f5f2;
+  --color-finder-card: #ffffff;
+  --color-finder-card-line: #f1eeea;
+  --color-finder-tile: #fff0e6;
+  --color-finder-head: #1a1d24;
   --color-finder-line: #e5e5e5;
-  --color-finder-muted: #6b7280;       /* 5.0:1 on white */
-  --color-finder-tab-off: #9ca3af;
+  --color-finder-muted: #6b6862;
+  --color-finder-tab-off: #9a958e;
   --color-finder-link: #c2410c;        /* text links on white: 4.9:1 */
   --color-finder-accent: #ff7900;      /* fills, with black text: 7.5:1 */
   --color-finder-cta: #ff7900;
-  --color-finder-ink: #171717;
+  --color-finder-ink: #1a1d24;
   --color-finder-open: #16803c;
   --color-finder-star: #b7791f;
   --color-finder-likely: #16803c;
@@ -145,6 +161,10 @@
   --color-finder-likely-tint: #e6f4ea;
   --color-finder-limited: #7a5d14;
   --color-finder-limited-tint: #fff1e6;
+}
+/* The platform's type, in both themes: Manrope. */
+[data-platform] {
+  --font-finder: 'Manrope', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
 }
 /* The inset glow of the dark file becomes a hairline ring in daylight. */
 [data-platform='light'] .shadow-inset-finder {
@@ -335,4 +355,69 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* The approved Claude Design file's own colours (Aggregator .html, 2026-10-29), named so
+   components never carry a hex value. Orange itself stays Orange's #FF7900 (finder-accent). */
+@theme {
+  --color-design-ink: #1a1d24;
+  --color-design-green: #1f9d55;
+  --color-design-red: #e5484d;
+  --color-design-red-tint: #fde7e7;
+  --color-design-muted: #6b6862;
+  --color-design-faint: #9a958e;
+  --color-design-field: #fbfaf8;
+  --color-design-field-line: #e4e0da;
+  --color-design-nav-line: #eeeae5;
+  --color-design-head-avatar: #3a3f4a;
+  --color-design-head-sub: #a9adb6;
+  --color-design-head-tile: #2a2e37;
+  --color-design-track: #f1eeea;
+  --color-design-peach: #ffe6d6;
+  --color-design-peach-bar: #ffc9a6;
+  --color-design-good-tint: #e2f4e8;
+  --color-design-warn-tint: #fff3d1;
+  --color-design-bad-tint: #fde8e8;
+  --color-design-amber: #e8a21a;
+  --color-design-blue-tint: #e3ecff;
+  --color-design-pink-tint: #fce7f0;
+  --color-design-lilac-tint: #e8e4f7;
+  --color-design-map-a: #ecede8;
+  --color-design-map-b: #f3f4f0;
+}
+
+/* A scroll area that scrolls without showing a bar, as inside the design's phone frame. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* The agent app in the approved agent design ("agent platform.html", 2026-10-29): its own
+   page, ink, borders and tile, read over the platform tokens. Orange stays Orange's #FF7900. */
+[data-platform='light'][data-app='agent'] {
+  --color-finder-bg: #fbf9f7;
+  --color-finder-ink: #1b1b1f;
+  --color-finder-muted: #6b6660;
+  --color-finder-card-line: #ece7e1;
+  --color-finder-tile: #fff2e8;
+  --color-finder-head: #1d1d20;
+}
+@theme {
+  --color-agent-field-line: #e2ddd7;
+  --color-agent-divider: #f0ece7;
+  --color-agent-chip: #f3f1ee;
+  --color-agent-chip-ink: #3a3a40;
+  --color-agent-head-avatar: #3a3a40;
+  --color-agent-head-initials: #ffd9c2;
+  --color-agent-head-sub: #b9b4ae;
+  --color-agent-tile-press: #ffe7d6;
+  --color-agent-open-line: #bfe5cb;
+  --color-agent-open-sub: #2f6b45;
+  --color-agent-green: #1e8a47;
+  --color-agent-green-ink: #155e31;
+  --color-agent-green-tint: #eaf7ee;
+  --color-agent-away-dot: #8e8882;
+  --color-agent-curve: #fff4ec;
+  --color-agent-avatar: #ffe3d1;
+  --color-agent-avatar-ink: #b84a08;
+  --color-agent-pill: #ffe7d6;
+  --color-agent-pill-ink: #c2540e;
 }

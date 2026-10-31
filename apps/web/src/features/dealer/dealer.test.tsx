@@ -8,6 +8,9 @@ import { SESSION_KEY } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS } from '@/types/operator'
 import DealerDashboardPage from './DashboardPage'
+import SendFloatPage from './SendFloatPage'
+import DealerNotificationsPage from './NotificationsPage'
+import DealerAgentReportsPage from './AgentReportsPage'
 import DealerAgentDetailPage from './AgentDetailPage'
 import DealerFloatReviewPage from './FloatReviewPage'
 import DealerAttentionPage from './AttentionPage'
@@ -34,9 +37,12 @@ function App({ start }: { start: string }) {
         <MemoryRouter initialEntries={[start]}>
           <Routes>
             <Route path="/dealer" element={<DealerDashboardPage />} />
+            <Route path="/dealer/float/send" element={<SendFloatPage />} />
+            <Route path="/dealer/notifications" element={<DealerNotificationsPage />} />
             <Route path="/dealer/agents" element={<DealerAgentsPage />} />
             <Route path="/dealer/agents/new" element={<RegisterAgentPage />} />
             <Route path="/dealer/agents/:ref" element={<DealerAgentDetailPage />} />
+            <Route path="/dealer/agents/:ref/reports" element={<DealerAgentReportsPage />} />
             <Route path="/dealer/search" element={<DealerSearchPage />} />
             <Route path="/dealer/float" element={<DealerFloatQueuePage />} />
             <Route path="/dealer/float/:id" element={<DealerFloatReviewPage />} />
@@ -56,12 +62,14 @@ function App({ start }: { start: string }) {
 beforeEach(() => sessionStorage.clear())
 
 describe('dealer', () => {
-  it('opens on the four counts and the things to act on, with no financial value on screen', async () => {
+  it('opens on the four counts, the quick actions and the bell, with no financial value on screen', async () => {
     signIn(ALL)
     const { container } = render(<App start="/dealer" />)
-    expect(await screen.findByText(/float requests · \d+ waiting/i)).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /^notifications/i })).toHaveAttribute('href', '/dealer/notifications')
     expect(screen.getByText('Active')).toBeInTheDocument()
-    expect(screen.getByText(/needs attention · \d+/i)).toBeInTheDocument()
+    // The signals sit behind the Attention action, their count on it, not as a list on the home.
+    expect(screen.getByRole('link', { name: /^attention, \d+ to look into$/i })).toHaveAttribute('href', '/dealer/attention')
+    expect(screen.queryByText(/needs attention ·/i)).not.toBeInTheDocument()
     // Money never appears on the dashboard; only request amounts, which are the agent's own statement.
     expect(container.textContent).not.toMatch(/balance/i)
   })
@@ -76,7 +84,7 @@ describe('dealer', () => {
     spy.mockRestore()
   })
 
-  it('lists a pin waiting for confirmation as a thing to do, leading to the agent', async () => {
+  it('lists a pin waiting for confirmation under the bell, leading to the agent', async () => {
     signIn(ALL)
     const real = await operatorApi.dealerOverview()
     vi.spyOn(operatorApi, 'dealerOverview').mockResolvedValue({
@@ -85,10 +93,39 @@ describe('dealer', () => {
       pins_waiting: [{ ref: 'Agent 024', name: "Fatmata's Shop", person_name: 'Fatmata Kamara', area: 'Lumley Beach Road, by the bank' }],
     })
     render(<App start="/dealer" />)
-    expect(await screen.findByText(/pins waiting for your confirmation · 1/i)).toBeInTheDocument()
-    const row = screen.getByRole('link', { name: /Fatmata's Shop.*pinned by Fatmata Kamara.*Lumley Beach Road/s })
-    expect(row).toHaveAttribute('href', '/dealer/agents/Agent%20024')
-    expect(screen.getByText(/4 of 5 on the map for customers/)).toBeInTheDocument()
+    expect(await screen.findByText(/4 of 5 on the map for customers/)).toBeInTheDocument()
+    // Home no longer lists it; the bell does.
+    expect(screen.queryByText(/pins waiting for your confirmation/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /notifications, \d+ new/i })).toHaveAttribute('href', '/dealer/notifications')
+    vi.restoreAllMocks()
+  })
+
+  it('moves float requests and the forecast from Home to the bell, and counts what is unread', async () => {
+    localStorage.removeItem('af.dealerSeenNotifications')
+    signIn(ALL)
+    const user = userEvent.setup()
+    const real = await operatorApi.dealerOverview()
+    const pins = [{ ref: 'Agent 024', name: "Fatmata's Shop", person_name: 'Fatmata Kamara', area: 'Lumley Beach Road' }]
+    vi.spyOn(operatorApi, 'dealerOverview').mockResolvedValue({ ...real, pins_waiting: pins })
+    render(<App start="/dealer" />)
+    await screen.findByText(/network overview/i)
+    expect(screen.queryByText(/float requests ·/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/float forecast/i)).not.toBeInTheDocument()
+    const forecastNotices = real.forecast_counts.high + real.forecast_counts.medium > 0 ? 1 : 0
+    const expected = real.float_requests.length + pins.length + forecastNotices
+    const bell = screen.getByRole('link', { name: new RegExp(`notifications, ${expected} new`, 'i') })
+
+    await user.click(bell)
+    const requests = await screen.findByRole('region', { name: new RegExp(`float requests · ${real.float_requests.length} waiting`, 'i') })
+    const first = real.float_requests[0]!
+    expect(within(requests).getAllByRole('link', { name: /review/i })[0]).toHaveAttribute('href', `/dealer/float/${first.id}`)
+    expect(screen.getByRole('region', { name: /pins to confirm/i })).toBeInTheDocument()
+    if (forecastNotices) expect(within(screen.getByRole('region', { name: /float forecast/i })).getByRole('link', { name: /see who/i })).toHaveAttribute('href', '/dealer/float?tab=low')
+    expect(screen.queryByText(/balance/i)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /mark all read/i }))
+    expect(screen.queryByLabelText('New')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /mark all read/i })).not.toBeInTheDocument()
     vi.restoreAllMocks()
   })
 
@@ -96,7 +133,8 @@ describe('dealer', () => {
     signIn(ALL)
     const user = userEvent.setup()
     render(<App start="/dealer/agents/Agent%20024" />)
-    await screen.findByText(/float & balance/i)
+    // Money is folded away on the agent's page until the aggregator opens it.
+    await user.click(await screen.findByRole('button', { name: /^money/i }))
     expect(screen.getAllByLabelText('hidden').length).toBe(2)
     expect(screen.queryByText(/SLE 12,400/)).not.toBeInTheDocument()
 
@@ -116,8 +154,9 @@ describe('dealer', () => {
 
   it('offers no reveal at all without the financial permission', async () => {
     signIn(ALL.filter((p) => p !== PERMISSIONS.viewFinancial))
+    const user = userEvent.setup()
     render(<App start="/dealer/agents/Agent%20024" />)
-    await screen.findByText(/float & balance/i)
+    await user.click(await screen.findByRole('button', { name: /^money/i }))
     expect(screen.queryByRole('button', { name: /reveal/i })).not.toBeInTheDocument()
     expect(screen.getAllByText(/not available to you/i).length).toBe(2)
   })
@@ -129,7 +168,7 @@ describe('dealer', () => {
     render(<App start={`/dealer/float/${created.id}`} />)
     await screen.findByText(/amount requested/i)
     await user.click(screen.getByRole('button', { name: /^approve$/i }))
-    expect(await screen.findByText(/^Float requests$/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /^Float$/ })).toBeInTheDocument()
     const agentView = (await operatorApi.floatRequests('Agent 017')).find((r) => r.id === created.id)
     expect(agentView?.state).toBe('approved')
     expect(agentView?.decided_by).toBe('Kissy Distribution')
@@ -188,20 +227,27 @@ describe('dealer', () => {
     expect(await screen.findByText('Amadu Corner Shop')).toBeInTheDocument()
     expect(screen.getByText('Salamatu Shop')).toBeInTheDocument()
     expect(screen.queryByText("Fatmata's Shop")).not.toBeInTheDocument()
-    expect(screen.getAllByText(/^Code \d{3} · /).length).toBe(tileCount)
+    expect(screen.getAllByText(/^\d{3} · /).length).toBe(tileCount)
     const chips = screen.getByRole('group', { name: /^show$/i })
     const closedChip = within(chips).getByRole('button', { name: /^closed/i })
     expect(closedChip).toHaveAttribute('aria-pressed', 'true')
-    expect(closedChip).toHaveTextContent(`Closed${tileCount}`)
+    expect(closedChip).toHaveTextContent(`Closed (${tileCount})`)
 
-    // Chips are the same filter; an empty bucket says so; "All" brings every agent back.
-    await user.click(within(chips).getByRole('button', { name: /^away/i }))
+    // The four chips: All, Active, Inactive, Not on map. The home's Closed filter shows as a fifth
+    // chip until it is cleared.
+    expect(within(chips).getAllByRole('button').map((b) => b.textContent?.replace(/ \(\d+\)/, ''))).toEqual(['Closed', 'All', 'Active', 'Inactive', 'Not on map'])
+    await user.click(within(chips).getByRole('button', { name: /^inactive/i }))
     expect(await screen.findByText('Ibrahim Cash Point')).toBeInTheDocument()
-    expect(screen.queryByText(/Agent 038/)).not.toBeInTheDocument()
-    await user.click(within(chips).getByRole('button', { name: /^limited/i }))
-    expect(await screen.findByText(/no agent is on small or none right now/i)).toBeInTheDocument()
+    expect(screen.getByText('Salamatu Shop')).toBeInTheDocument()
+    expect(screen.queryByText("Fatmata's Shop")).not.toBeInTheDocument()
+    expect(within(chips).queryByRole('button', { name: /^closed/i })).not.toBeInTheDocument()
+    await user.click(within(chips).getByRole('button', { name: /^active/i }))
+    expect(await screen.findByText("Fatmata's Shop")).toBeInTheDocument()
+    expect(screen.queryByText('Salamatu Shop')).not.toBeInTheDocument()
+    await user.click(within(chips).getByRole('button', { name: /^not on map/i }))
+    expect(await screen.findByText(/every active agent is on the map/i)).toBeInTheDocument()
     await user.click(within(chips).getByRole('button', { name: /^all/i }))
-    expect(screen.getAllByText(/^Code \d{3} · /).length).toBe(5)
+    expect(screen.getAllByText(/^\d{3} · /).length).toBe(5)
   })
 
   it('will not decline without a reason', async () => {
@@ -223,7 +269,8 @@ describe('float forecast', () => {
     const { container } = render(<App start="/dealer/float" />)
     // Both lists load; the queue may also show Agent 038 (a request from an earlier test).
     await screen.findByText(/^Waiting$/)
-    const section = await screen.findByRole('region', { name: /likely to run short · \d+/i })
+    await userEvent.setup().click(screen.getByRole('tab', { name: /^low today/i }))
+    const section = await screen.findByRole('region', { name: /low or likely short · \d+/i })
     expect(await within(section).findByText('Amadu Corner Shop')).toBeInTheDocument()
     expect(within(section).getAllByText('Likely short by tomorrow').length).toBeGreaterThan(0)
     expect(within(section).getByText('Says no cash right now.')).toBeInTheDocument()
@@ -235,24 +282,25 @@ describe('float forecast', () => {
     expect(firstWatch === -1 || lastShort < firstWatch).toBe(true)
   })
 
-  it('puts the count on the dashboard, linking to the reasons', async () => {
+  it('puts the count under the bell, linking to the reasons', async () => {
     signIn(ALL)
-    render(<App start="/dealer" />)
-    const card = await screen.findByLabelText(/float forecast: \d+ likely short by tomorrow/i)
-    expect(card).toHaveAttribute('href', '/dealer/float')
+    render(<App start="/dealer/notifications" />)
+    const section = await screen.findByRole('region', { name: /float forecast/i })
+    expect(within(section).getByText(/\d+ (likely short by tomorrow|to watch this week)/i)).toBeInTheDocument()
+    expect(within(section).getByRole('link', { name: /see who/i })).toHaveAttribute('href', '/dealer/float?tab=low')
   })
 })
 
 describe('trust score', () => {
-  it('shows each agent how often their word held up, and never as a customer-facing thing', async () => {
+  it('shows each agent how often their word held up, on their page, and never as a customer-facing thing', async () => {
     signIn(ALL)
-    render(<App start="/dealer/agents" />)
-    const fatmata = (await screen.findByText("Fatmata's Shop")).closest('a')!
-    expect(within(fatmata).getByText('Mixed')).toHaveAttribute('title', '10 of 12 visits matched the status in the last 14 days.')
-    const sento = screen.getByText('Sento Enterprise').closest('a')!
-    expect(within(sento).getByText('Reliable')).toBeInTheDocument()
-    const amadu = screen.getByText('Amadu Corner Shop').closest('a')!
-    expect(within(amadu).getByText('No track record yet')).toBeInTheDocument()
+    render(<App start="/dealer/agents/Agent%20024" />)
+    expect(await screen.findByText('Mixed')).toBeInTheDocument()
+    expect(screen.getByText(/10 of 12 visits matched the status in the last 14 days\./)).toBeInTheDocument()
+    // The list stays one state per row: the track record is on the agent's page.
+    const rows = await operatorApi.dealerAgents()
+    expect(rows.find((r) => r.ref === 'Agent 031')!.reliability.label_text).toBe('Reliable')
+    expect(rows.find((r) => r.ref === 'Agent 038')!.reliability.label_text).toBe('No track record yet')
   })
 
   it('an unreliable word raises a high signal and flags the row, without touching the status', async () => {
@@ -278,6 +326,7 @@ describe('evidence by amount', () => {
     signIn(ALL)
     const user = userEvent.setup()
     render(<App start="/dealer/agents/Agent%20024" />)
+    await user.click(await screen.findByRole('button', { name: /^more details/i }))
     await screen.findByText(/usually handles/i)
     // The agent's own wording never reaches this page: the age, not "customers no longer see you".
     expect(screen.queryByText(/see you/i)).not.toBeInTheDocument()
@@ -313,7 +362,7 @@ describe('registration', () => {
     await user.click(screen.getByRole('button', { name: /^register agent$/i }))
     // Lands on the new agent's detail, under the number the platform assigned, with the
     // one-time code to read out: six digits, shown once, never a PIN the dealer chose.
-    expect(await screen.findByText(/Code 1\d\d/)).toBeInTheDocument()
+    expect(await screen.findByText(/^1\d\d · /)).toBeInTheDocument()
     expect(screen.getAllByText(/Mariama's Corner/).length).toBeGreaterThan(0)
     const shown = screen.getByLabelText(/one-time code/i)
     const code = shown.textContent!.replace(/\s/g, '')
@@ -389,7 +438,7 @@ describe('search', () => {
     await user.clear(box)
     await user.type(box, 'Sento')
     await user.click(await screen.findByText('Sento Enterprise'))
-    expect(await screen.findByText(/Code 031 · /)).toBeInTheDocument()
+    expect(await screen.findByText(/^031 · /)).toBeInTheDocument()
     render(<App start="/dealer/search" />)
     expect((await screen.findAllByRole('button', { name: 'Sento' })).length).toBeGreaterThan(0)
   })
@@ -427,7 +476,7 @@ describe('agents from Orange\'s file', () => {
 })
 
 describe('tabs', () => {
-  it('the foot is Dashboard, Agents, Float, Profile; search lives on the Agents tab', async () => {
+  it('the foot is Home, Float, Agents, Network; search lives on the Agents tab', async () => {
     const { DealerTabBar } = await import('./components/DealerTabBar')
     signIn(ALL)
     render(
@@ -436,8 +485,10 @@ describe('tabs', () => {
       </MemoryRouter>,
     )
     const nav = screen.getByRole('navigation', { name: /aggregator sections/i })
-    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Dashboard', 'Agents', 'Float', 'Profile'])
+    expect(within(nav).getAllByRole('link')).toHaveLength(4)
+    for (const name of ['Home', 'Float', 'Agents', 'Network']) expect(within(nav).getByRole('link', { name })).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: 'Float' })).toHaveAttribute('href', '/dealer/float')
+    expect(within(nav).getByRole('link', { name: 'Network' })).toHaveAttribute('href', '/dealer/network')
   })
 })
 
@@ -466,8 +517,10 @@ describe('report and records', () => {
     const user = userEvent.setup()
     signIn(ALL)
     render(<App start="/dealer/profile" />)
-    expect(await screen.findByText('+232 •• ••• 123')).toBeInTheDocument()
+    expect((await screen.findAllByText('+232 •• ••• 123')).length).toBeGreaterThan(0)
     expect(screen.getByText('Aggregator · West')).toBeInTheDocument()
+    // Orange's record and the network figures open under Organization details.
+    await user.click(screen.getByRole('button', { name: 'Organization details' }))
     // Other tests register demo agents, so the total is read, not assumed.
     const total = screen.getByText('Agents').nextSibling!.textContent
     expect(screen.getByText('Verified').nextSibling).toHaveTextContent(new RegExp(`^\\d+ of ${total}$`))
@@ -533,6 +586,7 @@ describe('report and records', () => {
     vi.spyOn(operatorApi, 'dealerAgent').mockResolvedValue({ ...real, photo: 'data:image/jpeg;base64,/9j/4AAQ' })
     const remove = vi.spyOn(operatorApi, 'removeAgentPhoto')
     render(<App start="/dealer/agents/Agent%20024" />)
+    await user.click(await screen.findByRole('button', { name: /^more details/i }))
     expect(await screen.findByRole('img', { name: "Fatmata's Shop, photographed by the agent" })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /remove photo/i }))
     expect(remove).toHaveBeenCalledWith('Agent 024')
@@ -560,5 +614,272 @@ describe('report and records', () => {
     await waitFor(() => expect(confirm).toHaveBeenCalledWith('Agent 024'))
     expect(edit).toHaveBeenCalledWith('Agent 024', expect.objectContaining({ lat: expect.any(Number), lng: expect.any(Number) }))
     vi.restoreAllMocks()
+  })
+})
+
+describe('network', () => {
+  it("shows the aggregator's own agents, not Orange's national view", async () => {
+    const { default: DealerNetworkPage } = await import('./NetworkPage')
+    signIn(ALL)
+    render(
+      <MemoryRouter initialEntries={['/dealer/network']}>
+        <DealerNetworkPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('Active rate')).toBeInTheDocument()
+    expect(screen.getByText('Customer map')).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: /of your shops on the map/ })).toBeInTheDocument()
+    // Kissy's own shops only: the demo's other regions belong to other aggregators.
+    const { demoMapSummary } = await import('@/services/demoNationalMap')
+    const scoped = await demoMapSummary()
+    expect(scoped.scope).toBe('aggregator')
+    expect(within(screen.getByText('Total').parentElement!).getByText(String(scoped.totals.registered))).toBeInTheDocument()
+    // The full map is the aggregator's own, inside the app; Orange's national map is another account's screen.
+    expect(screen.getByRole('link', { name: /open full map/i })).toHaveAttribute('href', '/dealer/network/map')
+    expect([...document.querySelectorAll('a')].some((a) => a.getAttribute('href') === '/dealer/map')).toBe(false)
+    expect(document.body.textContent).not.toMatch(/SLE/)
+  })
+})
+
+describe('full map', () => {
+  it("filters the aggregator's shops by today's state and opens a shop's card with Call, never a balance", async () => {
+    const { default: DealerFullMapPage } = await import('./FullMapPage')
+    const user = userEvent.setup()
+    signIn(ALL)
+    render(
+      <MemoryRouter initialEntries={['/dealer/network/map']}>
+        <DealerFullMapPage />
+      </MemoryRouter>,
+    )
+    const heading = await screen.findByRole('heading', { name: /all agents/i })
+    await waitFor(() => expect(heading).toHaveTextContent(/\d+ shown/))
+    const total = Number(/(\d+) shown/.exec(heading.textContent ?? '')![1])
+    expect(total).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: /^away or closed/i }))
+    const away = Number(/(\d+) shown/.exec(heading.textContent ?? '')![1])
+    expect(away).toBeLessThan(total)
+    await user.click(screen.getByRole('button', { name: /^all$/i }))
+    await user.click(screen.getByRole('button', { name: /^Fatmata's Shop/ }))
+    const card = screen.getByRole('region', { name: "Fatmata's Shop" })
+    expect(within(card).getByRole('link', { name: 'Call agent' })).toHaveAttribute('href', expect.stringMatching(/^tel:/))
+    expect(within(card).getByRole('link', { name: 'Agent details' })).toHaveAttribute('href', '/dealer/agents/Agent%20024')
+    expect(document.body.textContent).not.toMatch(/SLE|balance/i)
+  })
+})
+
+describe('send float', () => {
+  it('records float sent in Orange Money for an agent found by number, and lists it in History', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    render(<App start="/dealer/float" />)
+    await user.click(await screen.findByRole('link', { name: /send float/i }))
+    await user.type(await screen.findByLabelText(/agent number/i), '76000031')
+    expect(await screen.findByText(/Sento Enterprise · Code 031 · your agent/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '10,000' }))
+    await user.type(screen.getByLabelText(/orange money reference/i), 'MP2910.1432')
+    await user.click(screen.getByRole('button', { name: 'Record SLE 10,000 sent' }))
+    expect(await screen.findByText('Float recorded')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(await screen.findByText('Sent to Sento Enterprise')).toBeInTheDocument()
+    expect(screen.getAllByText(/ref MP2910.1432/).length).toBeGreaterThan(0)
+  })
+
+  it('refuses a number that is not one of your agents', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    render(<App start="/dealer/float/send" />)
+    await user.type(await screen.findByLabelText(/agent number/i), '99999999')
+    expect(await screen.findByText(/not one of your agents/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^record/i })).toBeDisabled()
+  })
+
+  it('Approve & send fills the form from the request and completes it', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    const pending = (await operatorApi.floatRequests(null)).find((r) => r.state === 'pending')!
+    render(<App start={`/dealer/float/send?request=${pending.id}`} />)
+    expect(await screen.findByText(new RegExp(`${pending.agent_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} · Code`))).toBeInTheDocument()
+    const amount = pending.amount_sle.toLocaleString('en-US')
+    expect(screen.getByLabelText(/amount \(sle\)/i)).toHaveValue(amount)
+    await user.click(screen.getByRole('button', { name: `Record SLE ${amount} sent` }))
+    expect(await screen.findByText('Float recorded')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
+    const after = (await operatorApi.floatRequests(null)).find((r) => r.id === pending.id)!
+    expect(after.state).toBe('completed')
+  })
+})
+
+describe("the agent's page, one screen first", () => {
+  it('shows the same state as the list, what needs the aggregator, and today in three numbers', async () => {
+    signIn(ALL)
+    const rows = await operatorApi.dealerAgents()
+    const row = rows.find((r) => r.ref === 'Agent 024')!
+    render(<App start="/dealer/agents/Agent%20024" />)
+    await screen.findByRole('heading', { name: "Fatmata's Shop" })
+    const { agentState } = await import('./components/agentState')
+    const state = agentState(row)
+    expect(screen.getByText(new RegExp(`^${state.text} · `))).toBeInTheDocument()
+    const needs = screen.getByRole('region', { name: /needs you/i })
+    expect(within(needs).getByRole('link', { name: /float request sle 5,000/i })).toHaveAttribute('href', expect.stringMatching(/^\/dealer\/float\//))
+    const today = screen.getByRole('region', { name: /^today$/i })
+    expect(within(today).getByText('Transactions')).toBeInTheDocument()
+    expect(within(today).getByText('Found them')).toBeInTheDocument()
+    // The details are folded until asked for: no money row, no sign-in code on first view.
+    expect(screen.queryByText(/float position/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^orange record/i })).toHaveAttribute('aria-expanded', 'false')
+    expect(document.body.textContent).not.toMatch(/balance/i)
+  })
+
+  it('keeps the rare actions in the ••• menu, and escalating is recorded', async () => {
+    signIn([...ALL, PERMISSIONS.manageAgent])
+    const user = userEvent.setup()
+    const act = vi.spyOn(operatorApi, 'act')
+    render(<App start="/dealer/agents/Agent%20024" />)
+    await user.click(await screen.findByRole('button', { name: /more actions/i }))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByRole('menuitem', { name: /action history/i })).toBeInTheDocument()
+    await user.click(within(menu).getByRole('menuitem', { name: /issue a new sign-in code/i }))
+    expect(screen.getByRole('button', { name: /^more details/i })).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: /more actions/i }))
+    await user.click(screen.getByRole('menuitem', { name: /escalate to orange/i }))
+    expect(act).toHaveBeenCalledWith('Agent 024', 'escalate', expect.any(String))
+    vi.restoreAllMocks()
+  })
+})
+
+describe("an agent's customer reports, for the aggregator", () => {
+  it('opens from "not served today" on the agent page, not the Attention list of everyone', async () => {
+    signIn(ALL)
+    render(<App start="/dealer/agents/Agent%20024" />)
+    const needs = await screen.findByRole('region', { name: /needs you/i })
+    expect(within(needs).getByRole('link', { name: /not served today/i })).toHaveAttribute('href', '/dealer/agents/Agent%20024/reports')
+    expect(screen.getByRole('link', { name: /customer reports/i })).toHaveAttribute('href', '/dealer/agents/Agent%20024/reports')
+  })
+
+  it('shows three tabs with their counts, the rating on top, 20 at a time, and Call at the bottom', async () => {
+    signIn(ALL)
+    const user = userEvent.setup()
+    const real = await operatorApi.dealerAgentReports('Agent 024')
+    const failed = Array.from({ length: 23 }, (_, k) => ({ id: `fb-n-${k}`, day_text: 'Today', kind: 'not_served' as const, reason_code: k < 14 ? 'could_not_complete' : 'closed', transaction_label: 'Cash out', reason_text: k < 14 ? 'Could not complete the transaction' : 'Was closed', rating: null, comment: k === 0 ? 'No cash again.' : null }))
+    const words = [failed[0]!, { id: 'fb-c-1', day_text: 'Yesterday', kind: 'comment' as const, reason_code: null, transaction_label: 'Cash out', reason_text: null, rating: 5, comment: 'Quick service.' }]
+    vi.spyOn(operatorApi, 'dealerAgentReports').mockImplementation(async (_ref, q = {}) => {
+      const all = q.kind === 'comment' ? words : q.kind === 'not_served' ? failed.filter((i) => !q.reason || i.reason_code === q.reason) : [...failed, words[1]!]
+      const offset = q.offset ?? 0
+      return {
+        ...real,
+        summary: { served: 41, not_served: 23, comments: 2, ratings: 18, rating_average: 3.1 },
+        reasons: [
+          { code: 'could_not_complete', text: 'Could not complete the transaction', count: 14 },
+          { code: 'closed', text: 'Was closed', count: 9 },
+        ],
+        trend: { this_week: 12, last_week: 5 },
+        items: all.slice(offset, offset + 20),
+        total: all.length,
+      }
+    })
+    render(<App start="/dealer/agents/Agent%20024/reports" />)
+    expect(await screen.findByLabelText('Rating 3.1 from 18 ratings')).toBeInTheDocument()
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs.map((x) => x.textContent)).toEqual(['23Not served', '2Comments', '41Served'])
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent('12 this week, 5 last week')
+    const list = screen.getByRole('list', { name: /not served visits/i })
+    expect(within(list).getAllByText(/^Today · Cash out$/).length).toBe(20)
+    await user.click(within(list).getByRole('button', { name: /load 3 more · 3 left/i }))
+    expect(await within(list).findAllByText(/^Today · Cash out$/)).toHaveLength(23)
+    // A reason chip narrows the list.
+    await user.click(screen.getByRole('button', { name: 'Was closed 9' }))
+    await waitFor(() => expect(within(screen.getByRole('list', { name: /not served visits/i })).getAllByText('Was closed').length).toBe(9))
+    // Comments: every customer's words; a failed visit's words carry its reason.
+    await user.click(screen.getByRole('tab', { name: /comments/i }))
+    const said = await screen.findByRole('list', { name: 'Comments' })
+    expect(within(said).getByText('“Quick service.”')).toBeInTheDocument()
+    expect(within(said).getByText('Not served · Could not complete the transaction')).toBeInTheDocument()
+    // Served: figures only, no list.
+    await user.click(screen.getAllByRole('tab')[2]!)
+    const panel = await screen.findByRole('tabpanel', { name: 'Served' })
+    expect(within(panel).getByText('41')).toBeInTheDocument()
+    expect(within(panel).getByText(/Served, of all reports \(41 of 64\)/)).toBeInTheDocument()
+    expect(within(panel).queryByRole('list')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^call /i }) ?? screen.queryByRole('button', { name: /^contact /i })).toBeInTheDocument()
+    vi.restoreAllMocks()
+  })
+})
+
+describe('back buttons', () => {
+  it('Network → full map → Back → Back lands on Home, never a loop between the two', async () => {
+    const { default: DealerNetworkPage } = await import('./NetworkPage')
+    const { default: DealerFullMapPage } = await import('./FullMapPage')
+    const user = userEvent.setup()
+    signIn(ALL)
+    render(
+      <MemoryRouter initialEntries={['/dealer', '/dealer/network']} initialIndex={1}>
+        <Routes>
+          <Route path="/dealer" element={<p>Home screen</p>} />
+          <Route path="/dealer/network" element={<DealerNetworkPage />} />
+          <Route path="/dealer/network/map" element={<DealerFullMapPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await user.click(await screen.findByRole('link', { name: /open full map/i }))
+    await screen.findByRole('heading', { name: /all agents/i })
+    await user.click(screen.getAllByRole('button', { name: /^back$/i })[0]!)
+    expect(await screen.findByRole('heading', { name: /network overview/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^back$/i }))
+    expect(await screen.findByText('Home screen')).toBeInTheDocument()
+  })
+
+  it('a screen opened straight from a link goes back to its parent instead of leaving the app', async () => {
+    const { default: DealerFullMapPage } = await import('./FullMapPage')
+    const user = userEvent.setup()
+    signIn(ALL)
+    render(
+      <MemoryRouter initialEntries={['/dealer/network/map']}>
+        <Routes>
+          <Route path="/dealer/network" element={<p>Network screen</p>} />
+          <Route path="/dealer/network/map" element={<DealerFullMapPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { name: /all agents/i })
+    await user.click(screen.getAllByRole('button', { name: /^back$/i })[0]!)
+    expect(await screen.findByText('Network screen')).toBeInTheDocument()
+  })
+})
+
+describe('directions to an agent', () => {
+  it('the agent page has three equal buttons, Directions leading to the map focused on the shop', async () => {
+    signIn(ALL)
+    render(<App start="/dealer/agents/Agent%20024" />)
+    await screen.findByRole('heading', { name: "Fatmata's Shop" })
+    const directions = screen.getByRole('link', { name: /^directions$/i })
+    expect(directions).toHaveAttribute('href', '/dealer/network/map?focus=Agent%20024&route=1')
+    expect(screen.getByRole('button', { name: /^nudge$/i })).toBeInTheDocument()
+  })
+
+  it('shows the way from where the aggregator is, Drive or Walk, and hands over to Maps', async () => {
+    const { default: DealerFullMapPage } = await import('./FullMapPage')
+    const user = userEvent.setup()
+    signIn(ALL)
+    const geo = { getCurrentPosition: (ok: PositionCallback) => ok({ coords: { latitude: 8.4465, longitude: -13.272 } } as GeolocationPosition) }
+    Object.defineProperty(navigator, 'geolocation', { value: geo, configurable: true })
+    render(
+      <MemoryRouter initialEntries={['/dealer/network/map?focus=Agent%20024&route=1']}>
+        <DealerFullMapPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByRole('heading', { name: "Directions to Fatmata's Shop" })).toBeInTheDocument()
+    // No map key in tests: TomTom gives no route, so the screen says the straight-line distance.
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/from you in a straight line/))
+    const card = screen.getByRole('region', { name: "Fatmata's Shop" })
+    const maps = within(card).getByRole('link', { name: /open in maps/i })
+    expect(maps.getAttribute('href')).toContain('travelmode=driving')
+    await user.click(screen.getByRole('button', { name: 'Walk' }))
+    expect(within(card).getByRole('link', { name: /open in maps/i }).getAttribute('href')).toContain('travelmode=walking')
+    // The card says the same state as the list.
+    const { agentState } = await import('./components/agentState')
+    const row = (await operatorApi.dealerAgents()).find((r) => r.ref === 'Agent 024')!
+    expect(within(card).getByText(agentState(row).text)).toBeInTheDocument()
+    Reflect.deleteProperty(navigator, 'geolocation')
   })
 })

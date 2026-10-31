@@ -38,7 +38,7 @@ describe('app router', () => {
         </SP>
       </TP>,
     )
-    expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument()
     expect(screen.getByText('Agent App')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Agent Finder' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /go to agent finder/i })).not.toBeInTheDocument()

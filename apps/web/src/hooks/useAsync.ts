@@ -4,11 +4,12 @@ export type AsyncState = 'loading' | 'ready' | 'error'
 
 /**
  * Small loader for screens that read once and refresh on demand. Aborts on unmount so a
- * slow response cannot set state on a screen the user has already left.
+ * slow response cannot set state on a screen the user has already left. With `initial`
+ * (what another screen already read) the screen shows it at once and refreshes behind it.
  */
-export function useAsync<T>(load: (signal: AbortSignal) => Promise<T>, deps: unknown[] = []) {
-  const [state, setState] = useState<AsyncState>('loading')
-  const [data, setData] = useState<T | null>(null)
+export function useAsync<T>(load: (signal: AbortSignal) => Promise<T>, deps: unknown[] = [], initial: T | null = null) {
+  const [state, setState] = useState<AsyncState>(initial === null ? 'loading' : 'ready')
+  const [data, setData] = useState<T | null>(initial)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
 

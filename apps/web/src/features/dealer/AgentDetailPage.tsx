@@ -1,26 +1,72 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
+import { BellRing, ChevronDown, Ellipsis, Navigation, Phone, TriangleAlert, Wallet } from 'lucide-react'
 import { useToast } from '@/design'
-import { FinderCta, FinderHeader } from '@/features/end-user/components/finder'
+import { FinderCta } from '@/features/end-user/components/finder'
 import { FieldLabel, Line as ActionLine, TextField } from '@/features/agent/components/agentChrome'
 import { Block, Line, PillButton } from './components/dealerChrome'
-import { PILL_OFF, SectionLabel } from '@/features/agent/components/agentChrome'
-import { SeenAsCard } from '@/features/agent/components/SeenAsCard'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import { PERMISSIONS, PRESENCE_LABELS } from '@/types/operator'
+import { PERMISSIONS } from '@/types/operator'
 import type { DealerAction, DealerAgentDetail } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
 import { MaskedValue } from './components/MaskedValue'
 import { PinMap } from './components/PinMap'
+import { Pill, RowAvatar, ScreenTitle } from './components/designKit'
+import { CARD, PAGE } from './components/designClasses'
+import { agentState, mapBlock } from './components/agentState'
 import { locationErrorText } from '@/lib/location'
 
+/** A row that opens in place: its title, a short summary while closed, the details when open. */
+function Fold({ id, title, summary, open, onToggle, children }: { id: string; title: string; summary: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <section className="border-t border-finder-card-line first:border-t-0">
+      <button type="button" aria-expanded={open} aria-controls={id} onClick={onToggle} className="flex min-h-[48px] w-full items-center justify-between gap-3 py-2 text-left">
+        <span className="text-[15px] font-bold">{title}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-finder-muted">
+          {!open && <span className="truncate">{summary}</span>}
+          <ChevronDown size={18} strokeWidth={2.2} aria-hidden className={`shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+      {open && (
+        <div id={id} className="flex flex-col gap-4 pb-4">
+          {children}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** One thing waiting for the aggregator: an icon, what it is, and the link that deals with it. */
+function NeedRow({ icon, title, sub, to, go, danger = false }: { icon: ReactNode; title: string; sub: string; to: string; go: string; danger?: boolean }) {
+  return (
+    <Link to={to} className="flex min-h-[52px] items-center gap-3 border-t border-finder-card-line py-2 first:border-t-0">
+      <span aria-hidden="true" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${danger ? 'bg-design-bad-tint text-danger' : 'bg-finder-tile text-finder-link'}`}>
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-bold leading-snug">{title}</span>
+        <span className="block text-[13px] text-finder-muted">{sub}</span>
+      </span>
+      <span className="shrink-0 text-sm font-bold text-finder-link">{go} ›</span>
+    </Link>
+  )
+}
+
+const SECTION = 'text-xs font-extrabold uppercase tracking-[0.06em] text-finder-muted'
+/** The header's three equal buttons: icon over one word, 60 px tall. */
+const HEAD_BTN = 'flex h-[60px] flex-col items-center justify-center gap-1 rounded-[14px] px-1 text-[13px] font-extrabold max-[359px]:text-xs transition-transform duration-150 active:scale-[0.97] disabled:opacity-60'
+const PAGE_TIGHT = PAGE.replace('gap-5', 'gap-4')
+
 /**
- * Agent detail, in sections under small titles: the word now, money (masked), the Orange
- * record, sign-in as one row, what they usually handle behind an Edit row, today's counts
- * with their source, the day's availability changes, and the fixed action row. Every action is logged with the
- * dealer's name; none of them changes the agent's availability.
+ * One agent, as the aggregator opens them from the list: what to act on first, on one screen.
+ * Who and how to reach them (the same state as the list, Call and Nudge), what needs the
+ * aggregator, today in three numbers, and how customers see them in words. The Orange record,
+ * the masked money, and more details (what raises the listing, today's changes, the photo, the
+ * sign-in code, the usual-amount note) fold underneath; history, a new code, the note and
+ * Escalate are also in the ••• menu. Every action is logged with the dealer's name; none of
+ * them changes the agent's availability.
  */
 export default function DealerAgentDetailPage() {
   const { ref = '' } = useParams()
@@ -30,6 +76,9 @@ export default function DealerAgentDetailPage() {
   const location = useLocation() as { state?: { code?: string } }
   const { state, data, error, refresh } = useAsync<DealerAgentDetail>((s) => operatorApi.dealerAgent(ref, s), [ref])
   const [busy, setBusy] = useState<DealerAction | null>(null)
+  const [open, setOpen] = useState<Record<string, boolean>>({ more: Boolean(location.state?.code) })
+  const [menu, setMenu] = useState(false)
+  const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
 
   async function act(action: DealerAction) {
     setBusy(action)
@@ -41,17 +90,24 @@ export default function DealerAgentDetailPage() {
     }
   }
 
+  /** From the ••• menu: open More details and bring one card into view. */
+  function reveal(anchor: string) {
+    setMenu(false)
+    setOpen((o) => ({ ...o, more: true }))
+    window.setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+  }
+
   if (state === 'loading' && !data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
-        <FinderHeader back="/dealer/agents" title="Agent" />
+      <div className={PAGE}>
+        <ScreenTitle title="Agent" back="/dealer/agents" />
         <p className="text-base font-medium text-finder-muted">Loading…</p>
       </div>
     )
   if (!data)
     return (
-      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
-        <FinderHeader back="/dealer/agents" title="Agent" />
+      <div className={PAGE}>
+        <ScreenTitle title="Agent" back="/dealer/agents" />
         <p className="text-base font-semibold text-danger">{error ?? 'We could not find that agent.'}</p>
         <Link to="/dealer/agents" className="text-base font-bold text-finder-link">
           Back to agents
@@ -59,105 +115,206 @@ export default function DealerAgentDetailPage() {
       </div>
     )
 
-  const d = data.declaration
-  const tone = d.presence === 'open' ? 'text-finder-likely' : d.presence === 'hidden' ? 'text-warning' : 'text-finder-muted'
+  const st = agentState({ active: data.active, bucket: data.bucket, presence: data.declaration.presence })
+  const block = mapBlock(data)
+  const t = data.today
+  const regionText = data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : 'No region'
+  const needs: ReactNode[] = []
+  if (data.pending_float)
+    needs.push(<NeedRow key="float" icon={<Wallet size={18} strokeWidth={2} />} title={`Float request ${formatSle(data.pending_float.amount_sle)}`} sub={`asked ${data.pending_float.waiting_text} ago`} to={`/dealer/float/${data.pending_float.id}`} go="Review" />)
+  if (t.reported_problems > 0)
+    needs.push(<NeedRow key="problems" danger icon={<TriangleAlert size={18} strokeWidth={2} />} title={`${t.reported_problems} ${t.reported_problems === 1 ? 'customer' : 'customers'} not served today`} sub="from visit reports" to={`/dealer/agents/${encodeURIComponent(data.ref)}/reports`} go="See" />)
+  else if (data.open_signals > 0)
+    needs.push(<NeedRow key="signals" danger icon={<TriangleAlert size={18} strokeWidth={2} />} title={`${data.open_signals} ${data.open_signals === 1 ? 'thing' : 'things'} to look into`} sub="on the Attention screen" to="/dealer/attention" go="See" />)
+  const pinCard = (!data.located || !data.active) ? <PlacementCard detail={data} onSaved={refresh} /> : !data.location_confirmed ? <ConfirmCard detail={data} onSaved={refresh} /> : null
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-8 text-finder-ink">
-      <FinderHeader back="/dealer/agents" title={data.shop_name} />
-      <p className="mt-4 text-sm font-bold text-finder-muted">
-        {data.ref.replace(/^Agent /, 'Code ')} · {data.area}
-      </p>
-
-      <div className="mt-6 flex flex-col gap-8">
-        <Block heading="Now">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className={`text-lg font-bold leading-tight ${tone}`}>{PRESENCE_LABELS[d.presence]}</span>
-            <span className="text-sm font-medium text-finder-muted">{d.age_min < 60 ? `${d.age_min} min ago` : d.freshness_text.replace('You updated this ', '').split(' — ')[0]}</span>
+    <div className={PAGE_TIGHT}>
+      <ScreenTitle
+        title="Agent"
+        back="/dealer/agents"
+        action={
+          <div className="relative">
+            <button type="button" aria-label="More actions" aria-expanded={menu} onClick={() => setMenu((m) => !m)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-finder-card text-finder-ink">
+              <Ellipsis size={20} strokeWidth={2.4} aria-hidden />
+            </button>
+            {menu && (
+              <>
+                <button type="button" aria-label="Close the menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} />
+                <div role="menu" className="absolute right-0 top-12 z-20 flex w-56 flex-col rounded-2xl bg-finder-card py-1.5 shadow-lg">
+                  <Link role="menuitem" to="/dealer/attention" className="px-4 py-3 text-sm font-bold">
+                    Action history
+                  </Link>
+                  {can(PERMISSIONS.manageAgent) && (
+                    <button role="menuitem" type="button" onClick={() => reveal('agent-sign-in')} className="px-4 py-3 text-left text-sm font-bold">
+                      Issue a new sign-in code
+                    </button>
+                  )}
+                  <button role="menuitem" type="button" onClick={() => reveal('agent-note')} className="px-4 py-3 text-left text-sm font-bold">
+                    Edit my note
+                  </button>
+                  <button
+                    role="menuitem"
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => {
+                      setMenu(false)
+                      void act('escalate')
+                    }}
+                    className="px-4 py-3 text-left text-sm font-bold text-danger"
+                  >
+                    Escalate to Orange
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-          {/* The ledger's estimate is retired under the 7-day rule; the note below says it in words. */}
-          {!data.seen_as && <p className="text-sm font-medium text-finder-muted">{data.capacity_text}</p>}
-          {d.freshness === 'expired' && <p className="text-sm font-semibold text-danger">Expired — customers are not being sent here.</p>}
-          <p className="text-sm font-medium text-finder-muted">
-            <span className="font-bold text-finder-ink">{data.reliability.label_text}</span> · {data.reliability.text}
-          </p>
-        </Block>
+        }
+      />
 
-        {data.seen_as && data.customers_see?.state === 'open' && (
-          <section aria-labelledby="seen-as" className="flex flex-col gap-3">
-            <SectionLabel id="seen-as">How customers see this agent</SectionLabel>
-            <SeenAsCard name={data.shop_name} street={data.area} note={data.seen_as} />
-          </section>
-        )}
-
-        <Block heading={<>Float &amp; balance</>}>
-          <MaskedValue agentRef={data.ref} field="balance" label="Balance" />
-          <MaskedValue agentRef={data.ref} field="float" label="Float position" />
-          <Line
-            label="Pending request"
-            value={
-              data.pending_float ? (
-                <Link to={`/dealer/float/${data.pending_float.id}`} className="text-finder-link">
-                  {formatSle(data.pending_float.amount_sle)} · Review
-                </Link>
-              ) : (
-                'None'
-              )
-            }
-          />
-          {!can(PERMISSIONS.viewFinancial) && <p className="text-xs font-medium text-finder-muted">Financial detail needs a permission you do not hold.</p>}
-        </Block>
-
-        {(!data.located || !data.active) && <PlacementCard detail={data} onSaved={refresh} />}
-        {data.located && data.active && !data.location_confirmed && <ConfirmCard detail={data} onSaved={refresh} />}
-
-        <Block heading="Orange record">
-          <Line label="Agent code" value={data.agent_code ?? '—'} />
-          <Line label="Status" value={data.active ? 'Active' : 'Inactive'} tone={data.active ? 'text-finder-likely' : 'text-danger'} />
-          <Line label="Region · city" value={<>{data.region ? data.region[0]!.toUpperCase() + data.region.slice(1) : '—'} · {data.city ?? '—'}</>} />
-          <Line label="On the map" value={data.located ? (data.location_confirmed ? 'Yes' : 'Pinned, not confirmed') : 'No'} />
-          <Line label="Verified" value={data.verified ? 'Yes · shown to customers' : (data.verification_note ?? 'Pending · not shown to customers')} tone={data.verified ? 'text-finder-likely' : 'text-warning'} />
-          <Line label="Source" value={data.source === 'orange_file' ? "Orange's file" : 'Registered in the app'} />
-        </Block>
-
-        {data.photo && <PhotoCard detail={data} onSaved={refresh} />}
-
-        {can(PERMISSIONS.manageAgent) && <SignInCard detail={data} initialCode={location.state?.code ?? null} />}
-
-        <UsualCard detail={data} onSaved={refresh} />
-
-        <Block heading="Today">
-          <Line label={<>Transactions <span className="text-xs">· {data.today.transactions === null ? 'not connected' : 'Orange'}</span></>} value={data.today.transactions ?? '—'} />
-          <Line label="Successful" value={data.today.successful ?? '—'} />
-          <Line label="Customers who found them" value={data.today.found_you} tone="text-finder-link" />
-          <Line label="Reported problems" value={data.today.reported_problems} tone={data.today.reported_problems > 0 ? 'text-danger' : ''} />
-        </Block>
-
-        <Block heading="Availability today">
-          {data.availability_today.length === 0 && <p className="text-sm font-medium text-finder-muted">No changes today.</p>}
-          {data.availability_today.map((e, i) => (
-            <Line key={i} label={e.time_text} value={e.text} tone={e.tone === 'warning' ? 'text-warning' : ''} />
-          ))}
-        </Block>
-
-        <div className="flex gap-3 border-t border-finder-line pt-6">
-          <PillButton className="flex-1" onClick={() => act('contact')} disabled={busy !== null}>
-            Contact
-          </PillButton>
-          <PillButton tone="on" className="flex-1" onClick={() => act('nudge')} disabled={busy !== null}>
+      <div className={`${CARD} flex flex-col gap-4 p-4`}>
+        <div className="flex items-center gap-3">
+          <RowAvatar name={data.shop_name} index={0} />
+          <div className="min-w-0">
+            <h2 className="text-lg font-extrabold leading-tight">{data.shop_name}</h2>
+            <p className="text-[13px] text-finder-muted">
+              {data.ref.replace(/^Agent /, '')} · {data.area}
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <Pill tone={st.tone}>
+                {st.text} · {data.freshness_text}
+              </Pill>
+              {block && <Pill tone="warn">{block}</Pill>}
+            </div>
+          </div>
+        </div>
+        {/* Three equal buttons, each an icon over one word, so they line up on any phone. */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {data.call_url ? (
+            <a href={data.call_url} onClick={() => void act('contact')} className={`${HEAD_BTN} bg-finder-accent text-finder-on-orange`}>
+              <Phone size={20} strokeWidth={2.2} aria-hidden />
+              Call
+            </a>
+          ) : (
+            <button type="button" onClick={() => void act('contact')} disabled={busy !== null} className={`${HEAD_BTN} bg-finder-accent text-finder-on-orange`}>
+              <Phone size={20} strokeWidth={2.2} aria-hidden />
+              Contact
+            </button>
+          )}
+          {data.located && data.location_confirmed ? (
+            <Link to={`/dealer/network/map?focus=${encodeURIComponent(data.ref)}&route=1`} className={`${HEAD_BTN} border-[1.5px] border-finder-accent text-finder-link`}>
+              <Navigation size={20} strokeWidth={2.2} aria-hidden />
+              Directions
+            </Link>
+          ) : (
+            <span aria-disabled="true" title="Not on the map yet" className={`${HEAD_BTN} border-[1.5px] border-finder-card-line text-finder-muted`}>
+              <Navigation size={20} strokeWidth={2.2} aria-hidden />
+              Not on map
+            </span>
+          )}
+          <button type="button" onClick={() => void act('nudge')} disabled={busy !== null} className={`${HEAD_BTN} border-[1.5px] border-finder-accent text-finder-link`}>
+            <BellRing size={20} strokeWidth={2.2} aria-hidden />
             Nudge
-          </PillButton>
+          </button>
         </div>
-        <div className="flex gap-3">
-          <Link to="/dealer/attention" className={`flex h-chip flex-1 items-center justify-center rounded-pill text-base font-bold ${PILL_OFF}`}>
-            History
-          </Link>
-          <PillButton tone="danger" className="flex-1" onClick={() => act('escalate')} disabled={busy !== null}>
-            Escalate
-          </PillButton>
-        </div>
-        <p className="text-center text-xs font-medium text-finder-muted">Every action is recorded with your name. None of them changes the agent's status.</p>
       </div>
+
+      {(needs.length > 0 || pinCard) && (
+        <section aria-labelledby="needs-you" className="flex flex-col gap-2">
+          <h2 id="needs-you" className={SECTION}>
+            Needs you
+          </h2>
+          {needs.length > 0 && <div className={`${CARD} px-4 py-1`}>{needs}</div>}
+          {pinCard && <div className={`${CARD} p-4`}>{pinCard}</div>}
+        </section>
+      )}
+
+      <section aria-labelledby="today" className="flex flex-col gap-2">
+        <h2 id="today" className={SECTION}>
+          Today
+        </h2>
+        <div className="grid grid-cols-3 gap-2.5">
+          {(
+            [
+              ['Transactions', t.transactions ?? '—', ''],
+              ['Found them', t.found_you, ''],
+              ['Problems', t.reported_problems, t.reported_problems > 0 ? 'text-danger' : ''],
+            ] as const
+          ).map(([label, value, tone]) => (
+            <div key={label} className={`${CARD} flex flex-col px-3 py-2.5`}>
+              <span className={`text-xl font-extrabold leading-tight ${tone}`}>{value}</span>
+              <span className="text-xs font-semibold text-finder-muted">{label}</span>
+            </div>
+          ))}
+        </div>
+        {t.transactions === null && <p className="-mt-1 text-xs font-medium text-finder-muted">Transactions: Orange’s records are not connected yet.</p>}
+      </section>
+
+      <section aria-labelledby="seen" className="flex flex-col gap-2">
+        <h2 id="seen" className={SECTION}>
+          How customers see them
+        </h2>
+        <div className={`${CARD} px-4 py-3 text-sm leading-relaxed`}>
+          {data.seen_as ? (
+            data.seen_as.sides.map((s) => (
+              <p key={s.label}>
+                <b>{s.label}:</b> {s.phrase}
+              </p>
+            ))
+          ) : (
+            <p>{data.customers_see?.headline ?? data.capacity_text}</p>
+          )}
+          <p className="mt-1 text-[13px] text-finder-muted">
+            <b className="text-finder-ink">{data.reliability.label_text}</b> · {data.reliability.text}
+          </p>
+          <Link to={`/dealer/agents/${encodeURIComponent(data.ref)}/reports`} className="mt-1 flex min-h-[40px] items-center text-sm font-bold text-finder-link">
+            Customer reports ›
+          </Link>
+        </div>
+      </section>
+
+      <div className={`${CARD} px-4`}>
+        <Fold id="fold-orange" title="Orange record" summary={`${data.active ? 'Active' : 'Inactive'} · ${regionText}`} open={!!open.orange} onToggle={() => toggle('orange')}>
+          <div>
+            <Line label="Orange agent code" value={data.agent_code ?? (data.source === 'orange_file' ? 'Not given' : 'Not in Orange’s file')} />
+            <Line label="Status at Orange" value={data.active ? 'Active' : 'Inactive'} tone={data.active ? 'text-finder-likely' : 'text-danger'} />
+            <Line label="Region · town" value={`${regionText} · ${data.city ?? 'No town'}`} />
+            <Line label="On the customer map" value={data.located ? (data.location_confirmed ? 'Yes, confirmed' : 'Pinned, not confirmed') : 'No'} />
+            <Line label="Verified" value={data.verified ? 'Yes · shown to customers' : (data.verification_note ?? 'Pending · not shown to customers')} tone={data.verified ? 'text-finder-likely' : 'text-warning'} />
+            <Line label="Source" value={data.source === 'orange_file' ? "Orange's file" : 'Registered in the app'} />
+          </div>
+        </Fold>
+        <Fold id="fold-money" title="Money" summary="hidden · Reveal" open={!!open.money} onToggle={() => toggle('money')}>
+          <div>
+            <MaskedValue agentRef={data.ref} field="balance" label="Balance" />
+            <MaskedValue agentRef={data.ref} field="float" label="Float position" />
+            {!can(PERMISSIONS.viewFinancial) && <p className="text-xs font-medium text-finder-muted">Financial detail needs a permission you do not hold.</p>}
+          </div>
+        </Fold>
+        <Fold id="fold-more" title="More details" summary="sign-in, hours, note" open={!!open.more} onToggle={() => toggle('more')}>
+          {data.seen_as && data.seen_as.why.length > 0 && (
+            <Block heading="What would raise the listing">
+              {data.seen_as.why.map((w) => (
+                <p key={w.title} className="text-sm font-medium">
+                  <b>{w.title}</b> <span className="text-finder-muted">{w.detail}</span>
+                </p>
+              ))}
+            </Block>
+          )}
+          <Block heading="Today’s changes">
+            {t.successful !== null && <Line label="Successful transactions" value={t.successful} />}
+            {data.availability_today.length === 0 && <p className="text-sm font-medium text-finder-muted">No changes today.</p>}
+            {data.availability_today.map((e, i) => (
+              <Line key={i} label={e.time_text} value={e.text} tone={e.tone === 'warning' ? 'text-warning' : ''} />
+            ))}
+          </Block>
+          {data.photo && <PhotoCard detail={data} onSaved={refresh} />}
+          {can(PERMISSIONS.manageAgent) && <SignInCard detail={data} initialCode={location.state?.code ?? null} />}
+          <UsualCard detail={data} onSaved={refresh} />
+        </Fold>
+      </div>
+
+      <p className="text-center text-xs font-medium text-finder-muted">Every action is recorded with your name. None of them changes the agent’s status.</p>
     </div>
   )
 }
@@ -440,7 +597,7 @@ function UsualCard({ detail, onSaved }: { detail: DealerAgentDetail; onSaved: ()
           .filter(Boolean)
           .join(' · ')
   return (
-    <Block heading="Usually handles">
+    <Block id="agent-note" heading="Usually handles · your note">
       <p className="text-sm font-medium text-finder-muted">{detail.evidence.cash.text}</p>
       {detail.evidence.float.source !== 'none' && <p className="text-sm font-medium text-finder-muted">{detail.evidence.float.text}</p>}
       {fromRecords ? (

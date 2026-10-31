@@ -1,15 +1,19 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
+import { House, Map as MapIcon, Users, Wallet } from 'lucide-react'
 import { LogoMark } from '@/design'
 import { useSession } from '@/features/auth/session'
-import { DashboardIcon, ProfileIcon, type IconProps } from '@/features/agent/components/agentChrome'
 
 /**
- * The aggregator console's chrome, on the finder's design like the Agent App: the strip
- * with who is signed in, and four tabs at the foot. Dashboard, Agents, Float, Profile. The
- * agent search lives on the Agents tab; the keyword search page stays reachable by its address.
+ * The aggregator console's chrome, in the approved card design like the Agent App: the strip
+ * with who is signed in, and four tabs at the foot: Home, Float, Agents, Network (the aggregator's own network; Orange's
+ * national view is a separate account and screen). Profile opens
+ * from the home header. The agent search lives on the Agents tab; the keyword search page stays
+ * reachable by its address. The home screen carries its own dark header instead of the strip.
  */
 export function AggregatorStrip() {
   const { session } = useSession()
+  const { pathname } = useLocation()
+  if (pathname === '/dealer' || pathname === '/dealer/') return null
   return (
     <div className="flex h-12 items-center justify-between gap-3 px-5 text-finder-ink">
       <span className="flex items-center gap-2 text-base font-bold">
@@ -21,51 +25,26 @@ export function AggregatorStrip() {
   )
 }
 
-const fillWhenActive = (active: boolean) => (active ? 'currentColor' : 'none')
-
-function AgentsIcon({ active }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="9" cy="8" r="3.5" fill={fillWhenActive(active)} fillOpacity="0.25" />
-      <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
-      <circle cx="17" cy="9" r="2.5" fill={fillWhenActive(active)} fillOpacity="0.25" />
-      <path d="M16 14.5c3 0 5.5 2 5.5 5" />
-    </svg>
-  )
-}
-function FloatIcon({ active }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2" y="6" width="20" height="13" rx="3" fill={fillWhenActive(active)} fillOpacity="0.25" />
-      <circle cx="12" cy="12.5" r="2.5" />
-      <path d="M6 10v5M18 10v5" />
-    </svg>
-  )
-}
-
 const TABS = [
-  { to: '/dealer', label: 'Dashboard', end: true, Icon: DashboardIcon },
-  { to: '/dealer/agents', label: 'Agents', end: false, Icon: AgentsIcon },
-  { to: '/dealer/float', label: 'Float', end: false, Icon: FloatIcon },
-  { to: '/dealer/profile', label: 'Profile', end: false, Icon: ProfileIcon },
+  { to: '/dealer', label: 'Home', end: true, Icon: House },
+  { to: '/dealer/float', label: 'Float', end: false, Icon: Wallet },
+  { to: '/dealer/agents', label: 'Agents', end: false, Icon: Users },
+  { to: '/dealer/network', label: 'Network', end: false, Icon: MapIcon },
 ]
 
-/** Dashboard, Agents, Float, Profile. The active one is orange; the bar never leaves the screen. */
+/**
+ * Home, Float, Agents, Network, as drawn in the approved design: 84 px, the orange marker on
+ * top of the active tab, Lucide outline icons at 22 px. The bar never leaves the screen.
+ */
 export function DealerTabBar() {
   return (
-    <nav aria-label="Aggregator sections" className="sticky bottom-0 mt-auto flex bg-finder-bg pb-[env(safe-area-inset-bottom)] shadow-inset-finder">
+    <nav aria-label="Aggregator sections" className="sticky bottom-0 mt-auto grid h-[84px] grid-cols-4 border-t border-design-nav-line bg-finder-card px-2 pb-6 pt-2.5">
       {TABS.map(({ to, label, end, Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          className={({ isActive }) =>
-            `flex h-16 flex-1 flex-col items-center justify-center gap-1 text-xs font-bold ${isActive ? 'text-finder-link' : 'text-finder-muted'}`
-          }
-        >
+        <NavLink key={to} to={to} end={end} className={({ isActive }) => `flex flex-col items-center gap-1.5 text-[11px] font-bold ${isActive ? 'text-finder-link' : 'text-finder-tab-off'}`}>
           {({ isActive }) => (
             <>
-              <Icon active={isActive} />
+              <span aria-hidden="true" className={`h-1 w-7 rounded-sm ${isActive ? 'bg-finder-accent' : 'bg-transparent'}`} />
+              <Icon size={22} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden />
               {label}
             </>
           )}
