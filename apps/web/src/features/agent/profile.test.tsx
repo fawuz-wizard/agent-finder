@@ -9,7 +9,8 @@ import { operatorApi } from '@/services/operatorApi'
 import ProfilePage from './ProfilePage'
 import PersonalInfoPage from './PersonalInfoPage'
 import ShopPage from './ShopPage'
-import SettingsPage from './SettingsPage'
+import ChangePinPage from './ChangePinPage'
+import NotificationSettingsPage from './NotificationSettingsPage'
 import { AgentLayout } from '@/app/layouts'
 
 const PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
@@ -32,15 +33,18 @@ function renderProfile(start = '/agent/profile') {
   )
 }
 
-function renderSettings() {
+function renderIn(path: string) {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', role: 'agent', name: "Fatmata's Shop", ref: 'Agent 024', permissions: [] }))
   return render(
     <ToastProvider>
       <SessionProvider>
-        <MemoryRouter initialEntries={['/agent/settings']}>
+        <MemoryRouter initialEntries={[path]}>
           <Routes>
             <Route element={<AgentLayout />}>
-              <Route path="/agent/settings" element={<SettingsPage />} />
+              <Route path="/agent/profile" element={<ProfilePage />} />
+              <Route path="/agent/pin" element={<ChangePinPage />} />
+              <Route path="/agent/notification-settings" element={<NotificationSettingsPage />} />
+              <Route path="/agent/profile/personal" element={<PersonalInfoPage />} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -83,8 +87,8 @@ describe('agent profile', () => {
     renderProfile()
     for (const [name, href] of [
       ['Personal Information', '/agent/profile/personal'] as const,
-      ['Change PIN', '/agent/settings'],
-      ['Notification Settings', '/agent/settings'],
+      ['Change PIN', '/agent/pin'],
+      ['Notification Settings', '/agent/notification-settings'],
       ['Help & Support', '/agent/help'],
       ['About', '/agent/about'],
     ] as const)
@@ -117,49 +121,78 @@ describe('agent profile', () => {
     expect(acts.some((a) => a.action === 'agent_note' && /Lumley Beach Road/.test(a.note))).toBe(true)
   })
 
-  it('changes the PIN only with the current one, and signs out the other phones', async () => {
+  it('Change PIN is its own page: the current PIN first, then the phones signed in', async () => {
     const user = userEvent.setup()
-    renderSettings()
-    await screen.findByText('Security')
-    await user.click(screen.getByRole('button', { name: /^change/i }))
-    const sheet = screen.getByRole('dialog', { name: 'Change PIN' })
-    await user.type(within(sheet).getByLabelText('Current PIN'), '9999')
-    await user.type(within(sheet).getByLabelText('New PIN'), '2468')
-    await user.type(within(sheet).getByLabelText('New PIN again'), '2468')
-    await user.click(within(sheet).getByRole('button', { name: 'Change PIN' }))
-    expect(await within(sheet).findByRole('alert')).toHaveTextContent(/not correct/i)
-    await user.clear(within(sheet).getByLabelText('Current PIN'))
-    await user.type(within(sheet).getByLabelText('Current PIN'), '1234')
-    await user.click(within(sheet).getByRole('button', { name: 'Change PIN' }))
+    renderIn('/agent/pin')
+    await screen.findByRole('heading', { name: 'Change PIN' })
+    await user.type(screen.getByLabelText('Current PIN'), '9999')
+    await user.type(screen.getByLabelText('New PIN'), '2468')
+    await user.type(screen.getByLabelText('New PIN again'), '2468')
+    await user.click(screen.getByRole('button', { name: 'Save PIN' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not correct/i)
+    await user.clear(screen.getByLabelText('Current PIN'))
+    await user.type(screen.getByLabelText('Current PIN'), '1234')
+    await user.click(screen.getByRole('button', { name: 'Save PIN' }))
     await screen.findByText('PIN changed.')
     await expect(operatorApi.signIn('Agent 024', '1234', 'agent')).rejects.toThrow(/not correct/i)
     await operatorApi.changePin('Agent 024', '2468', '1234')
     // Two phones signed in; one tap leaves only this one.
-    expect(screen.getByText('Old phone · Tecno')).toBeInTheDocument()
+    expect(await screen.findByText(/Old phone · Tecno/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /sign out the other phones/i }))
-    await waitFor(() => expect(screen.queryByText('Old phone · Tecno')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(/Old phone · Tecno/)).not.toBeInTheDocument())
   })
 
-  it('keeps the two alert switches on this phone, and promises no notifications', async () => {
+  it('Notification Settings is its own page with the two alerts, on this phone only', async () => {
     const user = userEvent.setup()
-    renderSettings()
-    await screen.findByText('Alerts')
-    expect(screen.queryByText('Notifications')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('switch')).toHaveLength(3) // two alerts and the phone switch
-    const beep = screen.getByRole('switch', { name: 'Beep before closing' })
+    renderIn('/agent/notification-settings')
+    await screen.findByRole('heading', { name: 'Notification Settings' })
+    expect(screen.getAllByRole('switch')).toHaveLength(2)
+    const beep = screen.getByRole('switch', { name: 'Closing reminder' })
     expect(beep).toHaveAttribute('aria-checked', 'true')
     await user.click(beep)
-    expect(screen.getByRole('switch', { name: 'Beep before closing' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('switch', { name: 'Closing reminder' })).toHaveAttribute('aria-checked', 'false')
     expect(JSON.parse(localStorage.getItem('af.agentPrefs')!)).toMatchObject({ closingBeep: false, leftShopWatch: true })
+  })
+
+  it('"Customers may call me" sits under the Phone line, off by default', async () => {
+    const user = userEvent.setup()
+    renderIn('/agent/profile/personal')
+    const call = await screen.findByRole('switch', { name: 'Customers may call me' })
+    const before = (await operatorApi.profile('Agent 024')).phone_visible
+    expect(call).toHaveAttribute('aria-checked', String(before))
+    await user.click(call)
+    await waitFor(async () => expect((await operatorApi.profile('Agent 024')).phone_visible).toBe(!before))
+    await operatorApi.setPhoneVisible('Agent 024', before)
+  })
+})
+
+
+describe('the round picture is the shop photo', () => {
+  it('the agent taps it on Profile to add the shop photo, which customers and the aggregator see, and can remove it', async () => {
+    const user = userEvent.setup()
+    await operatorApi.removePhoto('Agent 024')
+    renderIn('/agent/profile')
+    await user.click(await screen.findByRole('button', { name: 'Add your shop photo' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Shop photo' })
+    expect(within(sheet).getByText(/customers and your aggregator see it/)).toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: 'Remove photo' })).not.toBeInTheDocument()
+    await user.upload(screen.getByTestId('agent-photo-gallery'), new File([new Uint8Array([1, 2, 3])], 'shop.jpg', { type: 'image/jpeg' }))
+    const changed = await screen.findByRole('button', { name: 'Change your shop photo' })
+    expect(changed.querySelector('img')).toHaveAttribute('src', PHOTO)
+    expect((await operatorApi.home('Agent 024')).photo_url).toBe(PHOTO)
+    expect((await operatorApi.dealerAgent('Agent 024')).photo).toBe(PHOTO)
+    await user.click(changed)
+    await user.click(within(await screen.findByRole('dialog', { name: 'Shop photo' })).getByRole('button', { name: 'Remove photo' }))
+    expect(await screen.findByRole('button', { name: 'Add your shop photo' })).toBeInTheDocument()
+    expect((await operatorApi.home('Agent 024')).photo_url).toBeNull()
   })
 })
 
 
 describe('appearance', () => {
-  it('opens light, and Dark turns the whole agent shell dark on this phone', async () => {
+  it('sits at the top of Profile: opens light, and Dark turns the whole agent shell dark on this phone', async () => {
     const user = userEvent.setup()
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', role: 'agent', name: "Fatmata's Shop", ref: 'Agent 024', permissions: [] }))
-    const { container } = renderSettings()
+    const { container } = renderIn('/agent/profile')
     const group = await screen.findByRole('radiogroup', { name: 'Appearance' })
     expect(container.querySelector('[data-platform="light"]')).not.toBeNull()
     expect(within(group).getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true')

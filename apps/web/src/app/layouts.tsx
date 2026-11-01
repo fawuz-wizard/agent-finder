@@ -58,7 +58,7 @@ function PlatformFrame({ theme, app, children }: { theme: string; app?: 'agent' 
 
 /** Agent shell: the platform surface (dark by default, daylight on request) and the tabs that never leave the screen. */
 /** The agent screens the new design draws without the tab bar: one task each, with a back arrow. */
-const AGENT_NO_TABS = ['/agent/status', '/agent/float', '/agent/profile', '/agent/services', '/agent/profile/personal', '/agent/shop', '/agent/help', '/agent/about']
+const AGENT_NO_TABS = ['/agent/status', '/agent/float', '/agent/profile', '/agent/services', '/agent/profile/personal', '/agent/shop', '/agent/help', '/agent/about', '/agent/pin', '/agent/notification-settings']
 
 export function AgentLayout() {
   const [theme] = usePlatformTheme()

@@ -5,7 +5,7 @@ import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { AgentProfile } from '@/types/operator'
 import { FinderCta, FinderSheet } from '@/features/end-user/components/finder'
-import { FieldLabel, PILL_OFF, PILL_ON, TextField } from './components/agentChrome'
+import { FieldLabel, PILL_OFF, PILL_ON, Switch, TextField } from './components/agentChrome'
 import { AgentTitle } from './components/agentKit'
 import { BOX } from './components/agentClasses'
 
@@ -40,7 +40,7 @@ export default function PersonalInfoPage() {
   const ref = session?.ref ?? 'Agent 024'
   const toast = useToast()
   const ids = useId()
-  const { data, state, error } = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
+  const { data, setData, state, error } = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
   const [open, setOpen] = useState(false)
   const [field, setField] = useState<(typeof MISTAKE_FIELDS)[number][0]>('address')
   const [text, setText] = useState('')
@@ -78,6 +78,13 @@ export default function PersonalInfoPage() {
             <div className={`${BOX} flex flex-col`} aria-label="Your record">
               <Line label="Name" value={data.name} />
               <Line label="Phone" value={data.phone_masked ?? '—'} />
+              <div className="flex items-center gap-3 border-t border-agent-divider bg-finder-tile px-4 py-3">
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-bold">Customers may call me</span>
+                  <span className="text-xs text-finder-muted">Shows a Call button on your shop. They never see your balance or your float.</span>
+                </span>
+                <Switch on={data.phone_visible} label="Customers may call me" onChange={(next) => void operatorApi.setPhoneVisible(ref, next).then(setData)} />
+              </div>
               <Line label="Shop" value={data.shop_name} />
               <Line label="Agent number" value={data.ref.replace(/^Agent /, '')} />
               <Line label="Orange agent code" value={data.agent_code ?? '—'} />

@@ -24,7 +24,8 @@ const AgentShop = lazy(() => import('@/features/agent/ShopPage'))
 const AgentHelp = lazy(() => import('@/features/agent/HelpPage'))
 const AgentAbout = lazy(() => import('@/features/agent/AboutPage'))
 const AgentProfile = lazy(() => import('@/features/agent/ProfilePage'))
-const AgentSettings = lazy(() => import('@/features/agent/SettingsPage'))
+const AgentChangePin = lazy(() => import('@/features/agent/ChangePinPage'))
+const AgentNotificationSettings = lazy(() => import('@/features/agent/NotificationSettingsPage'))
 const AgentNotifications = lazy(() => import('@/features/agent/NotificationsPage'))
 const AgentHours = lazy(() => import('@/features/agent/HoursPage'))
 const AgentStatus = lazy(() => import('@/features/agent/StatusPage'))
@@ -108,7 +109,10 @@ const router = createBrowserRouter([
           { path: 'about', element: withSuspense(<AgentAbout />) },
           { path: 'float', element: withSuspense(<AgentFloat />) },
           { path: 'profile', element: withSuspense(<AgentProfile />) },
-          { path: 'settings', element: withSuspense(<AgentSettings />) },
+          // No Settings page: each Profile row opens its own; old links land on Profile.
+          { path: 'settings', element: <Navigate to="/agent/profile" replace /> },
+          { path: 'pin', element: withSuspense(<AgentChangePin />) },
+          { path: 'notification-settings', element: withSuspense(<AgentNotificationSettings />) },
           { path: 'notifications', element: withSuspense(<AgentNotifications />) },
           { path: 'hours', element: withSuspense(<AgentHours />) },
         ],
