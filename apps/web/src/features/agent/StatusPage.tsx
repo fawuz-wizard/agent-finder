@@ -3,24 +3,36 @@ import { Link } from 'react-router-dom'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
-import type { AgentHome, AgentProfile, LowLevel, Presence } from '@/types/operator'
+import type { AgentHome, AgentProfile, Presence } from '@/types/operator'
 import { FinderCta } from '@/features/end-user/components/finder'
-import { readPrefs } from '@/lib/prefs'
-import { Segmented } from './components/agentChrome'
 import { AgentTitle } from './components/agentKit'
 import { Icon } from './components/agentIcons'
 import { BOX, OUTLINE, PRIMARY } from './components/agentClasses'
+import { BEEP_AWAY_BASE, askToBeep, beep, cancelBeep } from '@/lib/notify'
+import { AWAY_REMINDER_MIN } from './shopPresence'
 
-const LEVELS: { value: 'ok' | LowLevel; label: string }[] = [
-  { value: 'ok', label: 'Normal' },
-  { value: 'low', label: 'Low today' },
-  { value: 'none', label: 'None today' },
-]
+const hm = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+
+/** Away chosen by the agent: "You're still Away" at 30, 60 and 90 minutes, in working hours only. */
+async function remindWhileAway(closesAt: string | null) {
+  const close = closesAt ? new Date(new Date().toDateString() + ' ' + closesAt).getTime() : null
+  const ok = await askToBeep()
+  AWAY_REMINDER_MIN.forEach((min, k) => {
+    const at = new Date(Date.now() + min * 60_000)
+    if (!ok || (close !== null && at.getTime() >= close)) return
+    void beep({ id: BEEP_AWAY_BASE + k, title: "You're still Away", body: 'Customers are not sent to you. Tap to open again.', at })
+  })
+}
+
+function stopAwayReminders() {
+  AWAY_REMINDER_MIN.forEach((_, k) => void cancelBeep(BEEP_AWAY_BASE + k))
+}
 
 /**
- * Shop status, the "Open / Close" tile of the home screen: open, closed or away; low or none
- * today for each side, which only ever lowers what customers read; where the shop is pinned and
- * whether the aggregator confirmed it; the hours. Nothing here shows a balance.
+ * Service Status, the new design's screen 10, nothing added: two cards, Open for Business and
+ * Away (the one in force is lit; tap the other to switch), where the shop is pinned and the
+ * service radius, Update Location, and the switch button. Nothing here shows a balance.
+ * Low / none today and Close for today are off this screen for now, as in the design.
  */
 export default function StatusPage() {
   const { session } = useSession()
@@ -28,7 +40,6 @@ export default function StatusPage() {
   const home = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
   const profile = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
   const [saving, setSaving] = useState<Presence | null>(null)
-  const [lowSaving, setLowSaving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function setPresence(presence: Presence) {
@@ -37,25 +48,13 @@ export default function StatusPage() {
     setError(null)
     try {
       await operatorApi.declare(ref, { presence, night_mode: home.data.declaration.night_mode })
+      if (presence === 'hidden') void remindWhileAway(home.data.schedule.closes_at)
+      else stopAwayReminders()
       home.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.')
     } finally {
       setSaving(null)
-    }
-  }
-
-  async function setLow(side: 'cash_out' | 'deposit', level: 'ok' | LowLevel) {
-    if (lowSaving) return
-    setLowSaving(`${side}:${level}`)
-    setError(null)
-    try {
-      await operatorApi.setLow(ref, side, level)
-      home.refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save.')
-    } finally {
-      setLowSaving(null)
     }
   }
 
@@ -78,7 +77,6 @@ export default function StatusPage() {
   const data = home.data
   const presence = data.declaration.presence
   const p = profile.data
-  const watch = readPrefs().leftShopWatch
   const open = presence === 'open'
   const toggle = () => void setPresence(open ? 'hidden' : 'open')
 
@@ -86,24 +84,46 @@ export default function StatusPage() {
     <div className="flex flex-1 flex-col text-finder-ink">
       <AgentTitle title="Service Status" />
       <div className="flex flex-1 flex-col gap-3.5 px-[18px] pb-8 pt-6">
-        {/* The design's state card: tap it to switch between open and away. */}
-        <button
-          type="button"
-          onClick={toggle}
-          disabled={saving !== null}
-          className={`flex items-center gap-3.5 rounded-[14px] border px-4 py-[18px] text-left transition-transform duration-150 active:scale-[0.98] ${open ? 'border-agent-open-line bg-agent-green-tint' : 'border-agent-field-line bg-agent-chip'}`}
-        >
-          <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white ${open ? 'bg-agent-green' : 'bg-agent-away-dot'}`}>
-            {open ? Icon.check() : Icon.pause()}
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col gap-1" role="status">
-            <span className={`text-base font-bold ${open ? 'text-agent-green-ink' : ''}`}>{open ? 'Open for Business' : presence === 'closed' ? 'Closed' : 'Away'}</span>
-            <span className={`text-xs ${open ? 'text-agent-open-sub' : 'text-finder-muted'}`}>
-              {open ? 'You are visible to customers' : presence === 'closed' ? 'Customers see you as closed · tap to open' : 'Hidden from customers · tap to reopen'}
+        {/* Not confirmed at the pin: said plainly, nothing to tap; walking back is enough. */}
+        {data.checkin_text && presence === 'open' && (
+          <div role="status" className="flex items-center gap-3.5 rounded-[14px] border border-design-amber bg-design-warn-tint px-4 py-[18px]">
+            <span aria-hidden="true" className="h-7 w-7 shrink-0 rounded-full bg-design-amber" />
+            <span className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="text-base font-bold">{data.checkin?.hidden_reason === 'away_from_pin' ? 'Hidden · away from your pin' : 'Hidden · open the app at your shop'}</span>
+              <span className="text-xs text-finder-muted">
+                {data.checkin?.hidden_reason === 'away_from_pin' ? `Since ${hm(data.checkin.away_since!)}. You show again when you're back.` : `No check-in since ${hm(data.checkin!.last_at)}. Opening the app at your shop is enough.`}
+              </span>
             </span>
-          </span>
-          <span className={open ? 'text-agent-green-ink' : 'text-finder-muted'}>{Icon.chevron()}</span>
-        </button>
+          </div>
+        )}
+        {/* The design's two state cards: the one in force is lit; tapping the other switches. */}
+        {(
+          [
+            ['open', 'Open for Business', 'You are visible to customers', Icon.check()],
+            ['hidden', 'Away', 'Hidden from customers · tap to reopen', Icon.pause()],
+          ] as const
+        ).map(([value, label, sub, mark]) => {
+          const on = value === 'open' ? open : !open
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={on}
+              onClick={() => !on && void setPresence(value)}
+              disabled={saving !== null}
+              className={`flex items-center gap-3.5 rounded-[14px] border px-4 py-[18px] text-left transition-transform duration-150 active:scale-[0.98] ${on && value === 'open' ? 'border-agent-open-line bg-agent-green-tint' : 'border-agent-field-line bg-agent-chip'}`}
+            >
+              <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white ${value === 'open' ? (on ? 'bg-agent-green' : 'bg-agent-away-dot') : 'bg-agent-away-dot'}`}>
+                {mark}
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-1" role={on ? 'status' : undefined}>
+                <span className={`text-base font-bold ${on && value === 'open' ? 'text-agent-green-ink' : ''}`}>{value === 'hidden' && presence === 'closed' ? 'Closed' : label}</span>
+                <span className={`text-xs ${on && value === 'open' ? 'text-agent-open-sub' : 'text-finder-muted'}`}>{value === 'hidden' && presence === 'closed' ? 'Customers see you as closed · tap Open to open' : sub}</span>
+              </span>
+              <span className={on && value === 'open' ? 'text-agent-green-ink' : 'text-finder-muted'}>{Icon.chevron()}</span>
+            </button>
+          )
+        })}
 
         <div className={`${BOX} flex flex-col gap-5 px-4 py-[18px]`}>
           <div className="flex gap-3.5">
@@ -118,6 +138,22 @@ export default function StatusPage() {
               )}
             </div>
           </div>
+          {data.checkin && (
+            <>
+              <div className="h-px bg-agent-divider" />
+              <div className="flex gap-3.5">
+                <span className="text-finder-muted">{Icon.check()}</span>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold">Last check-in at the shop</span>
+                  <span className={`text-[13px] ${data.checkin.hidden_reason ? 'text-finder-muted' : 'font-semibold text-agent-green-ink'}`}>
+                    {hm(data.checkin.last_at)}
+                    {data.checkin.hidden_reason ? '' : ` · visible until ${hm(data.checkin.visible_until)}`}
+                    {data.checkin.location_check ? '' : ' · location check off'}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
           <div className="h-px bg-agent-divider" />
           <div className="flex gap-3.5">
             <span className="text-finder-muted">{Icon.target()}</span>
@@ -128,39 +164,12 @@ export default function StatusPage() {
           </div>
         </div>
 
-        <Link to="/agent/profile" className={`${PRIMARY} mt-2 h-[54px]`}>
+        <Link to="/agent/shop" className={`${PRIMARY} mt-2 h-[54px]`}>
           {p && !p.located ? 'Pin my shop' : 'Update Location'}
         </Link>
         <button type="button" onClick={toggle} disabled={saving !== null} className={OUTLINE}>
           {saving ? '…' : open ? 'Go Away' : 'Open for Business'}
         </button>
-        {presence !== 'closed' && (
-          <button type="button" onClick={() => void setPresence('closed')} disabled={saving !== null} className="h-control text-sm font-bold text-finder-link">
-            Close for today
-          </button>
-        )}
-
-        <h2 className="mt-3 text-base font-bold">Cash today</h2>
-        {(
-          [
-            ['cash_out', 'Cash out', 'the cash you hand over'],
-            ['deposit', 'Cash in', 'the float you credit'],
-          ] as const
-        ).map(([side, label, hint]) => {
-          const current = data.low[side]
-          const busy = lowSaving?.startsWith(`${side}:`) ? (lowSaving.split(':')[1] as 'ok' | LowLevel) : null
-          return (
-            <div key={side} className="flex flex-col gap-2">
-              <p className="text-sm font-bold">
-                {label} <span className="font-medium text-finder-muted">{hint}</span>
-              </p>
-              <Segmented label={`${label} today`} options={LEVELS} value={current ?? 'ok'} busy={busy} disabled={lowSaving !== null} onChange={(v) => void setLow(side, v)} />
-            </div>
-          )
-        })}
-        <p className="text-xs font-medium text-finder-muted">
-          Low: only small amounts read as likely. None: that side reads as unavailable. Both last {data.low.until_text}; you can only lower what customers read, never raise it.
-        </p>
         {data.declaration.source_text && <p className="text-sm font-medium text-finder-muted">{data.declaration.source_text}</p>}
         {error && (
           <p role="alert" className="text-sm font-semibold text-danger">
@@ -168,22 +177,6 @@ export default function StatusPage() {
           </p>
         )}
 
-        <Link to="/agent/hours" className={`${BOX} flex min-h-14 items-center justify-between px-4`}>
-          <span className="text-sm font-semibold">Working hours</span>
-          <span className="text-[13px] text-finder-muted">{data.schedule.hours_text} ›</span>
-        </Link>
-
-        <p className="mt-auto pt-6 text-center text-xs leading-relaxed text-finder-muted">
-          {watch ? (
-            <>
-              While the app is open, your phone checks it is near your shop pin.
-              <br />
-              Your position stays on your phone.
-            </>
-          ) : (
-            'Your position is never checked. Customers see only your shop pin.'
-          )}
-        </p>
       </div>
     </div>
   )

@@ -1,171 +1,163 @@
 import { useState } from 'react'
+import { User } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
-import type { ActivityEvent, AgentInsights, AgentTransactions, InsightRange } from '@/types/operator'
-import { ThreeLines } from './components/charts'
-import { SectionLabel } from './components/agentChrome'
-import { AgentTitle } from './components/agentKit'
-import { BOX, chip } from './components/agentClasses'
+import type { AgentFeedback, AgentInsights, InsightRange } from '@/types/operator'
+import { BOX } from './components/agentClasses'
 import { formatSle } from './money'
 
 const RANGES: { key: InsightRange; label: string; heading: string }[] = [
-  { key: 'today', label: 'Today', heading: 'Your day' },
-  { key: 'week', label: 'Week', heading: 'Your week' },
-  { key: 'month', label: 'Month', heading: 'Your month' },
+  { key: 'today', label: 'Today', heading: 'Today' },
+  { key: 'week', label: 'Week', heading: 'This week' },
+  { key: 'month', label: 'Month', heading: 'This month' },
 ]
 
-const RANGE_TEXT: Record<InsightRange, string> = {
-  today: 'so far today, by hour',
-  yesterday: 'yesterday, by hour',
-  week: 'the last seven days',
-  month: 'the last 30 days',
+const SHOWN = 3
+
+/** One line of the dark card, each series on its own 0–max scale as the design draws them. */
+function points(values: number[]): string {
+  const max = Math.max(1, ...values)
+  const min = Math.min(...values) * 0.6
+  const n = values.length
+  return values.map((v, i) => `${n <= 1 ? 150 : (i * 300) / (n - 1)},${(100 - ((v - min) / Math.max(1, max - min)) * 92).toFixed(1)}`).join(' ')
 }
 
-const TONE: Record<ActivityEvent['tone'], string> = {
-  neutral: 'text-finder-ink',
-  good: 'text-finder-likely',
-  warning: 'text-warning',
-  danger: 'text-danger',
+/** At most seven axis labels, the last one bright, as the design's M T W T F S S. */
+function axis(labels: string[]): string[] {
+  if (labels.length <= 7) return labels
+  const step = (labels.length - 1) / 6
+  return Array.from({ length: 7 }, (_, i) => labels[Math.round(i * step)]!)
 }
 
 /**
- * Activity, in three blocks: today (the commission and the transactions that earned it), the
- * range (customers who found you and transactions, one chart, two lines), and what happened
- * (every event of the day in one timeline, Orange's rows marked as such). Commission is exact
- * for the operator's rows and an estimate for the agent's own logs.
+ * Activity, the new design's screen 14, nothing added: Today / Week / Month, the dark card
+ * (three series with their totals, three lines, the axis), and "Recently found you". The
+ * series are the agent's own records (transactions and the commission they earned, on the
+ * indicative tariff) and the customers Agent Finder sent. The design names each customer and
+ * says how far away; Agent Finder keeps customers anonymous, so each row is "A customer" with
+ * the day, the transaction, and what they reported.
  */
 export default function ActivityPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
   const [range, setRange] = useState<InsightRange>('week')
-  // The design's chips: every row, or one side.
-  const [side, setSide] = useState<'all' | 'cash_out' | 'deposit'>('all')
-  const tx = useAsync<AgentTransactions>((s) => operatorApi.transactions(ref, s), [ref])
+  const [all, setAll] = useState(false)
   const insights = useAsync<AgentInsights>((s) => operatorApi.insights(ref, range, s), [ref, range])
-  const events = useAsync<ActivityEvent[]>((s) => operatorApi.activity(ref, s), [ref])
+  const said = useAsync<AgentFeedback>((s) => operatorApi.feedback(ref, s), [ref])
   const i = insights.data
-  const t = tx.data
-  const rows = t?.rows ?? []
-  const shown = side === 'all' ? rows : rows.filter((r) => r.transaction === side)
-  const heading = RANGES.find((r) => r.key === range)?.heading ?? 'Your numbers'
+  const items = said.data?.items ?? []
+  const shown = all ? items : items.slice(0, SHOWN)
+  const heading = RANGES.find((r) => r.key === range)!.heading
+
+  const series = i
+    ? [
+        { key: 'tx', label: 'Transactions', total: String(i.recorded_total ?? 0), values: i.points.map((p) => p.recorded ?? 0), dot: 'bg-finder-accent', stroke: 'stroke-finder-accent' },
+        { key: 'com', label: 'Commission', total: formatSle(i.commission_total_sle ?? 0), values: i.points.map((p) => p.commission_sle ?? 0), dot: 'bg-agent-chart-green', stroke: 'stroke-agent-chart-green' },
+        { key: 'found', label: 'People who found you', total: String(i.found_total), values: i.points.map((p) => p.found_you), dot: 'bg-agent-chart-blue', stroke: 'stroke-agent-chart-blue' },
+      ]
+    : []
+  const labels = i ? axis(i.points.map((p) => p.label)) : []
 
   return (
-    <div className="flex flex-1 flex-col text-finder-ink">
-      <AgentTitle title="Transaction History" />
-      <div role="group" aria-label="Show" className="flex gap-2 overflow-x-auto px-[18px] pb-2 pt-5">
-        {(
-          [
-            ['all', 'All'],
-            ['cash_out', 'Cash out'],
-            ['deposit', 'Cash in'],
-          ] as const
-        ).map(([key, label]) => (
-          <button key={key} type="button" aria-pressed={side === key} onClick={() => setSide(key)} className={chip(side === key)}>
-            {label}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-1 flex-col gap-4 px-[18px] pb-8 pt-7 text-finder-ink">
+      <h1 className="px-1 text-[21px] font-bold">Activity</h1>
 
-      <div className="flex flex-col px-[18px] pb-8">
-      <div className={`${BOX} mt-2 flex flex-col gap-1 px-4 py-3`} aria-label="Today's commission">
-        {t ? (
-          <>
-            <p className="text-[19px] font-extrabold leading-none text-agent-green-ink">
-              {t.estimated_any && <span className="text-finder-muted">≈ </span>}
-              {formatSle(t.commission_total_sle)}
-            </p>
-            <p className="text-[13px] font-semibold text-finder-muted">
-              Commission today · {t.successful} of {t.count} transaction{t.count === 1 ? '' : 's'} successful
-            </p>
-            <p className="text-xs text-finder-muted">{t.commission_note}</p>
-          </>
-        ) : (
-          <p className="text-sm text-finder-muted">{tx.state === 'error' ? tx.error : 'Loading…'}</p>
-        )}
-      </div>
-
-      <div className="flex flex-col">
-        {t && shown.length === 0 && <p className="py-4 text-sm text-finder-muted">Nothing yet today.</p>}
-        {shown.map((r) => (
-          <div key={r.id} className="flex gap-3.5 border-b border-finder-card-line py-4">
-            <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white ${r.successful ? 'bg-agent-green' : 'bg-agent-away-dot'}`}>
-              {r.successful ? '+' : '!'}
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-              <span className="text-sm font-bold">{r.label}</span>
-              <span className="text-[13px] font-bold">{r.amount_text}</span>
-              <span className="text-[11px] text-finder-muted">
-                {r.time_text} ·{' '}
-                <span className={`font-semibold ${r.successful ? 'text-agent-green' : 'text-danger'}`}>{r.successful ? (r.estimated ? 'Logged by you · estimate' : 'Success') : 'Could not complete'}</span>
-              </span>
-            </span>
-            <span className={`shrink-0 text-right text-sm font-bold ${r.successful ? 'text-agent-green-ink' : 'text-finder-muted'}`}>
-              {r.successful ? `${r.estimated ? '≈ ' : '+'}${formatSle(r.commission_sle)}` : '—'}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <SectionLabel className="mt-8" id="chart">
-        {heading}
-      </SectionLabel>
-      <div role="tablist" aria-label="Range" className="mt-3 flex h-[2.5rem] rounded-field bg-finder-line">
+      <div role="tablist" aria-label="Range" className="grid grid-cols-3 gap-1 rounded-[12px] bg-agent-chip p-1">
         {RANGES.map((r) => (
-          <button
-            key={r.key}
-            type="button"
-            role="tab"
-            aria-selected={range === r.key}
-            onClick={() => setRange(r.key)}
-            className={`h-full flex-1 rounded-field text-sm font-bold ${range === r.key ? 'bg-finder-bg text-finder-ink shadow-inset-finder' : 'text-finder-muted'}`}
-          >
+          <button key={r.key} type="button" role="tab" aria-selected={range === r.key} onClick={() => setRange(r.key)} className={`h-[34px] rounded-[9px] text-[13px] transition-colors duration-150 ${range === r.key ? 'bg-finder-card font-bold text-finder-ink shadow-sm' : 'font-semibold text-finder-muted'}`}>
             {r.label}
           </button>
         ))}
       </div>
-      {i && (
-        <p className="mt-4 text-base font-semibold">
-          <span className="font-bold">{i.found_total}</span> customers found you · <span className="font-bold">{i.transactions_total === null ? '—' : i.transactions_total}</span> transactions
-        </p>
-      )}
-      {insights.state === 'loading' && !i && <p className="py-6 text-center text-sm font-medium text-finder-muted">Loading…</p>}
-      {i && (
-        <div className="mt-2">
-          <ThreeLines
-            title={`Customers who found you and transactions for ${RANGE_TEXT[i.range]}`}
-            labels={i.points.map((p) => p.label)}
-            series={[
-              { key: 'found', label: 'Found you', values: i.points.map((p) => p.found_you), format: (v) => `${v}`, className: 'text-finder-link bg-finder-accent', total: String(i.found_total) },
-              {
-                key: 'tx',
-                label: 'Transactions',
-                values: i.points.map((p) => p.transactions),
-                format: (v) => `${v}`,
-                className: 'text-series-tx bg-series-tx',
-                note: i.operator_source ?? 'not connected',
-                total: i.transactions_total === null ? '—' : String(i.transactions_total),
-              },
-            ]}
-          />
-        </div>
-      )}
 
-      <SectionLabel className="mt-8">What happened</SectionLabel>
-      <div className="mt-2 flex flex-col">
-        {events.state === 'loading' && <p className="py-3 text-sm font-medium text-finder-muted">Loading…</p>}
-        {(events.data ?? []).length === 0 && events.state !== 'loading' && <p className="py-3 text-sm font-medium text-finder-muted">Nothing yet today.</p>}
-        {(events.data ?? []).map((e) => (
-          <div key={e.id} className="flex min-h-[3rem] items-start gap-4 border-b border-finder-line py-3 last:border-b-0">
-            <span className="w-12 shrink-0 pt-0.5 text-sm font-semibold text-finder-muted">{e.time_text}</span>
-            <span className={`min-w-0 text-base font-semibold leading-snug ${TONE[e.tone]}`}>
-              {e.text}
-              {e.source === 'operator' && <span className="ml-2 text-xs font-semibold text-finder-muted">Orange</span>}
+      <section aria-labelledby="act-heading" className="flex flex-col gap-3.5 rounded-[16px] bg-finder-head p-4 text-white">
+        <h2 id="act-heading" className="text-[13px] font-bold">
+          {heading}
+        </h2>
+        {!i && <p className="py-10 text-center text-sm text-agent-head-sub">{insights.state === 'error' ? (insights.error ?? 'Could not load.') : 'Loading…'}</p>}
+        {i && (
+          <>
+            <ul aria-label="Legend" className="flex flex-col gap-2">
+              {series.map((s) => (
+                <li key={s.key} className="flex items-center gap-2 text-xs">
+                  <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${s.dot}`} />
+                  <span className="flex-1 text-agent-head-sub">{s.label}</span>
+                  <b className="whitespace-nowrap font-extrabold">{s.total}</b>
+                </li>
+              ))}
+            </ul>
+            <div className="relative h-[120px] border-b border-agent-chart-line">
+              <div aria-hidden className="absolute inset-x-0 top-0 border-t border-dashed border-agent-chart-grid" />
+              <div aria-hidden className="absolute inset-x-0 top-1/2 border-t border-dashed border-agent-chart-grid" />
+              <svg viewBox="0 0 300 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" role="img" aria-label={`${heading}: ${series.map((s) => `${s.label} ${s.total}`).join(', ')}`}>
+                {series.map((s) => (
+                  <polyline key={s.key} points={points(s.values)} fill="none" className={s.stroke} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                ))}
+              </svg>
+            </div>
+            <div aria-hidden className="-mt-1.5 grid text-center text-[10px] text-agent-head-sub" style={{ gridTemplateColumns: `repeat(${labels.length}, minmax(0, 1fr))` }}>
+              {labels.map((l, k) => (
+                <span key={`${l}-${k}`} className={`${k === 0 ? 'text-left' : k === labels.length - 1 ? 'text-right font-bold text-white' : ''}`}>
+                  {range === 'week' ? l.slice(0, 1) : l}
+                </span>
+              ))}
+            </div>
+            <table className="sr-only">
+              <caption>{heading}</caption>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  {series.map((s) => (
+                    <th key={s.key}>{s.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {i.points.map((p, k) => (
+                  <tr key={`${p.label}-${k}`}>
+                    <td>{p.label}</td>
+                    {series.map((s) => (
+                      <td key={s.key}>{s.key === 'com' ? formatSle(s.values[k] ?? 0) : s.values[k]}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </section>
+
+      <section aria-labelledby="found-heading" className={`${BOX} flex flex-col px-4 pb-1 pt-1.5`}>
+        <div className="flex items-center justify-between pb-1 pt-2.5">
+          <h2 id="found-heading" className="text-sm font-bold">
+            Recently found you
+          </h2>
+          {items.length > SHOWN && (
+            <button type="button" onClick={() => setAll((v) => !v)} className="text-xs font-bold text-finder-link">
+              {all ? 'Show less' : 'See all'}
+            </button>
+          )}
+        </div>
+        {said.state === 'loading' && !said.data && <p className="py-3 text-sm text-finder-muted">Loading…</p>}
+        {said.data && items.length === 0 && <p className="py-3 text-sm text-finder-muted">No customer has reported a visit yet.</p>}
+        {shown.map((x) => (
+          <div key={x.id} className="flex items-center gap-3 border-b border-agent-divider py-3 last:border-b-0">
+            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-agent-avatar text-agent-avatar-ink">
+              <User size={16} strokeWidth={2.2} />
             </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+              <span className="text-sm font-bold">A customer</span>
+              <span className="truncate text-[11px] text-finder-muted">
+                {x.day_text}
+                {x.transaction_label ? ` · ${x.transaction_label}` : ''}
+                {x.comment ? ` · “${x.comment}”` : ''}
+              </span>
+            </span>
+            <span className={`shrink-0 text-xs font-semibold ${x.kind === 'not_served' ? 'text-danger' : 'text-finder-muted'}`}>{x.kind === 'not_served' ? 'Not served' : 'Commented'}</span>
           </div>
         ))}
-      </div>
-      </div>
+      </section>
     </div>
   )
 }

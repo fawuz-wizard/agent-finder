@@ -68,7 +68,6 @@ export default function FloatPage() {
 
   const requests = list.data ?? []
   const pending = requests.find((r) => r.state === 'pending' || r.state === 'approved')
-  const history = requests.filter((r) => r !== pending)
   const digits = amount.replace(/\D/g, '')
 
   async function submit() {
@@ -165,26 +164,6 @@ export default function FloatPage() {
               {busy ? 'Sending…' : 'Submit Request'}
             </button>
           </>
-        )}
-
-        <h2 className="mt-6 text-sm font-bold">Your requests</h2>
-        {history.length === 0 && <p className="text-sm text-finder-muted">Nothing yet.</p>}
-        {history.length > 0 && (
-          <div className={`${BOX} flex flex-col`}>
-            {history.map((r, i) => (
-              <div key={r.id} className={`flex flex-col gap-1 px-4 py-3 ${i ? 'border-t border-agent-divider' : ''}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-bold">
-                    {formatSle(r.amount_sle)} <span className="font-medium text-finder-muted">· {new Date(r.requested_at).toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
-                  </span>
-                  <span className={`shrink-0 rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${r.state === 'declined' ? 'bg-danger-tint text-danger' : r.state === 'cancelled' ? 'bg-agent-chip text-finder-muted' : 'bg-agent-green-tint text-agent-green-ink'}`}>
-                    {STATE_TEXT[r.state]}
-                  </span>
-                </div>
-                {r.decision_reason && <p className="text-[13px] text-finder-muted">“{r.decision_reason}”</p>}
-              </div>
-            ))}
-          </div>
         )}
 
         <p className="mt-auto pt-8 text-center text-xs leading-relaxed text-finder-muted">

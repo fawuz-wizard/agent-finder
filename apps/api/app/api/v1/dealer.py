@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import csv
 import io
-import re
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
@@ -34,9 +33,10 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
-from app.services import usage
+from app.services import checkin, usage
 from app.services.forecast import forecast_counts, forecasts_for
 from app.services.ledger import ledgers_for
+from app.services.phone import mask_msisdn
 from app.services.photo import decode_photo, to_data_url
 from app.services.phrasing import (
     CAPACITY_LABEL,
@@ -244,6 +244,8 @@ def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     word = ledger.cash.word if live else a.cash_out
     if a.presence == "hidden":
         return "hidden"
+    if is_open_now(a, now) and checkin.hidden_reason(a, now):
+        return "hidden"
     if (
         not on_map(a)
         or a.presence == "closed"
@@ -254,19 +256,6 @@ def bucket_of(a: Agent, now: datetime, ledger=None) -> str:
     if word in ("none", "small"):
         return "limited"
     return "active"
-
-
-def mask_msisdn(msisdn: str | None) -> str | None:
-    """The aggregator's own line, shown to them with the last three digits only: enough to
-    recognise, not enough to copy. +232 •• ••• •23."""
-    digits = re.sub(r"\D", "", msisdn or "")
-    if not digits:
-        return None
-    local = digits[3:] if digits.startswith("232") else digits
-    shown = "•" * max(0, len(local) - 3) + local[-3:]
-    if len(shown) == 8:
-        shown = f"{shown[:2]} {shown[2:5]} {shown[5:]}"
-    return f"+232 {shown}"
 
 
 @router.get("/dealer/me", summary="My own record, as Orange holds it, and my network in figures")
@@ -534,6 +523,11 @@ async def agent_detail(
         # the aggregator's way to call the shop.
         "bucket": bucket_of(a, now, ledger),
         "freshness_text": age_text(decl.age_min if decl.age_min < 10**6 else None),
+        # Why the shop is hidden, if the app has not confirmed the agent at the pin; never a
+        # distance or a position. location_check False: the agent turned location off.
+        "checkin_text": checkin.reason_text(a, now),
+        "checkin_last_at": (s := checkin.state(a, now)) and s["last_at"],
+        "location_check": s["location_check"] if s else None,
         "call_url": f"tel:{a.phone}" if a.phone else None,
         "reliability": trust.as_dict(),
         "capacity_text": capacity_text(ledger),

@@ -14,6 +14,7 @@ import type {
   ReportsQuery,
   FeedbackItem,
   AgentHome,
+  CheckinState,
   AgentInsights,
   AgentProfile,
   CustomersSee,
@@ -743,10 +744,62 @@ export function demoRecordVisit(
   visits.push({ ref: a.ref, tx, amount, answer, reason, at: Date.now() })
 }
 
+/* ---------- check-ins at the pin (mirrors services/checkin.py) ---------- */
+
+const CHECKIN_WINDOW_MS = 2 * 60 * 60 * 1000
+const checkins = new Map<string, { last: number; awaySince: number | null; locationCheck: boolean }>()
+
+function openedTodayMs(a: AgentState): number | null {
+  const now = new Date()
+  const hours = scheduleState(a).hours_text.match(/(\d{2}):(\d{2})/)
+  if (!hours) return null
+  const opening = new Date(now)
+  opening.setHours(Number(hours[1]), Number(hours[2]), 0, 0)
+  return opening.getTime() <= now.getTime() ? opening.getTime() : null
+}
+
+function checkinState(a: AgentState): CheckinState | null {
+  const c = checkins.get(a.ref)
+  if (!c) return null
+  const start = openedTodayMs(a)
+  const away = start !== null && c.awaySince !== null && c.awaySince < start ? null : c.awaySince
+  const until = Math.max(c.last, start ?? 0) + CHECKIN_WINDOW_MS
+  return {
+    last_at: new Date(c.last).toISOString(),
+    visible_until: new Date(until).toISOString(),
+    away_since: away ? new Date(away).toISOString() : null,
+    location_check: c.locationCheck,
+    hidden_reason: away ? 'away_from_pin' : until <= Date.now() ? 'no_checkin' : null,
+  }
+}
+
+function checkinText(a: AgentState): string | null {
+  const s = checkinState(a)
+  if (!s?.hidden_reason) return null
+  const hm = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  return s.hidden_reason === 'away_from_pin' ? `Hidden · away from the pin since ${hm(s.away_since!)}` : `Hidden · no check-in since ${hm(s.last_at)}`
+}
+
+/** The agent's app at the pin (true), away from it (false), or with location off (null). */
+export function demoCheckIn(ref: string, atPin: boolean | null): { checkin: CheckinState | null; checkin_text: string | null } {
+  const a = find(ref)
+  const now = Date.now()
+  const c = checkins.get(ref) ?? { last: now, awaySince: null, locationCheck: true }
+  c.locationCheck = atPin !== null
+  if (atPin === false) c.awaySince = c.awaySince ?? now
+  else {
+    c.last = now
+    c.awaySince = null
+  }
+  checkins.set(ref, c)
+  void import('./demoNetwork').then((m) => m.setDemoAgentHidden(ref.replace('Agent ', 'af-'), a.presence === 'hidden' || Boolean(checkinState(a)?.hidden_reason)))
+  return { checkin: checkinState(a), checkin_text: checkinText(a) }
+}
+
 /** What a customer reads about this agent right now — the same rules the search applies. */
 function customersSee(a: AgentState): CustomersSee {
   const state: CustomersSee['state'] =
-    a.presence === 'hidden'
+    a.presence === 'hidden' || (isOpenNow(a) && checkinState(a)?.hidden_reason)
       ? 'hidden'
       : a.presence === 'closed' || !isOpenNow(a)
         ? 'closed'
@@ -1062,6 +1115,11 @@ export function demoConfirmLocation(ref: string): RegisteredAgent {
 }
 
 /** The agent changes their own PIN: the current one first, like the API. */
+export function demoCheckPin(ref: string, pin: string): { ok: true } {
+  if (pin !== (find(ref).pin ?? DEMO_PIN)) throw new Error('That PIN is not correct.')
+  return { ok: true }
+}
+
 export function demoChangePin(ref: string, currentPin: string, newPin: string): { pin_set: true } {
   const a = find(ref)
   if (currentPin !== (a.pin ?? DEMO_PIN)) throw new Error('That PIN is not correct.')
@@ -1129,6 +1187,8 @@ export function demoAgentHome(ref: string): AgentHome {
     declaration: declarationOf(a),
     schedule: scheduleState(a),
     customers_see: customersSee(a),
+    checkin: checkinState(a),
+    checkin_text: checkinText(a),
     seen_as: seenAs(a, 'agent'),
     photo_url: customersSee(a).state === 'unlocated' ? null : (a.photo ?? null),
     low: { ...lowToday(a), until_text: 'until midnight' },
@@ -1331,6 +1391,8 @@ export function demoAgentProfile(ref: string): AgentProfile {
     area: a.area,
     hours_text: scheduleState(a).hours_text,
     dealer_name: 'Kissy Distribution',
+    phone_masked: a.phone ? `+232 •• ••• ${a.phone.slice(-3)}` : null,
+    dealer_call_url: 'tel:+23276000123',
     phone_visible: a.phone_visible,
     verified: Boolean(a.verified),
     agent_code: null,
@@ -1477,6 +1539,7 @@ function bucketOf(a: AgentState): DealerBucket {
   const ledger = ledgerFor(a)
   const word = ledger.live ? ledger.cash.word : a.cash_out
   if (a.presence === 'hidden') return 'hidden'
+  if (isOpenNow(a) && checkinState(a)?.hidden_reason) return 'hidden'
   if (a.presence === 'closed' || !isOpenNow(a) || (!ledger.live && freshnessOf(ageMin(a)) === 'expired')) return 'closed'
   if (word === 'none' || word === 'small') return 'limited'
   return 'active'
@@ -1831,6 +1894,16 @@ export function demoAgentInsights(ref: string, range: InsightRange): AgentInsigh
     })
   }
 
+  // What the agent recorded themselves: a demo rhythm a little under the customers sent, plus
+  // what was really recorded in this session on the last point; commission at the tariff's rate.
+  const today = (a.txLog ?? []).filter((t) => t.at >= new Date().setHours(0, 0, 0, 0))
+  points = points.map((p, i) => {
+    // Walk-ins the app never sent, and bigger or smaller tickets, so the three lines part ways.
+    const base = Math.round(p.found_you * 1.1 + [3, 1, 4, 2, 5, 1, 3][i % 7]!)
+    const recorded = base + (i === points.length - 1 ? today.length : 0)
+    const extra = i === points.length - 1 ? today.reduce((n, t) => n + (t.amount ? commissionFor(t.tx, t.amount) : commissionForBand(t.tx, t.band)), 0) : 0
+    return { ...p, recorded, commission_sle: base * [16, 22, 12, 19, 25, 14, 20][i % 7]! + extra }
+  })
   const foundTotal = points.reduce((n, p) => n + p.found_you, 0)
   const txTotal = connected ? points.reduce((n, p) => n + (p.transactions ?? 0), 0) : null
   const freshPct = Math.round(points.reduce((n, p) => n + p.fresh_pct, 0) / Math.max(1, points.length))
@@ -1841,6 +1914,8 @@ export function demoAgentInsights(ref: string, range: InsightRange): AgentInsigh
     found_delta: Math.round(foundTotal * 0.18),
     fresh_pct: freshPct,
     transactions_total: txTotal,
+    recorded_total: points.reduce((n, p) => n + (p.recorded ?? 0), 0),
+    commission_total_sle: points.reduce((n, p) => n + (p.commission_sle ?? 0), 0),
     operator_source: connected ? 'Orange' : null,
   }
 }
@@ -1872,6 +1947,9 @@ export function demoDealerAgentDetail(ref: string): DealerAgentDetail {
     declaration: declarationOf(a),
     bucket: bucketOf(a),
     freshness_text: ageText(declarationOf(a).age_min),
+    checkin_text: checkinText(a),
+    checkin_last_at: checkinState(a)?.last_at ?? null,
+    location_check: checkinState(a)?.location_check ?? null,
     call_url: callUrl(a),
     customers_see: { state: customersSee(a).state, headline: customersSee(a).headline },
     seen_as: seenAs(a, 'dealer'),

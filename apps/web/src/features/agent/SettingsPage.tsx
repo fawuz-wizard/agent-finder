@@ -13,7 +13,7 @@ import pkg from '../../../package.json'
 
 const ALERTS: { key: keyof AgentPrefs; label: string }[] = [
   { key: 'closingBeep', label: 'Beep before closing' },
-  { key: 'leftShopWatch', label: 'Ask when I leave the shop' },
+  { key: 'leftShopWatch', label: 'Tell me if I leave the shop' },
 ]
 
 /**

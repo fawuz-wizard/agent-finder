@@ -181,11 +181,22 @@ export default function DealerAgentDetailPage() {
               {data.ref.replace(/^Agent /, '')} · {data.area}
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <Pill tone={st.tone}>
-                {st.text} · {data.freshness_text}
-              </Pill>
+              {data.checkin_text && data.declaration.presence === 'open' ? (
+                <Pill tone="warn">{data.checkin_text.replace(/ since .*/, '')}</Pill>
+              ) : (
+                <Pill tone={st.tone}>
+                  {st.text} · {data.freshness_text}
+                </Pill>
+              )}
               {block && <Pill tone="warn">{block}</Pill>}
+              {data.location_check === false && <Pill tone="neutral">Location check off</Pill>}
             </div>
+            {/* Why customers are not sent there: the time it started, never a distance or a position. */}
+            {data.checkin_text && data.declaration.presence === 'open' && (
+              <p role="status" className="mt-2 rounded-xl bg-design-warn-tint px-3 py-2 text-[13px] leading-snug">
+                <b>{data.checkin_text.replace(/^Hidden · /, '').replace(/^./, (c) => c.toUpperCase())}.</b> Customers are not sent there until the agent&apos;s app finds them back at the shop.
+              </p>
+            )}
           </div>
         </div>
         {/* Three equal buttons, each an icon over one word, so they line up on any phone. */}

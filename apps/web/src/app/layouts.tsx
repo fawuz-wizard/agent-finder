@@ -1,4 +1,4 @@
-import { Outlet, Link } from 'react-router-dom'
+import { Outlet, Link, useLocation } from 'react-router-dom'
 import { AgentTabBar } from '@/features/agent/components/agentChrome'
 import { ShopPresenceWatch } from '@/features/agent/components/ShopPresence'
 import { DealerTabBar } from '@/features/dealer/components/DealerTabBar'
@@ -57,13 +57,17 @@ function PlatformFrame({ theme, app, children }: { theme: string; app?: 'agent' 
 }
 
 /** Agent shell: the platform surface (dark by default, daylight on request) and the tabs that never leave the screen. */
+/** The agent screens the new design draws without the tab bar: one task each, with a back arrow. */
+const AGENT_NO_TABS = ['/agent/status', '/agent/float', '/agent/profile', '/agent/services', '/agent/profile/personal', '/agent/shop', '/agent/help', '/agent/about']
+
 export function AgentLayout() {
   const [theme] = usePlatformTheme()
+  const { pathname } = useLocation()
   return (
     <PlatformFrame theme={theme} app="agent">
       <ShopPresenceWatch />
       <Outlet />
-      <AgentTabBar />
+      {!AGENT_NO_TABS.includes(pathname) && <AgentTabBar />}
     </PlatformFrame>
   )
 }

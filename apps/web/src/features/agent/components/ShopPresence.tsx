@@ -1,197 +1,129 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
-import { BEEP_LEFT_SHOP, beep, cancelBeep } from '@/lib/notify'
 import { readPrefs } from '@/lib/prefs'
-import { FinderBox } from '@/features/end-user/components/finder'
-import { PILL_ON, PILL_OFF } from './agentChrome'
-import { AWAY_GRACE_MS, CHECK_EVERY_MS, presenceCall, type Point, type PresenceCall } from '../shopPresence'
+import { BEEP_LEFT_SHOP, BEEP_STAY_VISIBLE, beep, cancelBeep } from '@/lib/notify'
+import { CHECK_EVERY_MS, CHECK_IN_NOW, REMIND_BEFORE_MS, atPin, distanceText, type Point } from '../shopPresence'
+import { noteShopAlert } from '../notifications'
 
-const LEFT_KEY = 'af.leftShopSince'
-const AUTO_KEY = 'af.autoAway'
+const AWAY_KEY = 'af.awayFromPin'
 
-function readNumber(key: string): number | null {
+function wasAway(): boolean {
   try {
-    const v = sessionStorage.getItem(key)
-    return v ? Number(v) : null
+    return sessionStorage.getItem(AWAY_KEY) === '1'
   } catch {
-    return null
+    return false
   }
 }
-function write(key: string, v: string | null) {
+function setWasAway(v: boolean) {
   try {
-    if (v === null) sessionStorage.removeItem(key)
-    else sessionStorage.setItem(key, v)
+    if (v) sessionStorage.setItem(AWAY_KEY, '1')
+    else sessionStorage.removeItem(AWAY_KEY)
   } catch {
-    // Fine without it.
+    // Fine without it: at worst the next notification repeats.
   }
 }
+
+const hm = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
 /**
- * Watches, while the app is open, whether the agent is still at the pinned shop. Away from
- * it during open hours: a card and a beep, "set yourself Away?". Ten minutes later with no
- * answer: Away, said plainly, one tap back. The check runs every five minutes and whenever
- * the app comes back to the foreground. Nothing runs with the app closed.
+ * Checks the agent in at the shop pin while the app is open: when it opens or comes back to
+ * the front, every five minutes, and when asked (after a transaction is recorded). The phone
+ * compares its position with the pin and sends only yes or no. No question is ever asked:
+ * leaving the pin hides the agent at once, with a notification that says so; coming back shows
+ * them again, with another. After each check-in a reminder is set for fifteen minutes before
+ * the two hours run out. With location off (or the agent's switch off) the app being open still
+ * counts, and the aggregator is told the check is off. Renders nothing.
  */
 export function ShopPresenceWatch() {
   const { session } = useSession()
   const ref = session?.ref ?? null
   const [shop, setShop] = useState<Point | null>(null)
-  const [presence, setPresence] = useState<'open' | 'hidden' | 'closed' | null>(null)
-  const [nightMode, setNightMode] = useState(true)
-  const [call, setCall] = useState<PresenceCall>({ kind: 'at_shop' })
-  const [autoAway, setAutoAway] = useState<boolean>(() => readNumber(AUTO_KEY) !== null)
-  const [busy, setBusy] = useState(false)
-  const leftSince = useRef<number | null>(readNumber(LEFT_KEY))
-
-  // The shop's pin and the agent's presence, read when the watch starts and after each change.
-  const load = useCallback(async () => {
-    if (!ref) return
-    try {
-      const [profile, home] = await Promise.all([operatorApi.profile(ref), operatorApi.home(ref)])
-      setShop(profile.lat !== null && profile.lng !== null ? { lat: profile.lat, lng: profile.lng } : null)
-      setPresence(home.declaration.presence)
-      setNightMode(home.declaration.night_mode)
-    } catch {
-      // Without the pin there is nothing to compare; the watch stays quiet.
-    }
-  }, [ref])
+  // Nothing is sent until the pin is known: a check before it loads would read as "location off".
+  const [pinKnown, setPinKnown] = useState(false)
+  const busy = useRef(false)
 
   useEffect(() => {
-    void load()
-  }, [load])
+    if (!ref) return
+    void operatorApi
+      .profile(ref)
+      .then((p) => {
+        setShop(p.lat !== null && p.lng !== null ? { lat: p.lat, lng: p.lng } : null)
+        setPinKnown(true)
+      })
+      .catch(() => setPinKnown(false))
+  }, [ref])
+
+  const send = useCallback(
+    async (at: boolean | null, metres?: number) => {
+      if (!ref) return
+      try {
+        const out = await operatorApi.checkIn(ref, at)
+        const away = at === false
+        if (away && !wasAway()) {
+          noteShopAlert({ kind: 'left', ...(metres !== undefined ? { metres } : {}) })
+          void beep({ id: BEEP_LEFT_SHOP, title: 'Your location has changed', body: `You are ${metres !== undefined ? distanceText(metres) : 'away'} from your shop pin. Customers can't see you until you're back.` })
+        }
+        if (!away && wasAway()) {
+          noteShopAlert({ kind: 'back' })
+          void beep({ id: BEEP_LEFT_SHOP, title: "You're back at your shop", body: 'Customers can find you again.' })
+        }
+        setWasAway(away)
+        const c = out.checkin
+        if (c && !away) {
+          const remindAt = new Date(new Date(c.visible_until).getTime() - REMIND_BEFORE_MS)
+          if (remindAt.getTime() > Date.now())
+            void beep({ id: BEEP_STAY_VISIBLE, title: 'Open Agent Finder to stay visible', body: `No check-in at your shop since ${hm(c.last_at)}. Customers stop seeing you at ${hm(c.visible_until)}.`, at: remindAt })
+        }
+      } catch {
+        // Offline: the next check tries again; the server keeps the last state it had.
+      }
+    },
+    [ref],
+  )
 
   const check = useCallback(() => {
-    if (!ref || !shop || presence !== 'open' || !readPrefs().leftShopWatch || typeof navigator === 'undefined' || !navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
+    if (!ref || !pinKnown || busy.current) return
+    const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined
+    // No pin yet, no location on this phone, or the agent switched the check off: being open counts.
+    if (!shop || !geo || !readPrefs().leftShopWatch) {
+      void send(null)
+      return
+    }
+    busy.current = true
+    geo.getCurrentPosition(
       (pos) => {
-        const now = Date.now()
-        const next = presenceCall(
-          presence,
-          shop,
-          { lat: pos.coords.latitude, lng: pos.coords.longitude },
-          leftSince.current,
-          now,
-          pos.coords.accuracy ?? 0,
-        )
-        if (next.kind === 'at_shop') {
-          leftSince.current = null
-          write(LEFT_KEY, null)
-          setCall(next)
-          void cancelBeep(BEEP_LEFT_SHOP)
-          return
-        }
-        if (leftSince.current === null) {
-          leftSince.current = now
-          write(LEFT_KEY, String(now))
-          void beep({
-            id: BEEP_LEFT_SHOP,
-            title: 'Have you left the shop?',
-            body: `Your phone is ${next.metres} m from your pin. Set yourself Away, or you will be set Away in ${Math.round(AWAY_GRACE_MS / 60_000)} minutes.`,
-          })
-        }
-        setCall(next)
+        const r = atPin(shop, { lat: pos.coords.latitude, lng: pos.coords.longitude }, pos.coords.accuracy ?? 0)
+        void send(r.at, r.metres).finally(() => (busy.current = false))
       },
-      () => {
-        // No fix: nothing to say.
+      (err) => {
+        busy.current = false
+        // Location refused: the app being open counts, and the aggregator sees the check is off.
+        // A fix that simply timed out says nothing either way: wait for the next check.
+        if (err.code === err.PERMISSION_DENIED) void send(null)
       },
       { enableHighAccuracy: false, timeout: 15_000, maximumAge: 60_000 },
     )
-  }, [ref, shop, presence])
+  }, [ref, shop, pinKnown, send])
 
-  // Every five minutes while open, and whenever the app comes back to the front.
   useEffect(() => {
+    if (!ref) return
     check()
     const id = window.setInterval(check, CHECK_EVERY_MS)
     const onVisible = () => document.visibilityState === 'visible' && check()
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener(CHECK_IN_NOW, check)
     return () => {
       window.clearInterval(id)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener(CHECK_IN_NOW, check)
     }
-  }, [check])
+  }, [ref, check])
 
-  const setAway = useCallback(
-    async (auto: boolean) => {
-      if (!ref || busy) return
-      setBusy(true)
-      try {
-        await operatorApi.declare(ref, { presence: 'hidden', night_mode: nightMode })
-        setPresence('hidden')
-        setAutoAway(auto)
-        write(AUTO_KEY, auto ? String(Date.now()) : null)
-        setCall({ kind: 'at_shop' })
-        void cancelBeep(BEEP_LEFT_SHOP)
-        if (auto) void beep({ id: BEEP_LEFT_SHOP, title: 'Set to Away', body: 'You left the shop and did not answer, so customers are not sent to you. Open the app to undo.' })
-      } finally {
-        setBusy(false)
-      }
-    },
-    [ref, busy, nightMode],
-  )
-
-  // The grace period ran out with no answer: Away, said plainly.
+  // Signed out: the reminder would only confuse.
   useEffect(() => {
-    if (call.kind !== 'auto_away') return
-    void setAway(true)
-  }, [call, setAway])
-  useEffect(() => {
-    if (call.kind !== 'left') return
-    const id = window.setTimeout(check, call.autoAwayInMs + 500)
-    return () => window.clearTimeout(id)
-  }, [call, check])
+    if (!ref) void cancelBeep(BEEP_STAY_VISIBLE)
+  }, [ref])
 
-  async function back() {
-    if (!ref || busy) return
-    setBusy(true)
-    try {
-      await operatorApi.declare(ref, { presence: 'open', night_mode: nightMode })
-      setPresence('open')
-      setAutoAway(false)
-      write(AUTO_KEY, null)
-      leftSince.current = null
-      write(LEFT_KEY, null)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (autoAway && presence === 'hidden') {
-    return (
-      <FinderBox className="mx-5 mt-3 flex flex-col gap-3 border-l-4 border-warning px-4 py-4" role="status">
-        <p className="text-base font-bold">Away · you left the shop</p>
-        <p className="text-sm font-medium text-finder-muted">Customers are not sent to you. Back at the shop?</p>
-        <button type="button" onClick={() => void back()} disabled={busy} className={`h-chip self-start rounded-pill px-5 text-base font-bold ${PILL_ON}`}>
-          {busy ? '…' : "I'm back, set me Open"}
-        </button>
-      </FinderBox>
-    )
-  }
-  if (call.kind !== 'left') return null
-  const minutes = Math.max(1, Math.ceil(call.autoAwayInMs / 60_000))
-  return (
-    <FinderBox className="mx-5 mt-3 flex flex-col gap-3 border-l-4 border-warning px-4 py-4" role="status">
-      <p className="text-base font-bold">Have you left the shop?</p>
-      <p className="text-sm font-medium text-finder-muted">
-        Your phone is about {call.metres} m from your pin. If you say nothing, you will be set Away in {minutes} minute{minutes === 1 ? '' : 's'}, so customers are not sent to an empty shop.
-      </p>
-      <div className="flex gap-3">
-        <button type="button" onClick={() => void setAway(false)} disabled={busy} className={`h-chip flex-1 rounded-pill text-base font-bold ${PILL_ON}`}>
-          Set me Away
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            leftSince.current = Date.now()
-            write(LEFT_KEY, String(leftSince.current))
-            setCall({ kind: 'at_shop' })
-          }}
-          disabled={busy}
-          className={`h-chip flex-1 rounded-pill text-base font-bold ${PILL_OFF}`}
-        >
-          I'm still here
-        </button>
-      </div>
-    </FinderBox>
-  )
+  return null
 }

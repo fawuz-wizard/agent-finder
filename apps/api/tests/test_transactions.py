@@ -92,3 +92,24 @@ async def test_a_logged_transaction_keeps_the_agent_current_for_customers(client
     assert mine["bucket"] == "active"
     over = (await client.get("/api/v1/dealer/overview", headers=dealer)).json()
     assert not any(sig["id"] == "sig-stale-Agent 019" for sig in over["signals"])
+
+
+@pytest.mark.asyncio
+async def test_the_activity_chart_counts_what_the_agent_recorded_and_its_commission(client, agent):
+    before = (await client.get("/api/v1/agent/insights?range=week", headers=agent)).json()
+    body = {
+        "transaction": "deposit",
+        "amount_sle": 5_000,
+        "customer_msisdn": "076123456",
+        "client_token": "tx-chart-0000001",
+    }
+    r = await client.post("/api/v1/agent/transactions", json=body, headers=agent)
+    assert r.status_code == 201, r.text
+    after = (await client.get("/api/v1/agent/insights?range=week", headers=agent)).json()
+    assert after["recorded_total"] == before["recorded_total"] + 1
+    assert (
+        after["commission_total_sle"] == before["commission_total_sle"] + r.json()["commission_sle"]
+    )
+    assert after["points"][-1]["recorded"] >= 1
+    # Counts and commission only: never an amount, a number or a balance.
+    assert "amount_sle" not in after["points"][-1] and "balance" not in str(after)

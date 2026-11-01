@@ -121,6 +121,11 @@ def public_outcome(agent, tx: str, amount: int | None, now: datetime, ledger=Non
         return "hidden"
     if agent.presence == "closed" or not is_open_now(agent, now):
         return "closed"
+    # Not confirmed at the shop pin lately (away from it, or the app not opened): not shown.
+    from app.services.checkin import hidden_reason
+
+    if hidden_reason(agent, now):
+        return "hidden"
     live = ledger is not None and ledger.live
     if not live and freshness_of(capacity_updated_at(agent, ledger, now), now) == "expired":
         return "expired"

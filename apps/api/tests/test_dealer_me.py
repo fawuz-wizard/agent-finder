@@ -65,3 +65,12 @@ async def test_the_aggregator_picture_refuses_what_is_not_a_picture_and_needs_a_
     assert bad.status_code in (400, 422)
     anon = await client.post("/api/v1/dealer/me/photo", json={"image": DATA_URL})
     assert anon.status_code in (401, 404)
+
+
+@pytest.mark.asyncio
+async def test_the_agent_sees_their_own_number_masked_and_a_way_to_call_their_aggregator(
+    client, agent
+):
+    me = (await client.get("/api/v1/agent/profile", headers=agent)).json()
+    assert me["phone_masked"] is None or me["phone_masked"].startswith("+232 ••")
+    assert me["dealer_call_url"] == "tel:+23276000123"

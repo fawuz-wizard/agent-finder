@@ -232,6 +232,12 @@ export function setDemoAgentVerified(id: string, verified: boolean): void {
   if (a) a.verified = verified
 }
 
+/** Demo only: the agent's app found them away from the pin, or back (mirrors POST /agent/checkin). */
+export function setDemoAgentHidden(id: string, hidden: boolean): void {
+  const a = AGENTS.find((x) => x.id === id)
+  if (a) a.hidden = hidden
+}
+
 export function demoAgentName(id: string): string | null {
   return AGENTS.find((x) => x.id === id)?.name ?? null
 }

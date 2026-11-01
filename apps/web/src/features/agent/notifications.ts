@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { operatorApi } from '@/services/operatorApi'
 import type { AgentFeedback, AgentHome, FloatSend } from '@/types/operator'
+import { distanceText } from './shopPresence'
 
 /**
  * The bell. Nothing new on the server: the things an agent should hear about already exist
@@ -38,11 +39,50 @@ function writeSeen(ids: Set<string>): void {
 }
 
 const dayKey = () => new Date().toISOString().slice(0, 10)
+
+const SHOP_KEY = 'af.shopAlerts'
+
+/** What the check-in at the pin said on this phone: kept here so the bell still has it after the phone's notification is swiped away. */
+export interface ShopAlert {
+  id: string
+  kind: 'left' | 'back'
+  at: number
+  metres?: number
+}
+
+export function readShopAlerts(): ShopAlert[] {
+  try {
+    return JSON.parse(localStorage.getItem(SHOP_KEY) ?? '[]') as ShopAlert[]
+  } catch {
+    return []
+  }
+}
+
+export function noteShopAlert(alert: Omit<ShopAlert, 'id' | 'at'>): void {
+  const at = Date.now()
+  try {
+    localStorage.setItem(SHOP_KEY, JSON.stringify([...readShopAlerts(), { ...alert, at, id: `shop-${alert.kind}-${at}` }].slice(-20)))
+  } catch {
+    // Fine without it: the phone's own notification still went out.
+  }
+  window.dispatchEvent(new Event(EVENT))
+}
 const shorten = (s: string, n = 90) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
 /** The list, newest concern first, from what the home and the feedback already say. */
 export function buildNotifications(home: AgentHome | null, feedback: AgentFeedback | null, sends: FloatSend[] = []): Notification[] {
   const out: Notification[] = []
+  // The left-shop check, today, newest first: the agent can undo an automatic Away from here.
+  for (const a of readShopAlerts()
+    .filter((x) => new Date(x.at).toISOString().slice(0, 10) === dayKey())
+    .reverse()) {
+    const time = new Date(a.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    out.push(
+      a.kind === 'left'
+        ? { id: a.id, text: `Your location has changed${a.metres ? ` · ${distanceText(a.metres)} from your pin` : ''} · customers can't see you until you're back`, when: time, to: '/agent/status', tone: 'warning' }
+        : { id: a.id, text: "You're back at your shop · customers can find you again", when: time, to: '/agent/status', tone: 'good' },
+    )
+  }
   // Float the aggregator recorded as sent today: the agent hears it here.
   for (const s of sends.filter((x) => x.sent_at.slice(0, 10) === dayKey())) {
     out.push({

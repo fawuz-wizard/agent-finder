@@ -1,11 +1,19 @@
 /**
- * Has the agent left the shop? Compared only while the app is open, from the phone's
- * position against the shop's pin. The rule, agreed 2026-10-10: say so first, then set
- * Away after a grace period, never silently, always with one tap back.
+ * Staying visible: the phone compares its own position with the shop's pin and tells the
+ * server only "at the pin" or "away" (the position never leaves the phone). The rules, agreed
+ * 2026-11-01: no question is ever asked; away from the pin hides the agent at once and coming
+ * back shows them again; the app checks in when it opens, when a transaction is recorded and
+ * every five minutes while it is open; two hours without a check-in hides the agent until the
+ * app is opened at the shop. The server applies the same numbers (services/checkin.py).
  */
 export const LEFT_SHOP_METRES = 300
-export const AWAY_GRACE_MS = 10 * 60 * 1000
 export const CHECK_EVERY_MS = 5 * 60 * 1000
+/** "Open Agent Finder to stay visible", this long before the two hours run out. */
+export const REMIND_BEFORE_MS = 15 * 60 * 1000
+/** After the agent chooses Away: reminders at these minutes, in working hours only. */
+export const AWAY_REMINDER_MIN = [30, 60, 90] as const
+/** Ask the watcher to check in now (after recording a transaction, for instance). */
+export const CHECK_IN_NOW = 'af-check-in-now'
 
 export interface Point {
   lat: number
@@ -22,30 +30,13 @@ export function metresBetween(a: Point, b: Point): number {
   return 2 * r * Math.asin(Math.sqrt(h))
 }
 
-export type PresenceCall =
-  | { kind: 'at_shop' }
-  | { kind: 'left'; metres: number; sinceMs: number; autoAwayInMs: number }
-  | { kind: 'auto_away'; metres: number }
-
-/**
- * What to do now. `leftSince` is when the phone was first seen away from the pin (null if it
- * was at the shop at the last check). Only an agent who is Open is ever asked; Away and
- * Closed are already what they would be told to set.
- */
-export function presenceCall(
-  presence: 'open' | 'hidden' | 'closed',
-  shop: Point | null,
-  phone: Point | null,
-  leftSince: number | null,
-  now: number,
-  accuracyM = 0,
-): PresenceCall {
-  if (presence !== 'open' || !shop || !phone) return { kind: 'at_shop' }
+/** Is the phone at the pin? A rough fix is not evidence of leaving: the ring widens by its own uncertainty, up to 200 m. */
+export function atPin(shop: Point, phone: Point, accuracyM = 0): { at: boolean; metres: number } {
   const metres = Math.round(metresBetween(shop, phone))
-  // A rough fix is not evidence of leaving: widen the ring by the fix's own uncertainty.
-  if (metres <= LEFT_SHOP_METRES + Math.min(accuracyM, 200)) return { kind: 'at_shop' }
-  const since = leftSince ?? now
-  const elapsed = now - since
-  if (elapsed >= AWAY_GRACE_MS) return { kind: 'auto_away', metres }
-  return { kind: 'left', metres, sinceMs: since, autoAwayInMs: AWAY_GRACE_MS - elapsed }
+  return { at: metres <= LEFT_SHOP_METRES + Math.min(accuracyM, 200), metres }
+}
+
+/** "1.2 km" or "350 m", for the agent's own notification only; never sent anywhere. */
+export function distanceText(metres: number): string {
+  return metres >= 1000 ? `${(metres / 1000).toFixed(1)} km` : `${Math.round(metres / 10) * 10} m`
 }

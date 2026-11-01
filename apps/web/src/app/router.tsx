@@ -18,6 +18,11 @@ const HostHome = lazy(() => import('@/features/host/HostHomePage'))
 const AgentDashboard = lazy(() => import('@/features/agent/DashboardPage'))
 const AgentServices = lazy(() => import('@/features/agent/ServicesPage'))
 const AgentActivity = lazy(() => import('@/features/agent/ActivityPage'))
+const AgentHistory = lazy(() => import('@/features/agent/HistoryPage'))
+const AgentPersonal = lazy(() => import('@/features/agent/PersonalInfoPage'))
+const AgentShop = lazy(() => import('@/features/agent/ShopPage'))
+const AgentHelp = lazy(() => import('@/features/agent/HelpPage'))
+const AgentAbout = lazy(() => import('@/features/agent/AboutPage'))
 const AgentProfile = lazy(() => import('@/features/agent/ProfilePage'))
 const AgentSettings = lazy(() => import('@/features/agent/SettingsPage'))
 const AgentNotifications = lazy(() => import('@/features/agent/NotificationsPage'))
@@ -96,6 +101,11 @@ const router = createBrowserRouter([
           { path: 'availability', element: <Navigate to="/agent" replace /> },
           { path: 'dashboard', element: <Navigate to="/agent" replace /> },
           { path: 'activity', element: withSuspense(<AgentActivity />) },
+          { path: 'history', element: withSuspense(<AgentHistory />) },
+          { path: 'profile/personal', element: withSuspense(<AgentPersonal />) },
+          { path: 'shop', element: withSuspense(<AgentShop />) },
+          { path: 'help', element: withSuspense(<AgentHelp />) },
+          { path: 'about', element: withSuspense(<AgentAbout />) },
           { path: 'float', element: withSuspense(<AgentFloat />) },
           { path: 'profile', element: withSuspense(<AgentProfile />) },
           { path: 'settings', element: withSuspense(<AgentSettings />) },

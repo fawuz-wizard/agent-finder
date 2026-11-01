@@ -54,3 +54,17 @@ describe('the bell', () => {
     expect(JSON.parse(localStorage.getItem('af.seenNotifications') ?? '[]').length).toBe(count)
   })
 })
+
+describe('the check-in at the pin in the bell', () => {
+  it('keeps "your location has changed" and "you\'re back" in the bell, today only, newest first', async () => {
+    const { buildNotifications, noteShopAlert } = await import('./notifications')
+    localStorage.removeItem('af.shopAlerts')
+    noteShopAlert({ kind: 'left', metres: 1234 })
+    noteShopAlert({ kind: 'back' })
+    const list = buildNotifications(null, null)
+    expect(list[0]!.text).toMatch(/You're back at your shop/)
+    expect(list[1]!.text).toBe("Your location has changed · 1.2 km from your pin · customers can't see you until you're back")
+    expect(list.every((n) => n.to === '/agent/status' || !n.id.startsWith('shop-'))).toBe(true)
+    localStorage.removeItem('af.shopAlerts')
+  })
+})

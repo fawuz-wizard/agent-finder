@@ -17,6 +17,7 @@ from app.core.settings import get_settings
 from app.db.models import (
     Action,
     Agent,
+    AgentCheckin,
     AgentTransaction,
     AvailabilityEvent,
     Dealer,
@@ -27,9 +28,10 @@ from app.db.models import (
 )
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
-from app.services import schedule, usage
+from app.services import checkin, schedule, usage
 from app.services.commission import TARIFF_NOTE, commission_for, commission_for_band
 from app.services.ledger import BAND_TEXT, Ledger, ledgers_for, low_today, word_for_figure
+from app.services.phone import call_url, mask_msisdn
 from app.services.photo import decode_photo, public_photo_url, to_data_url
 from app.services.phrasing import (
     CAPACITY_LABEL,
@@ -269,6 +271,9 @@ async def home(
         "declaration": d.model_dump(),
         "schedule": sched,
         "customers_see": customers_see(a, now, ledger),
+        # Where the app last confirmed the agent at the pin, and why they are hidden, if so.
+        "checkin": checkin.state(a, now),
+        "checkin_text": checkin.reason_text(a, now),
         # Under the 7-day rule: the listing in words and what raises it; never the percentage.
         "seen_as": await seen_as(db, a, now, "agent"),
         # The shopfront in the listing, once customers can be sent here.
@@ -1095,6 +1100,9 @@ async def profile(
         "area": a.street,
         "hours_text": schedule.hours_text(a, now_utc()),
         "dealer_name": dealer.name if dealer else "",
+        # The agent's own line, masked; and a way to call their aggregator, for Help & Support.
+        "phone_masked": mask_msisdn(a.msisdn or a.phone),
+        "dealer_call_url": call_url(dealer.msisdn) if dealer else None,
         "phone_visible": a.phone_visible,
         "verified": a.verified,
         "agent_code": a.agent_code,
@@ -1286,15 +1294,31 @@ async def insights(
         .all()
     )
     op_tx = await get_operator().transactions_series(a.ref, [b[0] for b in buckets], width)
+    # What the agent recorded themselves, and the commission it earned: always there, Orange or not.
+    mine = (
+        (
+            await db.execute(
+                select(AgentTransaction).where(
+                    AgentTransaction.agent_ref == a.ref, AgentTransaction.at >= buckets[0][0]
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
     points = []
     for i, (b0, label) in enumerate(buckets):
         b1 = b0 + width
         found = sum(1 for e in ev if b0 <= _aware(e.at) < b1)
+        rec = [x for x in mine if b0 <= _aware(x.at) < b1]
         points.append(
             {
                 "label": label,
                 "found_you": found,
                 "transactions": op_tx[i] if op_tx else None,
+                "recorded": len(rec),
+                "commission_sle": sum(_commission(x) for x in rec),
                 "fresh_pct": fresh_pct(decl, b0, b1),
             }
         )
@@ -1307,6 +1331,8 @@ async def insights(
         "found_delta": 0,
         "fresh_pct": round(sum(p_["fresh_pct"] for p_ in points) / max(1, len(points))),
         "transactions_total": tx_total,
+        "recorded_total": sum(p_["recorded"] for p_ in points),
+        "commission_total_sle": sum(p_["commission_sle"] for p_ in points),
         "operator_source": get_operator().source_name() if op_tx else None,
     }
 
@@ -1336,3 +1362,35 @@ def fresh_pct(events: list[AvailabilityEvent], b0: datetime, b1: datetime) -> in
             fresh += step
         t += step
     return round(fresh / (b1 - b0) * 100) if b1 > b0 else 0
+
+
+class CheckinBody(BaseModel):
+    # Decided on the phone, which compares its own position with the pin: only yes or no
+    # leaves it. None when location is off: the app being open then counts as a check-in.
+    at_pin: bool | None
+
+
+@router.post("/checkin", summary="The app at the shop pin, or not: keeps the agent visible")
+async def check_in(
+    body: CheckinBody,
+    p: Principal = Depends(require_role("agent")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """At the pin (or location off): the listing is renewed for two hours and an away is
+    cleared. Away from it: hidden from customers at once, until the app finds the phone back.
+    No position is sent or kept, only the time and yes or no."""
+    a = await load_agent(db, p.subject)
+    now = now_utc()
+    c = await db.get(AgentCheckin, a.ref)
+    if c is None:
+        c = AgentCheckin(agent_ref=a.ref, last_at=now, away_since=None, location_check=True)
+        db.add(c)
+    c.location_check = body.at_pin is not None
+    if body.at_pin is False:
+        c.away_since = c.away_since or now
+    else:
+        c.last_at = now
+        c.away_since = None
+    await db.commit()
+    await db.refresh(a, ["checkin"])
+    return {"checkin": checkin.state(a, now), "checkin_text": checkin.reason_text(a, now)}

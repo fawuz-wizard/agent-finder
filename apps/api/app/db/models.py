@@ -137,6 +137,25 @@ class Agent(Base, TimestampMixin):
     declared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     dealer: Mapped[Dealer] = relationship()
+    # Where the app last confirmed the agent at the shop pin; loaded with every agent, since
+    # it decides whether customers see them (services/checkin.py).
+    checkin: Mapped[AgentCheckin | None] = relationship(lazy="selectin", uselist=False)
+
+
+class AgentCheckin(Base):
+    """The agent's app confirming them at the shop pin. The phone compares its own position
+    with the pin and sends only yes or no; the position never leaves the phone. A table of
+    its own so existing databases gain it without a migration."""
+
+    __tablename__ = "agent_checkins"
+
+    agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), primary_key=True)
+    # The last time the app found the phone at the pin (or, location off, simply open).
+    last_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Set when the phone was found away from the pin; cleared when it is back.
+    away_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # False when the agent turned location off: opening the app then counts as a check-in.
+    location_check: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
 class AvailabilityEvent(Base):

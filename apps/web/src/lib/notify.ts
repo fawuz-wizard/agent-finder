@@ -18,6 +18,9 @@ export interface Beep {
 
 export const BEEP_CLOSING = 1001
 export const BEEP_LEFT_SHOP = 1002
+export const BEEP_STAY_VISIBLE = 1003
+/** Away reminders: 1004, 1005, 1006, one per reminder, so each can be cancelled. */
+export const BEEP_AWAY_BASE = 1004
 
 type Plugin = {
   requestPermissions(): Promise<{ display: string }>

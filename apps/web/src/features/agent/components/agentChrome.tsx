@@ -1,6 +1,6 @@
 import type { InputHTMLAttributes, ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { Bell as BellLucide, CircleUser, History as HistoryLucide, House } from 'lucide-react'
+import { Activity as ActivityLucide, Bell as BellLucide, CircleUser, House } from 'lucide-react'
 import { LogoMark } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { FinderBox, PinIcon } from '@/features/end-user/components/finder'
@@ -186,8 +186,8 @@ export function DashboardIcon({ active }: IconProps) {
 export function HomeIcon({ active }: IconProps) {
   return <House size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
 }
-function HistoryIcon({ active }: IconProps) {
-  return <HistoryLucide size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
+export function ActivityIcon({ active }: IconProps) {
+  return <ActivityLucide size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
 }
 export function ProfileIcon({ active }: IconProps) {
   return <CircleUser size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
@@ -195,11 +195,11 @@ export function ProfileIcon({ active }: IconProps) {
 
 const TABS = [
   { to: '/agent', label: 'Home', end: true, Icon: HomeIcon },
-  { to: '/agent/activity', label: 'History', end: false, Icon: HistoryIcon },
+  { to: '/agent/activity', label: 'Activity', end: false, Icon: ActivityIcon },
   { to: '/agent/profile', label: 'Profile', end: false, Icon: ProfileIcon },
 ]
 
-/** Home, History, Profile, as in the approved agent design: 72 px, 12 px labels, the active one orange. */
+/** Home, Activity, Profile, as in the new agent design: 72 px, 12 px labels, the active one orange. */
 export function AgentTabBar() {
   return (
     <nav aria-label="Agent sections" className="sticky bottom-0 mt-auto grid h-[72px] grid-cols-3 border-t border-finder-card-line bg-finder-card pb-[env(safe-area-inset-bottom)]">

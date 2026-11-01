@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SessionProvider } from '@/features/auth/SessionProvider'
@@ -30,26 +29,35 @@ afterEach(() => {
   sessionStorage.clear()
 })
 
-describe('have you left the shop?', () => {
-  it('stays quiet at the shop', async () => {
-    // The demo's agent has no pin until one is set; stand at the shop and pin it.
+describe('checked in at the pin, never asked', () => {
+  it('at the shop: checks in quietly and stays visible', async () => {
     const profile = await operatorApi.setLocation('Agent 024', 8.4405, -13.2795)
     phoneAt(profile.lat!, profile.lng!)
     renderWatch()
-    await new Promise((r) => setTimeout(r, 600))
-    expect(screen.queryByText(/left the shop/i)).not.toBeInTheDocument()
+    await waitFor(async () => expect((await operatorApi.home('Agent 024')).checkin?.hidden_reason).toBeNull(), { timeout: 5000 })
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect((await operatorApi.home('Agent 024')).customers_see.state).not.toBe('hidden')
   })
 
-  it('asks when the phone is far from the pin, and sets Away on request, with a way back', async () => {
+  it('away from the pin: hidden at once with no question, and shown again on return', async () => {
+    localStorage.removeItem('af.shopAlerts')
     const profile = await operatorApi.setLocation('Agent 024', 8.4405, -13.2795)
     phoneAt(profile.lat! + 0.01, profile.lng!) // about 1.1 km north
-    const user = userEvent.setup()
+    const first = renderWatch()
+    await waitFor(async () => expect((await operatorApi.home('Agent 024')).checkin?.hidden_reason).toBe('away_from_pin'), { timeout: 5000 })
+    // Nothing to press: no card, no buttons. The bell says what happened.
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect((await operatorApi.home('Agent 024')).customers_see.state).toBe('hidden')
+    expect((await operatorApi.home('Agent 024')).declaration.presence).toBe('open')
+    expect(JSON.parse(localStorage.getItem('af.shopAlerts') ?? '[]').some((a: { kind: string }) => a.kind === 'left')).toBe(true)
+    // The aggregator reads why, without a distance.
+    const detail = await operatorApi.dealerAgent('Agent 024')
+    expect(detail.checkin_text).toMatch(/^Hidden · away from the pin since \d{2}:\d{2}$/)
+    first.unmount()
+    phoneAt(profile.lat!, profile.lng!)
     renderWatch()
-    expect(await screen.findByText('Have you left the shop?')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Set me Away' }))
-    await waitFor(async () => expect((await operatorApi.home('Agent 024')).declaration.presence).toBe('hidden'))
-    // Not an automatic Away: no "you left the shop" card, the Dashboard's pills say Away.
-    expect(screen.queryByText(/Away · you left the shop/)).not.toBeInTheDocument()
-    await operatorApi.declare('Agent 024', { presence: 'open', night_mode: true })
+    await waitFor(async () => expect((await operatorApi.home('Agent 024')).checkin?.hidden_reason).toBeNull(), { timeout: 5000 })
+    expect(JSON.parse(localStorage.getItem('af.shopAlerts') ?? '[]').some((a: { kind: string }) => a.kind === 'back')).toBe(true)
+    localStorage.removeItem('af.shopAlerts')
   })
 })

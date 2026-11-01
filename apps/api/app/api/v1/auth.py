@@ -53,6 +53,10 @@ class FirstPinBody(BaseModel):
     pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
 
 
+class PinCheckBody(BaseModel):
+    pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
+
+
 class PinChangeBody(BaseModel):
     current_pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
     new_pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]+$")
@@ -243,3 +247,31 @@ async def sign_out(
     if sess:
         sess.revoked = True
         await db.commit()
+
+
+@router.post("/check-pin", summary="Is this my PIN? Before recording a transaction")
+async def check_pin(
+    body: PinCheckBody,
+    p: Principal = Depends(settled_principal),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """The agent's PIN confirms a transaction before it is recorded, as the design's keypad
+    asks. Nothing moves and no session is made; wrong guesses count against the same lockout
+    as signing in, so the keypad cannot be used to guess the PIN."""
+    key = f"pin-check:{p.role}:{p.subject}"
+    check_sign_in_allowed(key)
+    if p.role == "dealer":
+        account = await db.get(Dealer, p.subject)
+        salt = account.id if account else ""
+    else:
+        account = (
+            await db.execute(select(Agent).where(Agent.ref == p.subject))
+        ).scalar_one_or_none()
+        salt = account.ref if account else ""
+    if account is None:
+        raise UnauthorizedError("That session has ended. Sign in again.")
+    if not verify_pin(body.pin, salt, account.pin_hash):
+        note_sign_in_failure(key)
+        raise AppError("That PIN is not correct.", code="wrong_pin", status_code=403)
+    clear_sign_in_failures(key)
+    return {"ok": True}

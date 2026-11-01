@@ -10,6 +10,7 @@ import type {
   ActivityEvent,
   AgentFeedback,
   AgentHome,
+  CheckinState,
   AgentInsights,
   AgentProfile,
   AgentTransactions,
@@ -197,6 +198,18 @@ export const operatorApi = {
   },
 
   /** Change my PIN: the current one first. */
+  /** The app at the shop pin (true), away from it (false), or location off (null). Only yes or no is sent. */
+  checkIn(ref: string, at_pin: boolean | null): Promise<{ checkin: CheckinState | null; checkin_text: string | null }> {
+    if (config.useLiveApi) return api.post('/api/v1/agent/checkin', { at_pin })
+    return delay(demo.demoCheckIn(ref, at_pin))
+  },
+
+  /** The keypad before recording a transaction: is this my PIN? Nothing moves, no session is made. */
+  checkPin(ref: string, pin: string): Promise<{ ok: true }> {
+    if (config.useLiveApi) return api.post('/api/v1/auth/check-pin', { pin })
+    return delay(demo.demoCheckPin(ref, pin))
+  },
+
   changePin(ref: string, current_pin: string, new_pin: string): Promise<{ pin_set: true }> {
     if (config.useLiveApi) return api.post('/api/v1/agent/profile/pin', { current_pin, new_pin })
     return delay(demo.demoChangePin(ref, current_pin, new_pin))

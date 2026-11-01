@@ -361,6 +361,16 @@ export interface TodayChange {
   clear?: boolean
 }
 
+/** Where the app last confirmed the agent at the shop pin (services/checkin.py). */
+export interface CheckinState {
+  last_at: string
+  /** Until when customers see the agent without the app checking in again. */
+  visible_until: string
+  away_since: string | null
+  location_check: boolean
+  hidden_reason: 'away_from_pin' | 'no_checkin' | null
+}
+
 export interface AgentHome {
   name: string
   ref: string
@@ -368,6 +378,9 @@ export interface AgentHome {
   declaration: Declaration
   schedule: ScheduleState
   customers_see: CustomersSee
+  /** Null until the agent's app first checks in at the pin. */
+  checkin?: CheckinState | null
+  checkin_text?: string | null
   /** Under the 7-day rule: the listing in words and what raises it. */
   seen_as?: SeenAs | null
   /** The shopfront in the listing, once customers can be sent here; null before that. */
@@ -391,6 +404,10 @@ export interface AgentProfile {
   area: string
   hours_text: string
   dealer_name: string
+  /** The agent's own line, last three digits only; null when none is on file. */
+  phone_masked?: string | null
+  /** tel: link to the agent's aggregator, for Help & Support; null when no number is on file. */
+  dealer_call_url?: string | null
   phone_visible: boolean
   verified: boolean
   devices: { id: string; label: string; last_seen_text: string; current: boolean }[]
@@ -585,6 +602,9 @@ export interface InsightPoint {
   transactions: number | null
   /** Share of the interval the declaration was fresh, 0–100. */
   fresh_pct: number
+  /** What the agent recorded themselves in this interval, and the commission it earned. */
+  recorded?: number
+  commission_sle?: number
 }
 
 export interface AgentInsights {
@@ -597,6 +617,9 @@ export interface AgentInsights {
   fresh_pct: number
   /** Operator-owned total; null when not connected. */
   transactions_total: number | null
+  /** The agent's own recorded transactions over the range, and their commission (indicative tariff). */
+  recorded_total?: number
+  commission_total_sle?: number
   operator_source: string | null
 }
 
@@ -611,6 +634,11 @@ export interface DealerAgentDetail {
   /** The same state and age the agent list shows, so the two screens never disagree. */
   bucket: DealerBucket
   freshness_text: string
+  /** Why the shop is hidden, if the app has not confirmed the agent at the pin; never a distance. */
+  checkin_text?: string | null
+  checkin_last_at?: string | null
+  /** False when the agent turned location off; null before the first check-in. */
+  location_check?: boolean | null
   /** tel: link for the Call button; null when no number is on file. */
   call_url: string | null
   /** Whether customers are being sent here, in one headline; the agent's figures never. */

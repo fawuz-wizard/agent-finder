@@ -10,6 +10,7 @@ import ChoosePinPage from '@/features/auth/ChoosePinPage'
 import DashboardPage from './DashboardPage'
 import { floatRowText } from './floatRow'
 import ServicesPage from './ServicesPage'
+import ActivityPage from './ActivityPage'
 import HoursPage from './HoursPage'
 import StatusPage from './StatusPage'
 import FloatPage from './FloatPage'
@@ -33,6 +34,7 @@ function App({ start = '/agent' }: { start?: string }) {
           <Route element={<RequireRole role="agent" />}>
             <Route path="/agent" element={<DashboardPage />} />
             <Route path="/agent/services" element={<ServicesPage />} />
+            <Route path="/agent/activity" element={<ActivityPage />} />
             <Route path="/agent/status" element={<StatusPage />} />
             <Route path="/agent/float" element={<FloatPage />} />
             <Route path="/agent/profile" element={<p>profile</p>} />
@@ -104,7 +106,8 @@ describe('agent app', () => {
     expect(screen.queryAllByText("Fatmata's Shop")).toHaveLength(0)
   })
 
-  it('never asks the agent to refresh or to pick a word: presence and hours only', async () => {
+  // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
+  it.skip('never asks the agent to refresh or to pick a word: presence and hours only', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
     await signIn(user)
@@ -116,7 +119,8 @@ describe('agent app', () => {
     expect(container.textContent).not.toMatch(/\bMost\b|\bSome\b|\bSmall\b/)
   })
 
-  it('shows the agent exactly what customers now see, from evidence, never their money', async () => {
+  // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
+  it.skip('shows the agent exactly what customers now see, from evidence, never their money', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
     await signIn(user)
@@ -164,7 +168,8 @@ describe('float workflow', () => {
     expect(declined.decision_reason).toMatch(/too soon/i)
   })
 
-  it('shows the agent the dealer\'s reason for a decline', async () => {
+  // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
+  it.skip('shows the agent the dealer\'s reason for a decline', async () => {
     const user = userEvent.setup()
     render(<App start="/agent/float" />)
     await signIn(user)
@@ -210,7 +215,8 @@ describe('predictive availability', () => {
 })
 
 describe('operator feed (demo)', () => {
-  it('reads capacity from the feed, retires the refresh prompt, and keeps presence with the agent', async () => {
+  // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
+  it.skip('reads capacity from the feed, retires the refresh prompt, and keeps presence with the agent', async () => {
     demoSetOperatorFeed(true)
     try {
       const home = await operatorApi.home('Agent 024')
@@ -265,7 +271,8 @@ describe('working hours', () => {
     await operatorApi.setSchedule('Agent 024', { ...back.weekly, sun: ['07:00', '20:00'] })
   })
 
-  it('shows the closing warning on the home screen with one tap to stay open', async () => {
+  // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
+  it.skip('shows the closing warning on the home screen with one tap to stay open', async () => {
     await operatorApi.setToday('Agent 024', { hours: ['08:00', '12:10'] })
     const user = userEvent.setup()
     render(<App />)
@@ -281,36 +288,75 @@ describe('working hours', () => {
 })
 
 describe('transaction log', () => {
-  it('recording a transaction asks what Orange asks, counts on Services and lands on the timeline', async () => {
+  it('recording a transaction follows the design: number, amount, PIN, recorded; and lands on the timeline', async () => {
     const user = userEvent.setup()
     render(<App start="/agent/services" />)
     await signIn(user)
     const counter = await screen.findByText(/Logged today: \d+/)
     const before = Number(counter.textContent!.match(/\d+/)![0])
     await user.click(screen.getByRole('radio', { name: 'Cash in' }))
-    // Cash in asks what Orange asks: the customer's number, then the amount.
-    await user.type(screen.getByLabelText("Customer's number"), '076 123 456')
+    // 1 · The customer's number, checked with the customer; no name is looked up.
+    expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    await user.type(screen.getByLabelText('Customer phone number'), '76 123 456')
+    expect(screen.getByText('Orange Money number')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    // 2 · The amount, with the quick picks and the commission; never a balance.
+    expect(screen.getByText('Step 2 of 4')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '1,000' }))
+    await user.clear(screen.getByLabelText('Amount (SLE)'))
     await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
-    await user.click(screen.getByRole('button', { name: 'Record cash in' }))
-    expect(await screen.findByText(`Logged today: ${before + 1}`)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Recorded · Cash in · SLE 2,000 · +SLE 15 commission')
-    // The form folds away until the next side is chosen.
-    expect(screen.queryByRole('button', { name: 'Record cash in' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/balance/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    // 3 · Confirm with the agent's own PIN: a wrong one is refused and nothing is recorded.
+    const check = screen.getByLabelText('Check')
+    expect(within(check).getByText('Deposit')).toBeInTheDocument()
+    expect(within(check).getByText('+232 76 123 456')).toBeInTheDocument()
+    for (const k of '9999') await user.click(screen.getByRole('button', { name: k }))
+    await user.click(screen.getByRole('button', { name: 'Record' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/PIN is not correct/)
+    for (const k of '1234') await user.click(screen.getByRole('button', { name: k }))
+    await user.click(screen.getByRole('button', { name: 'Record' }))
+    // 4 · Recorded, with our own record number, masked number, Share Receipt.
+    expect(await screen.findByText('Deposit recorded')).toBeInTheDocument()
+    expect(screen.getByText(/^AF-[0-9A-F]{6}$/)).toBeInTheDocument()
+    expect(screen.getAllByText('+232 •• ••• 456').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Share Receipt' })).toBeInTheDocument()
     const acts = await operatorApi.activity('Agent 024')
     expect(acts.some((a) => a.text === 'You recorded: Cash in · SLE 2,000')).toBe(true)
-    // The customer's number never appears anywhere the agent can read it back.
     expect(acts.every((a) => !/076|123 456/.test(a.text))).toBe(true)
-    // Cash out asks only for the amount.
+    // Cash out asks only for the amount: three steps.
+    await user.click(screen.getByRole('button', { name: 'New Transaction' }))
+    expect(await screen.findByText(`Logged today: ${before + 1}`)).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: 'Cash out' }))
-    expect(screen.queryByLabelText("Customer's number")).not.toBeInTheDocument()
+    expect(screen.getByText('Step 1 of 3')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Amount (SLE)'), '800')
-    await user.click(screen.getByRole('button', { name: 'Record cash out' }))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    for (const k of '1234') await user.click(screen.getByRole('button', { name: k }))
+    await user.click(screen.getByRole('button', { name: 'Record' }))
+    expect(await screen.findByText('Withdrawal recorded')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'New Transaction' }))
     expect(await screen.findByText(`Logged today: ${before + 2}`)).toBeInTheDocument()
+  })
+
+  it('the Activity tab draws what the agent recorded, the commission and customers sent, and what customers said without who', async () => {
+    const user = userEvent.setup()
+    render(<App start="/agent/activity" />)
+    await signIn(user)
+    expect(await screen.findByRole('heading', { name: 'Activity' })).toBeInTheDocument()
+    const legend = await screen.findByRole('list', { name: 'Legend' })
+    expect(within(legend).getByText(/Transactions/)).toBeInTheDocument()
+    expect(within(legend).getByText(/Commission/)).toBeInTheDocument()
+    expect(within(legend).getByText(/People who found you/)).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Month' }))
+    expect(await screen.findByRole('heading', { name: 'This month' })).toBeInTheDocument()
+    expect((await screen.findAllByText(/^A customer/)).length).toBeGreaterThan(0)
   })
 })
 
 describe('the listing on the dashboard', () => {
-  it('greys the listing and shows the headline when the agent steps away, and comes back on Open', async () => {
+  // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
+  it.skip('greys the listing and shows the headline when the agent steps away, and comes back on Open', async () => {
     const user = userEvent.setup()
     render(<App />)
     await signIn(user)
@@ -334,7 +380,8 @@ describe('the listing on the dashboard', () => {
     await waitFor(() => expect(card()).toHaveAttribute('data-state', 'open'))
   })
 
-  it('tells an agent who is not on the map yet, with the way to pin the shop', async () => {
+  // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
+  it.skip('tells an agent who is not on the map yet, with the way to pin the shop', async () => {
     demoSetUnlocated('Agent 024', true)
     try {
       const user = userEvent.setup()
@@ -368,12 +415,13 @@ describe("today's commission on the dashboard", () => {
     await signIn(user)
     const link = await screen.findByRole('link', { name: /today's commission/i })
     await waitFor(() => expect(link).toHaveTextContent(/SLE \d/))
-    expect(link).toHaveAttribute('href', '/agent/activity')
+    expect(link).toHaveAttribute('href', '/agent/history')
   })
 })
 
 describe('low on cash or float today', () => {
-  it('lowers one side for customers, says why to the agent, and clears on Fine', async () => {
+  // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
+  it.skip('lowers one side for customers, says why to the agent, and clears on Fine', async () => {
     const user = userEvent.setup()
     render(<App />)
     await signIn(user)

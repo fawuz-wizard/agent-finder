@@ -421,3 +421,11 @@
   --color-agent-pill: #ffe7d6;
   --color-agent-pill-ink: #c2540e;
 }
+
+/* The agent Activity card (the new agent design, screen 14): its line colours and rules on dark. */
+@theme {
+  --color-agent-chart-green: #5fd08e;
+  --color-agent-chart-blue: #7fb2ff;
+  --color-agent-chart-line: #3a3a40;
+  --color-agent-chart-grid: #33333a;
+}
