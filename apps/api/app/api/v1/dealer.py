@@ -25,6 +25,7 @@ from app.db.models import (
     AuditLog,
     AvailabilityEvent,
     Dealer,
+    DealerPhoto,
     FloatRequest,
     OutcomeReport,
     SearchImpression,
@@ -36,7 +37,7 @@ from app.integrations.operator.base import get_operator
 from app.services import usage
 from app.services.forecast import forecast_counts, forecasts_for
 from app.services.ledger import ledgers_for
-from app.services.photo import to_data_url
+from app.services.photo import decode_photo, to_data_url
 from app.services.phrasing import (
     CAPACITY_LABEL,
     NETWORK_RANGES,
@@ -281,6 +282,8 @@ async def dealer_me(
     ).scalar_one()
     return {
         "name": d.name,
+        # What they type to sign in, shown on their own Profile for when they help a colleague.
+        "sign_in": d.id,
         "region": d.region,
         "msisdn_masked": mask_msisdn(d.msisdn),
         "source": d.source,
@@ -290,7 +293,42 @@ async def dealer_me(
         "on_map": sum(1 for a in agents if on_map(a)),
         "signed_in": sum(1 for a in agents if a.declared_at is not None),
         "subaggregators": int(subs),
+        "photo": to_data_url(pic.photo) if (pic := await db.get(DealerPhoto, d.id)) else None,
     }
+
+
+class DealerPhotoBody(BaseModel):
+    # Shrunk to 256 px on the phone: it only ever shows as a round avatar.
+    image: str = Field(min_length=16, max_length=200_000)
+
+
+@router.post("/dealer/me/photo", summary="My own picture: a logo or shop sign")
+async def set_dealer_photo(
+    body: DealerPhotoBody,
+    p: Principal = Depends(require_role("dealer")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Shown on the aggregator's Profile and Home. Never to customers. One picture; a new one
+    replaces it."""
+    raw = decode_photo(body.image)
+    pic = await db.get(DealerPhoto, p.subject)
+    if pic is None:
+        db.add(DealerPhoto(dealer_id=p.subject, photo=raw, photo_at=now_utc()))
+    else:
+        pic.photo, pic.photo_at = raw, now_utc()
+    await db.commit()
+    return await dealer_me(p, db)
+
+
+@router.delete("/dealer/me/photo", summary="Take my picture down; the initials come back")
+async def remove_dealer_photo(
+    p: Principal = Depends(require_role("dealer")), db: AsyncSession = Depends(get_session)
+) -> dict:
+    pic = await db.get(DealerPhoto, p.subject)
+    if pic is not None:
+        await db.delete(pic)
+        await db.commit()
+    return await dealer_me(p, db)
 
 
 @router.get("/dealer/overview", summary="What is happening with all my agents")
@@ -834,7 +872,8 @@ class RegisterBody(BaseModel):
     street: str = Field(min_length=1, max_length=120)
     lat: float
     lng: float
-    phone: str | None = Field(default=None, max_length=32, pattern=r"^\+?[0-9 ]{6,20}$")
+    # Required: it is how the aggregator calls the agent, and how customers call if allowed.
+    phone: str = Field(max_length=32, pattern=r"^\+?[0-9 ]{6,20}$")
     phone_visible: bool = False
     open_time: str = Field(default="07:00", pattern=TIME_RE)
     close_time: str = Field(default="20:00", pattern=TIME_RE)

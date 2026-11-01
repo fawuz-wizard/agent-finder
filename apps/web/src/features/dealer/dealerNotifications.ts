@@ -37,12 +37,41 @@ function writeSeen(ids: Set<string>): void {
   window.dispatchEvent(new Event(EVENT))
 }
 
+const OFF_KEY = 'af.dealerBellOff'
+
+/** The kinds of bell alert, in the order Settings lists them; each can be switched off on this phone. */
+export const BELL_KINDS: { group: DealerNotice['group']; label: string }[] = [
+  { group: 'requests', label: 'Float requests' },
+  { group: 'forecast', label: 'Float forecast' },
+  { group: 'pins', label: 'Pins to confirm' },
+  { group: 'earlier', label: 'Float sent' },
+]
+
+/** The kinds switched off on this phone. Only what the bell shows changes; the server sends the same. */
+export function readBellOff(): Set<DealerNotice['group']> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(OFF_KEY) ?? '[]') as DealerNotice['group'][])
+  } catch {
+    return new Set()
+  }
+}
+
+export function writeBellOff(off: Set<DealerNotice['group']>): void {
+  try {
+    localStorage.setItem(OFF_KEY, JSON.stringify([...off]))
+  } catch {
+    // Fine without it: every kind shows.
+  }
+  window.dispatchEvent(new Event(EVENT))
+}
+
 const code = (ref: string) => ref.replace(/^Agent /, '')
 const dayKey = () => new Date().toISOString().slice(0, 10)
 
-/** Waiting requests first, then pins, the forecast, and float sent in the last week. */
+/** Waiting requests first, then pins, the forecast, and float sent in the last week; kinds switched off in Settings are left out. */
 export function buildDealerNotices(o: DealerOverview | null, forecast: FloatForecast[] = [], sends: FloatSend[] = []): DealerNotice[] {
   if (!o) return []
+  const off = readBellOff()
   const calls = new Map(forecast.map((f) => [f.agent_ref, f.call_url]))
   const out: DealerNotice[] = []
   for (const r of o.float_requests)
@@ -66,7 +95,7 @@ export function buildDealerNotices(o: DealerOverview | null, forecast: FloatFore
       id: `forecast-${dayKey()}-${high}-${watch}`,
       group: 'forecast',
       title: high > 0 ? `${high} likely short by tomorrow` : `${watch} to watch this week`,
-      sub: [names.length ? names.slice(0, 3).join(', ') : null, "from confirmed visits and the agents' own words", high > 0 && watch > 0 ? `${watch} more to watch` : null].filter(Boolean).join(' · '),
+      sub: [names.length ? names.slice(0, 3).join(', ') : null, "from the agents' own records", high > 0 && watch > 0 ? `${watch} more to watch` : null].filter(Boolean).join(' · '),
       to: '/dealer/float?tab=low',
     })
   }
@@ -80,7 +109,7 @@ export function buildDealerNotices(o: DealerOverview | null, forecast: FloatFore
       amount: s.amount_sle,
       to: '/dealer/float?tab=history',
     })
-  return out
+  return out.filter((n) => !off.has(n.group))
 }
 
 /** Which notices this phone has opened, and the unread count for the bell. "Earlier" never counts. */

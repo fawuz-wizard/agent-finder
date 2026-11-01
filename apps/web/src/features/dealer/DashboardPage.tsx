@@ -4,7 +4,8 @@ import { useEffect } from 'react'
 import { useAsync } from '@/hooks/useAsync'
 import { keepOverview, readOverview } from './overviewCache'
 import { operatorApi } from '@/services/operatorApi'
-import type { DealerOverview } from '@/types/operator'
+import type { DealerMe, DealerOverview } from '@/types/operator'
+import { keepDealerPhoto, readDealerPhoto } from './dealerPhotoCache'
 import { FinderCta } from '@/features/end-user/components/finder'
 import { Action, DarkHeader, SectionTitle, Sheet, Stat } from './components/designKit'
 import { buildDealerNotices, useDealerSeen } from './dealerNotifications'
@@ -38,6 +39,12 @@ export default function DealerDashboardPage() {
   const { state, data, error, refresh } = useAsync<DealerOverview>((s) => operatorApi.dealerOverview(s), [], readOverview())
   useEffect(() => keepOverview(data), [data])
   const { unread } = useDealerSeen(buildDealerNotices(data ?? null))
+  // The aggregator's own picture for the header ring: the phone's copy at once, the server's after.
+  const me = useAsync<DealerMe>((s) => operatorApi.me(s))
+  useEffect(() => {
+    if (me.data) keepDealerPhoto(me.data.photo)
+  }, [me.data])
+  const myPhoto = me.data ? (me.data.photo ?? null) : readDealerPhoto()
   // The next screens the aggregator opens from here, fetched while Home is on screen.
   useEffect(() => {
     void import('./AttentionPage')
@@ -68,7 +75,7 @@ export default function DealerDashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col text-finder-ink">
-      <DarkHeader name={data.dealer_name} pill="Aggregator" bell={<Bell unread={unread} />} />
+      <DarkHeader name={data.dealer_name} pill="Aggregator" bell={<Bell unread={unread} />} photo={myPhoto} />
       <Sheet>
         <SectionTitle
           link={

@@ -249,3 +249,38 @@ async function nominatimSearch(q: string, signal?: AbortSignal): Promise<Place[]
     throw new PlaceLookupError()
   }
 }
+
+/**
+ * The area a shop's pin sits in, for registering an agent: the neighbourhood people use
+ * (Lakka, Lumley), never a street and never a Freetown ward number. TomTom's area when it is a
+ * real place, otherwise OpenStreetMap's neighbourhood, otherwise the town. Null when nothing
+ * answers: the screen then asks the aggregator to type it.
+ */
+export async function areaOf(point: { lat: number; lng: number }, signal?: AbortSignal): Promise<string | null> {
+  if (typeof fetch !== 'function') return null
+  let town: string | null = null
+  const tt = tomtomKey()
+  if (tt) {
+    try {
+      const res = await fetch(`${TOMTOM}/reverseGeocode/${point.lat},${point.lng}.json?language=en-GB&radius=250&key=${encodeURIComponent(tt)}`, { signal: signal ?? null })
+      if (res.ok) {
+        const a = ((await res.json()) as { addresses?: { address?: TomTomAddress }[] }).addresses?.[0]?.address
+        const sub = a?.municipalitySubdivision?.trim()
+        if (sub && !WARD.test(sub)) return short(sub)
+        town = a?.municipality?.trim() || null
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return null
+    }
+  }
+  try {
+    const res = await fetch(`${ENDPOINT}?format=jsonv2&zoom=16&accept-language=en&lat=${point.lat}&lon=${point.lng}`, { signal: signal ?? null, headers: { Accept: 'application/json' } })
+    if (res.ok) {
+      const label = placeLabel(((await res.json()) as NominatimAnswer).address)
+      if (label) return label
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return null
+  }
+  return town ? short(town) : null
+}

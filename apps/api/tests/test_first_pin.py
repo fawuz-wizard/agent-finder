@@ -16,7 +16,7 @@ NEW = {
     "street": "Opposite the venue gate",
     "lat": 8.471,
     "lng": -13.26,
-    "phone": None,
+    "phone": "+232 76 555 160",
     "phone_visible": False,
 }
 

@@ -41,6 +41,7 @@ const DealerProfile = lazy(() => import('@/features/dealer/ProfilePage'))
 const DealerSettings = lazy(() => import('@/features/dealer/SettingsPage'))
 const DealerRecords = lazy(() => import('@/features/dealer/RecordsPage'))
 const DealerReveals = lazy(() => import('@/features/dealer/RevealsPage'))
+const DealerActions = lazy(() => import('@/features/dealer/ActionsPage'))
 const DealerNetworkMap = lazy(() => import('@/features/dealer/NetworkMapPage'))
 const NotFound = lazy(() => import('./NotFound'))
 
@@ -126,6 +127,7 @@ const router = createBrowserRouter([
           { path: 'records', element: withSuspense(<DealerRecords />) },
           { path: 'network', element: withSuspense(<DealerNetwork />) },
           { path: 'reveals', element: withSuspense(<DealerReveals />) },
+          { path: 'actions', element: withSuspense(<DealerActions />) },
         ],
       },
       // Full-screen aggregator pages: the frame without the tabs.

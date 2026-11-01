@@ -69,7 +69,7 @@ describe('agent app', () => {
     const user = userEvent.setup()
     const { code, ref } = await operatorApi.registerAgent({
       ref: '140', person_name: 'Isatu Conteh', shop_name: "Isatu's Place", area: 'Lumley', street: 'By the roundabout', lat: 8.44, lng: -13.28,
-      phone: null, phone_visible: false, open_time: '07:00', close_time: '20:00', usual_max_sle: null, usual_float_max_sle: null,
+      phone: '+232 76 555 140', phone_visible: false, open_time: '07:00', close_time: '20:00', usual_max_sle: null, usual_float_max_sle: null,
       usual_daily_transactions: null, verified: false,
     })
     render(<App />)

@@ -45,6 +45,17 @@ class Dealer(Base, TimestampMixin):
     source_row: Mapped[str | None] = mapped_column(String(80))
 
 
+class DealerPhoto(Base):
+    """The aggregator's own picture, a logo or shop sign, kept apart from the dealer row so an
+    existing database gains it without a migration. Seen by the aggregator and Orange only."""
+
+    __tablename__ = "dealer_photos"
+
+    dealer_id: Mapped[str] = mapped_column(ForeignKey("dealers.id"), primary_key=True)
+    photo: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    photo_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class Agent(Base, TimestampMixin):
     __tablename__ = "agents"
     ref: Mapped[str] = mapped_column(String(40), primary_key=True)  # "Agent 024"

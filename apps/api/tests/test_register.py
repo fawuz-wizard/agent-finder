@@ -209,3 +209,12 @@ async def test_detail_carries_the_pin_for_the_aggregators_map(client, dealer):
     d = r.json()
     assert isinstance(d["lat"], float) and isinstance(d["lng"], float)
     assert d["located"] is True
+
+
+@pytest.mark.asyncio
+async def test_registering_needs_the_agents_phone(client, dealer):
+    body = {k: v for k, v in NEW.items() if k != "phone"}
+    r = await client.post("/api/v1/dealer/agents", json=body, headers=dealer)
+    assert r.status_code == 422 and "phone" in r.text
+    r = await client.post("/api/v1/dealer/agents", json={**NEW, "phone": None}, headers=dealer)
+    assert r.status_code == 422

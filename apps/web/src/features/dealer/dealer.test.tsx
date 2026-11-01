@@ -20,8 +20,12 @@ import DealerProfilePage from './ProfilePage'
 import DealerSettingsPage from './SettingsPage'
 import DealerRecordsPage from './RecordsPage'
 import DealerRevealsPage from './RevealsPage'
+import DealerActionsPage from './ActionsPage'
 import { pointer } from '@/test-utils/pointer'
 import RegisterAgentPage from './RegisterAgentPage'
+
+// jsdom has no canvas: the picture arrives already shrunk.
+vi.mock('@/lib/photo', async (orig) => ({ ...(await orig<typeof import('@/lib/photo')>()), shrinkPhoto: vi.fn(async () => 'data:image/jpeg;base64,/9j/4AAQSkZJRg==') }))
 import DealerSearchPage from './SearchPage'
 
 const ALL = [PERMISSIONS.viewAgent, PERMISSIONS.viewFinancial, PERMISSIONS.manageFloat, PERMISSIONS.viewHistory, PERMISSIONS.contact, PERMISSIONS.escalate]
@@ -52,6 +56,7 @@ function App({ start }: { start: string }) {
             <Route path="/dealer/settings" element={<DealerSettingsPage />} />
             <Route path="/dealer/records" element={<DealerRecordsPage />} />
             <Route path="/dealer/reveals" element={<DealerRevealsPage />} />
+            <Route path="/dealer/actions" element={<DealerActionsPage />} />
           </Routes>
         </MemoryRouter>
       </SessionProvider>
@@ -346,6 +351,8 @@ describe('evidence by amount', () => {
 
 describe('registration', () => {
   it('lets a dealer with MANAGE_AGENT register any agent, who then appears in the register', async () => {
+    // Offline, as on a phone with no signal: the area lookup gets no answer and the screen asks.
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('offline'))))
     const user = userEvent.setup()
     signIn([...ALL, PERMISSIONS.manageAgent])
     render(<App start="/dealer/agents" />)
@@ -353,12 +360,21 @@ describe('registration', () => {
     await screen.findByRole('heading', { name: /register an agent/i })
     await user.type(screen.getByLabelText(/shop name/i), "Mariama's Corner")
     await user.type(screen.getByLabelText(/agent's name/i), 'Mariama Sesay')
-    await user.type(screen.getByLabelText(/street or landmark/i), 'Opposite the venue gate')
+    // One short screen: no hours, no usual amounts, no "customers may call", no number to pick.
+    expect(screen.queryByLabelText(/cash out, up to about/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/opens/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/customers may call/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/agent number/i)).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/landmark customers read/i), 'Opposite the venue gate')
     await user.click(screen.getByRole('button', { name: /type coordinates/i }))
     await user.type(screen.getByLabelText(/latitude/i), '8.4710')
     await user.type(screen.getByLabelText(/longitude/i), '-13.2600')
-    await user.type(screen.getByLabelText(/cash out, up to about/i), '5000')
+    // No map service in tests: the area cannot be looked up, so the screen asks for it.
+    await user.type(await screen.findByLabelText(/^area$/i, {}, { timeout: 3000 }), 'Hill Station')
     await user.click(screen.getByLabelText(/checked this agent against orange/i))
+    // The phone is required: no phone, no registration.
+    expect(screen.getByRole('button', { name: /^register agent$/i })).toBeDisabled()
+    await user.type(screen.getByLabelText(/^phone$/i), '+232 76 123 456')
     await user.click(screen.getByRole('button', { name: /^register agent$/i }))
     // Lands on the new agent's detail, under the number the platform assigned, with the
     // one-time code to read out: six digits, shown once, never a PIN the dealer chose.
@@ -372,7 +388,7 @@ describe('registration', () => {
     const rows = await operatorApi.dealerAgents()
     const mine = rows.find((r) => r.name === "Mariama's Corner")
     expect(mine).toBeDefined()
-    expect(mine!.capacity_text).toMatch(/Cash out up to ~SLE 5,000/)
+    expect(mine!.phone?.replace(/\s/g, '')).toBe('+23276123456')
     const acts = await operatorApi.actions(mine!.ref)
     expect(acts.some((a) => /registered Mariama's Corner/.test(a.note) && /Orange's record/.test(a.note))).toBe(true)
     // The agent signs in with the code, which opens only the Choose-PIN step; the PIN they
@@ -383,6 +399,7 @@ describe('registration', () => {
     await expect(operatorApi.choosePin(mine!.ref, 'agent', '2468')).resolves.toEqual({ pin_set: true })
     await expect(operatorApi.signIn(mine!.ref, '2468', 'agent')).resolves.toMatchObject({ must_set_pin: false })
     await expect(operatorApi.signIn(mine!.ref, code, 'agent')).rejects.toThrow(/PIN/)
+    vi.unstubAllGlobals()
     // Forgotten: the dealer issues another code from the agent's page and never sets a PIN.
     await user.click(screen.getByRole('button', { name: /issue another code/i }))
     await waitFor(() => expect(screen.getByLabelText(/one-time code/i).textContent!.replace(/\s/g, '')).not.toBe(code))
@@ -406,7 +423,7 @@ describe('registration', () => {
   it('refuses a location outside Sierra Leone with a message, not a crash', async () => {
     await expect(
       operatorApi.registerAgent({
-        ref: null, person_name: 'A', shop_name: 'B', area: 'Lumley', street: 'C', lat: 48.85, lng: 2.35, phone: null, phone_visible: false,
+        ref: null, person_name: 'A', shop_name: 'B', area: 'Lumley', street: 'C', lat: 48.85, lng: 2.35, phone: '+232 76 555 141', phone_visible: false,
         open_time: '07:00', close_time: '20:00', usual_max_sle: null, usual_float_max_sle: null, usual_daily_transactions: null, verified: false,
       }),
     ).rejects.toThrow(/outside Sierra Leone/)
@@ -497,7 +514,7 @@ describe('report and records', () => {
     const user = userEvent.setup()
     signIn(ALL)
     render(<App start="/dealer/settings" />)
-    await user.click(await screen.findByRole('button', { name: /^change/i }))
+    await user.click(await screen.findByRole('button', { name: /^change pin$/i }))
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText('Current PIN'), '9999')
     await user.type(within(dialog).getByLabelText('New PIN'), '5566')
@@ -513,27 +530,81 @@ describe('report and records', () => {
     await operatorApi.changeDealerPin('5566', '1234')
   })
 
-  it('the profile is who you are: the masked line, the region, the network in figures; the gear opens Settings', async () => {
+  it('the profile is who you are: the name, the sign-in name and the region; Settings is one row', async () => {
     const user = userEvent.setup()
     signIn(ALL)
     render(<App start="/dealer/profile" />)
-    expect((await screen.findAllByText('+232 •• ••• 123')).length).toBeGreaterThan(0)
+    // Who is signed in: the name, the sign-in name, the region. No number, no network figures.
+    expect(await screen.findByText('kissy')).toBeInTheDocument()
     expect(screen.getByText('Aggregator · West')).toBeInTheDocument()
-    // Orange's record and the network figures open under Organization details.
-    await user.click(screen.getByRole('button', { name: 'Organization details' }))
-    // Other tests register demo agents, so the total is read, not assumed.
-    const total = screen.getByText('Agents').nextSibling!.textContent
-    expect(screen.getByText('Verified').nextSibling).toHaveTextContent(new RegExp(`^\\d+ of ${total}$`))
-    expect(screen.getByText('Signed in to the app').nextSibling).toHaveTextContent(new RegExp(`^${total} of ${total}$`))
+    expect(screen.queryByText('+232 •• ••• 123')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Organization details' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Signed in to the app')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Manage agents' })).toHaveAttribute('href', '/dealer/agents')
     // The reveal log and the permission list are not identity; the report is one door at the foot.
     expect(screen.getByRole('link', { name: 'Download a report' })).toHaveAttribute('href', '/dealer/records')
     expect(screen.queryByText(/financial reveals/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/decide float requests/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('link', { name: 'Settings' }))
     expect(await screen.findByRole('radiogroup', { name: 'Appearance' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Your financial reveals' })).toHaveAttribute('href', '/dealer/reveals')
-    expect(screen.getByText('Decide float requests')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'My financial reveals' })).toHaveAttribute('href', '/dealer/reveals')
+    expect(screen.getByRole('link', { name: 'My action history' })).toHaveAttribute('href', '/dealer/actions')
+    // No permission list and no Sign out: Sign out lives on Profile only.
+    expect(screen.queryByText(/what this account can do/i)).not.toBeInTheDocument()
+    expect(screen.queryByText('Decide float requests')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+  })
+
+  it('a bell kind switched off in Settings leaves the bell on this phone, and comes back when switched on', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    localStorage.removeItem('af.dealerBellOff')
+    const { unmount } = render(<App start="/dealer/settings" />)
+    const requests = await screen.findByRole('switch', { name: 'Float requests' })
+    expect(requests).toBeChecked()
+    await user.click(requests)
+    expect(requests).not.toBeChecked()
+    unmount()
+    const first = render(<App start="/dealer/notifications" />)
+    await screen.findByRole('heading', { name: /notifications/i })
+    await waitFor(() => expect(screen.queryByRole('link', { name: /SLE/ })).not.toBeInTheDocument())
+    expect(screen.queryByText(/waiting for you|float requests/i)).not.toBeInTheDocument()
+    first.unmount()
+    localStorage.removeItem('af.dealerBellOff')
+    render(<App start="/dealer/notifications" />)
+    expect((await screen.findAllByText(/SLE/)).length).toBeGreaterThan(0)
+  })
+
+  it('my action history lists what this aggregator did, never what the agents sent themselves', async () => {
+    signIn(ALL)
+    const ref = (await operatorApi.dealerAgents())[0]!.ref
+    await operatorApi.act(ref, 'nudge', 'Kissy Distribution')
+    render(<App start="/dealer/actions" />)
+    const list = await screen.findByRole('list', { name: 'My actions' })
+    expect(within(list).getAllByText(/asked .* to update their status/i).length).toBeGreaterThan(0)
+    const notes = (await operatorApi.actions(null)).filter((a) => a.action === 'agent_note').map((a) => a.note)
+    for (const n of notes) expect(within(list).queryByText(n)).not.toBeInTheDocument()
+  })
+
+  it('the aggregator adds their own picture from Profile; it shows on Profile and Home, and can be removed', async () => {
+    const user = userEvent.setup()
+    signIn(ALL)
+    const first = render(<App start="/dealer/profile" />)
+    await user.click(await screen.findByRole('button', { name: 'Add your picture' }))
+    const sheet = await screen.findByRole('dialog')
+    expect(within(sheet).getByRole('button', { name: /take photo/i })).toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: /remove picture/i })).not.toBeInTheDocument()
+    await user.upload(screen.getByTestId('dealer-photo-gallery'), new File(['x'], 'logo.jpg', { type: 'image/jpeg' }))
+    const changed = await screen.findByRole('button', { name: 'Change your picture' })
+    expect(changed.querySelector('img')).toHaveAttribute('src', expect.stringMatching(/^data:image\/jpeg/))
+    first.unmount()
+    const home = render(<App start="/dealer" />)
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Profile' }).querySelector('img')).not.toBeNull())
+    home.unmount()
+    render(<App start="/dealer/profile" />)
+    await user.click(await screen.findByRole('button', { name: 'Change your picture' }))
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /remove picture/i }))
+    expect(await screen.findByRole('button', { name: 'Add your picture' })).toBeInTheDocument()
   })
 
   it('the aggregator ticks what to download: one table is a CSV, several are a zip, and the period travels with the call', async () => {

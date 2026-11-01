@@ -954,6 +954,8 @@ function registeredOut(a: AgentState): RegisteredAgent {
 }
 
 export function demoRegisterAgent(body: RegisterAgentBody): RegisteredWithCode {
+  // As the API: the agent's phone is required, it is how the aggregator calls them.
+  if (!body.phone || !/^\+?[0-9 ]{6,20}$/.test(body.phone.trim())) throw new Error("Enter the agent's phone number.")
   checkPoint(body.lat, body.lng)
   checkHours(body.open_time, body.close_time)
   let ref: string
@@ -1481,9 +1483,24 @@ function bucketOf(a: AgentState): DealerBucket {
 }
 
 /** The demo aggregator's own record: fictional line, west, every seeded agent verified and declared. */
+let dealerPhoto: string | null = null
+
+export function demoSetDealerPhoto(image: string): DealerMe {
+  if (!/^data:image\/(jpeg|png|webp);base64,/.test(image)) throw new Error('That is not a picture the app can read.')
+  dealerPhoto = image
+  return demoDealerMe()
+}
+
+export function demoRemoveDealerPhoto(): DealerMe {
+  dealerPhoto = null
+  return demoDealerMe()
+}
+
 export function demoDealerMe(): DealerMe {
   return {
+    photo: dealerPhoto,
     name: 'Kissy Distribution',
+    sign_in: 'kissy',
     region: 'west',
     msisdn_masked: '+232 •• ••• 123',
     source: 'manual',

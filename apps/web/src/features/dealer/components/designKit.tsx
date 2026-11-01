@@ -49,13 +49,13 @@ export function ScreenTitle({ title, back, action }: { title: string; back?: str
 }
 
 /** The home's dark header: the orange-ringed avatar (a link to Profile), the greeting, the name, the pill. */
-export function DarkHeader({ name, pill, bell }: { name: string; pill: string; bell?: ReactNode }) {
+export function DarkHeader({ name, pill, bell, photo }: { name: string; pill: string; bell?: ReactNode; photo?: string | null | undefined }) {
   const h = new Date().getHours()
   const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
   return (
     <header className="flex items-center gap-4 bg-finder-head px-6 pb-[60px] pt-4 text-white">
-      <Link to="/dealer/profile" aria-label="Profile" className="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-full border-[3px] border-finder-accent bg-design-head-avatar text-xl font-extrabold">
-        {initials(name)}
+      <Link to="/dealer/profile" aria-label="Profile" className="flex h-[60px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-finder-accent bg-design-head-avatar text-xl font-extrabold">
+        {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : initials(name)}
       </Link>
       <div className="flex min-w-0 flex-col items-start gap-1.5">
         <p className="text-[13px] text-design-head-sub">{greeting}</p>

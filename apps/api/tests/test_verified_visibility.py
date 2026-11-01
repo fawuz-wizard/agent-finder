@@ -37,6 +37,7 @@ async def _register(client, dealer, verified: bool) -> dict:
             "street": "Lumley Beach Road",
             "lat": 8.44,
             "lng": -13.28,
+            "phone": "+232 76 555 150",
             "open_time": "07:00",
             "close_time": "20:00",
             "verified": verified,

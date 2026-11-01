@@ -507,6 +507,8 @@ export interface FloatForecast {
 /** The aggregator's own record, as Orange holds it, and the network in figures. The line is masked. */
 export interface DealerMe {
   name: string
+  /** What they type to sign in, e.g. "kissy". */
+  sign_in?: string
   region: 'east' | 'north' | 'west' | 'south' | null
   /** +232 •• ••• •23: the last three digits only. Null when the record has no line. */
   msisdn_masked: string | null
@@ -517,6 +519,8 @@ export interface DealerMe {
   on_map: number
   signed_in: number
   subaggregators: number
+  /** The aggregator's own picture (a logo or shop sign) as a data URL; null shows the initials. Never shown to customers. */
+  photo?: string | null
 }
 
 export interface DealerOverview {
@@ -653,7 +657,8 @@ export interface RegisterAgentBody {
   street: string
   lat: number
   lng: number
-  phone: string | null
+  /** Required: how the aggregator calls the agent, and customers too if the agent allows it. */
+  phone: string
   phone_visible: boolean
   open_time: string
   close_time: string

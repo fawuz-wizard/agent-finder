@@ -417,6 +417,17 @@ export const operatorApi = {
     return delay(demo.demoDealerMe(), signal)
   },
 
+  /** My own picture, shrunk to 256 px on the phone. Shown on my Profile and Home; never to customers. */
+  setDealerPhoto(image: string): Promise<DealerMe> {
+    if (config.useLiveApi) return api.post<DealerMe>('/api/v1/dealer/me/photo', { image })
+    return delay(demo.demoSetDealerPhoto(image))
+  },
+
+  removeDealerPhoto(): Promise<DealerMe> {
+    if (config.useLiveApi) return api.del<DealerMe>('/api/v1/dealer/me/photo')
+    return delay(demo.demoRemoveDealerPhoto())
+  },
+
   /** The Global Report for my agents: status, location, activity — never money. */
   report(signal?: AbortSignal): Promise<DealerReport> {
     if (config.useLiveApi) return api.get<DealerReport>('/api/v1/dealer/report', signal)
