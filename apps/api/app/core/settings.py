@@ -59,6 +59,10 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
+    # Key for the one-way code kept of a customer's number (HMAC-SHA256). Without a secret
+    # key, the 10^8 possible numbers could be tried in seconds against a leaked database.
+    customer_hash_key: str = Field(default="")
+
     @model_validator(mode="after")
     def _defaults_by_environment(self) -> Settings:
         if self.seed_on_start is None:
@@ -81,6 +85,10 @@ class Settings(BaseSettings):
                 "http://localhost",
                 "capacitor://localhost",
             ]
+        if self.app_env == "production" and len(self.customer_hash_key) < 32:
+            raise ValueError(
+                "CUSTOMER_HASH_KEY must be set in production: 32 or more random characters."
+            )
         return self
 
     @property

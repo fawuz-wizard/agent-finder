@@ -14,7 +14,8 @@ MONEY = ("cash_in", "cash_out", "balance", "float", "orange_cash", "_sle")
 
 async def _signin(client, ref: str) -> dict:
     r = await client.post(
-        "/api/v1/auth/sign-in", json={"ref": ref, "pin": "1234", "role": "dealer"}
+        "/api/v1/auth/sign-in",
+        json={"ref": ref, "pin": "123456" if ref == "orange" else "1234", "role": "dealer"},
     )
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}

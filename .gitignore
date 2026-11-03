@@ -44,3 +44,7 @@ apps/api/*.db-wal
 
 # pilot data with real phone numbers never enters the repository
 apps/api/data/agents-pilot.csv
+
+# Database backups hold agents' and customers' data: never in git.
+backups/
+*.dump

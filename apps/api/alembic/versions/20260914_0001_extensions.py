@@ -16,6 +16,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # PostgreSQL only: the local and test databases are SQLite, which has no extensions.
+    if op.get_bind().dialect.name != "postgresql":
+        return
     op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 

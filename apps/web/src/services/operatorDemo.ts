@@ -877,6 +877,8 @@ function record(text: string, source: ActivityEvent['source'], tone: ActivityEve
 /* ---------- auth ---------- */
 
 const DEMO_PIN = '1234'
+// Orange's national account has a 6-digit PIN, as on the server.
+const NATIONAL_DEMO_PIN = '123456'
 /** Demo only: the aggregator's own code-then-PIN state, so the first sign-in can be shown. */
 const dealerSignIn: { pin: string; mustSetPin: boolean } = { pin: DEMO_PIN, mustSetPin: false }
 
@@ -907,7 +909,7 @@ export function demoSignIn(ref: string, pin: string, role?: Role): Session {
     return { token: 'demo-agent-token', role: 'agent', name: agent.shop, ref: agent.ref, permissions: [], must_set_pin: Boolean(agent.mustSetPin) }
   }
   // Orange's national account: sees every agent on the map and in the counts, changes nothing.
-  if (role !== 'agent' && ident.toLowerCase() === 'orange' && pin === DEMO_PIN) {
+  if (role !== 'agent' && ident.toLowerCase() === 'orange' && pin === NATIONAL_DEMO_PIN) {
     return { token: 'demo-national-token', role: 'dealer', name: 'Orange Sierra Leone', ref: 'orange', must_set_pin: false, permissions: [PERMISSIONS.viewAgent, PERMISSIONS.viewNational] }
   }
   if (dealer && pin === dealerSignIn.pin) {

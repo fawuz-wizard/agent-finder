@@ -33,12 +33,14 @@ cd apps/web
 npm install
 VITE_API_MODE=mock npx vite --port 5175                          # customer app
 VITE_API_MODE=mock VITE_APP_SURFACE=agent npx vite --port 5177   # agent and aggregator
+VITE_API_MODE=mock VITE_APP_SURFACE=national npx vite --port 5178  # Orange's national map (orange / 123456)
 ```
 Windows PowerShell:
 ```
 cd apps/web
 $env:VITE_API_MODE="mock"; npx vite --port 5175
 $env:VITE_API_MODE="mock"; $env:VITE_APP_SURFACE="agent"; npx vite --port 5177
+$env:VITE_API_MODE="mock"; $env:VITE_APP_SURFACE="national"; npx vite --port 5178
 ```
 
 ### Signing in on the agent and aggregator app
@@ -71,8 +73,10 @@ on another phone. Live mode is what makes them share one database.
 - React 18 + TypeScript, built with Vite, styled with Tailwind 4 on Orange design tokens
   (`src/design/tokens.css`: Poppins for the customer module, square Orange style for the platform,
   light and dark).
-- One code base, two builds: `VITE_APP_SURFACE=customer` (default) or `agent` (the Agent App and the
-  aggregator console together).
+- One code base, three builds: `VITE_APP_SURFACE=customer` (default), `agent` (the Agent App: agents
+  and aggregators together) or `national` (Orange's national map, a web page of its own for a
+  laptop, with its own sign-in and a 6-digit PIN). The Agent App refuses the Orange account and
+  the national page refuses everyone else; the API decides what each account may read.
 - Two data modes: `VITE_API_MODE=mock` runs everything in the browser from demo data
   (`src/services/operatorDemo.ts`, `demoNetwork.ts`); `live` calls the API (`src/services/*Api.ts`).
   The two must behave the same.
@@ -136,8 +140,9 @@ npm install
 printf 'VITE_API_MODE=live\nVITE_API_BASE_URL=http://localhost:8000\n' > .env.local
 npx vite --port 5173                                         # customer
 VITE_APP_SURFACE=agent npx vite --port 5174                  # agent and aggregator
+VITE_APP_SURFACE=national npx vite --port 5176               # Orange's national map
 ```
-API docs: http://localhost:8000/docs. `SEED_ON_START=true` fills an empty database once with the demo accounts (aggregator `kissy`, agents `024`, `031`, `009`, `017`, `038`, PIN `1234`); without it the live database starts empty and real accounts are issued with `scripts/issue_code.py`; Orange's agent file
+API docs: http://localhost:8000/docs. `SEED_ON_START=true` fills an empty database once with the demo accounts (aggregator `kissy`, agents `024`, `031`, `009`, `017`, `038`, PIN `1234`; Orange's national account `orange`, PIN `123456`); without it the live database starts empty and real accounts are issued with `scripts/issue_code.py`; Orange's agent file
 is not in this package (it is Orange's data) and is imported with `scripts/import_orange.py` when
 provided. `.env.example` lists every setting. More detail: `apps/web/RUNNING.md`.
 

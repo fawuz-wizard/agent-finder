@@ -193,7 +193,7 @@ async def test_report_is_idempotent_and_feeds_signals_and_usage(client, dealer):
         s["title"].startswith("Says available") and s["agent_ref"] == "Agent 024"
         for s in over["signals"]
     )
-    use = (await client.get("/api/v1/dealer/usage", headers=dealer)).json()
+    use = (await client.get("/api/v1/dealer/usage", headers=await _orange(client))).json()
     assert use["distinct_customers"] == 2
 
 
@@ -206,7 +206,7 @@ async def test_usage_counts_distinct_real_people(client, agent, dealer):
             headers={"X-Client": k},
         )
     await client.post("/api/v1/agent/availability/confirm", headers=agent)
-    use = (await client.get("/api/v1/dealer/usage", headers=dealer)).json()
+    use = (await client.get("/api/v1/dealer/usage", headers=await _orange(client))).json()
     assert (
         use["distinct_customers"] == 3
         and use["distinct_agents"] == 1
@@ -650,3 +650,18 @@ async def test_agent_changes_own_pin_signs_out_other_phones_and_reports_a_wrong_
         "/api/v1/agent/profile/pin", headers=agent, json={"current_pin": "2468", "new_pin": "1234"}
     )
     assert back.status_code == 200
+
+
+async def _orange(client) -> dict:
+    r = await client.post(
+        "/api/v1/auth/sign-in", json={"ref": "orange", "pin": "123456", "role": "dealer"}
+    )
+    return {"Authorization": f"Bearer {r.json()['token']}"}
+
+
+@pytest.mark.asyncio
+async def test_pilot_usage_is_for_orange_not_every_aggregator(client, dealer):
+    assert (await client.get("/api/v1/dealer/usage", headers=dealer)).status_code in (403, 404)
+    assert (
+        await client.get("/api/v1/dealer/usage", headers=await _orange(client))
+    ).status_code == 200

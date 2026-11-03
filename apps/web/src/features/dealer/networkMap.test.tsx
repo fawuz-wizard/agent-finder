@@ -10,10 +10,9 @@ function renderAs(permissions: string[], name: string) {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', role: 'dealer', name, ref: name, permissions }))
   return render(
     <SessionProvider>
-      <MemoryRouter initialEntries={['/dealer/map']}>
+      <MemoryRouter initialEntries={['/national']}>
         <Routes>
-          <Route path="/dealer/map" element={<NetworkMapPage />} />
-          <Route path="/dealer" element={<p>dashboard</p>} />
+          <Route path="/national" element={<NetworkMapPage />} />
         </Routes>
       </MemoryRouter>
     </SessionProvider>,
@@ -40,10 +39,9 @@ describe('the national map screen', () => {
     expect(screen.getByRole('button', { name: 'Download for Excel' })).toBeInTheDocument()
   })
 
-  it('shows an aggregator their own agents only, with a way back to the dashboard', async () => {
+  it('reached by an aggregator anyway, still shows their own agents only and never money', async () => {
     renderAs(['VIEW_AGENT'], 'Kissy Distribution')
     expect(await screen.findByText(/Agent network · Kissy Distribution/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '‹ Dashboard' })).toHaveAttribute('href', '/dealer')
     expect(screen.queryByText('Northern Link')).not.toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/SLE \d/)
   })

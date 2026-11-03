@@ -12,11 +12,13 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agent_app import declaration_of, feedback_for, float_out, seen_as
 from app.core.auth import Principal, hash_pin, new_code, require_permission, require_role
 from app.core.errors import AppError, NotFoundError
+from app.core.limits import clear_sign_in_failures
 from app.db.models import (
     Action,
     Agent,
@@ -34,6 +36,7 @@ from app.db.models import (
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import checkin, usage
+from app.services.csv_safe import safe_text
 from app.services.forecast import forecast_counts, forecasts_for
 from app.services.ledger import ledgers_for
 from app.services.phone import mask_msisdn
@@ -607,6 +610,7 @@ async def set_usual(
         Action(
             at=now_utc(),
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=a.ref,
             action="contact",
             note=f"{p.name} noted what {a.shop_name} usually handles",
@@ -686,7 +690,13 @@ async def act(
             "escalate": f"{p.name} escalated {a.shop_name} to the super distributor",
         }[body.action]
     row = Action(
-        at=now, actor=p.name, agent_ref=a.ref, action=body.action, note=note, signal_id=signal_id
+        at=now,
+        actor=p.name,
+        actor_id=p.subject,
+        agent_ref=a.ref,
+        action=body.action,
+        note=note,
+        signal_id=signal_id,
     )
     db.add(row)
     await db.commit()
@@ -739,7 +749,7 @@ async def actions(
         select(Action)
         .where(
             or_(
-                Action.actor == p.name,
+                Action.actor_id == p.subject,
                 and_(
                     Action.action.in_(("agent_note", "agent_pin", "photo")),
                     Action.agent_ref.in_(mine),
@@ -786,6 +796,7 @@ async def reveal(
     db.add(
         AuditLog(
             actor=p.name,
+            actor_id=p.subject,
             permission="VIEW_AGENT_FINANCIAL_DETAIL",
             agent_ref=a.ref,
             field=body.field,
@@ -809,7 +820,7 @@ async def audit(
     rows = (
         (
             await db.execute(
-                select(AuditLog).where(AuditLog.actor == p.name).order_by(AuditLog.at.desc())
+                select(AuditLog).where(AuditLog.actor_id == p.subject).order_by(AuditLog.at.desc())
             )
         )
         .scalars()
@@ -830,8 +841,10 @@ async def audit(
 
 @router.get("/dealer/usage", summary="Pilot usage — how many real people have used this")
 async def usage_summary(
-    p: Principal = Depends(require_role("dealer")), db: AsyncSession = Depends(get_session)
+    p: Principal = Depends(require_permission("VIEW_NATIONAL")),
+    db: AsyncSession = Depends(get_session),
 ) -> dict:
+    """Pilot-wide counts: Orange's national account only, not every aggregator."""
     return await usage.summary(db)
 
 
@@ -864,8 +877,8 @@ class RegisterBody(BaseModel):
     shop_name: str = Field(min_length=1, max_length=120)
     area: str = Field(min_length=1, max_length=80)
     street: str = Field(min_length=1, max_length=120)
-    lat: float
-    lng: float
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lng: float = Field(ge=-180, le=180, allow_inf_nan=False)
     # Required: it is how the aggregator calls the agent, and how customers call if allowed.
     phone: str = Field(max_length=32, pattern=r"^\+?[0-9 ]{6,20}$")
     phone_visible: bool = False
@@ -883,8 +896,8 @@ class EditBody(BaseModel):
     shop_name: str | None = Field(default=None, min_length=1, max_length=120)
     area: str | None = Field(default=None, min_length=1, max_length=80)
     street: str | None = Field(default=None, min_length=1, max_length=120)
-    lat: float | None = None
-    lng: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
+    lng: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
     phone: str | None = Field(default=None, max_length=32, pattern=r"^\+?[0-9 ]{6,20}$")
     phone_visible: bool | None = None
     open_time: str | None = Field(default=None, pattern=TIME_RE)
@@ -1001,6 +1014,7 @@ async def register_agent(
         Action(
             at=now,
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=ref,
             action="register",
             note=f"{p.name} registered {a.shop_name} as {ref}"
@@ -1008,7 +1022,16 @@ async def register_agent(
         )
     )
     await usage.record(db, "register", "dealer", p.subject, ref)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Two registrations took the same next free number at the same moment: one wins.
+        await db.rollback()
+        raise AppError(
+            f"{ref} was just taken by another registration. Tap Register again.",
+            code="exists",
+            status_code=409,
+        ) from None
     # The code is shown once, here, for the dealer to read out. It is never stored in clear.
     return {**registered_out(a, now), "code": code}
 
@@ -1059,6 +1082,7 @@ async def edit_agent(
         Action(
             at=now,
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=a.ref,
             action="register",
             note=f"{p.name} updated {a.shop_name}'s record",
@@ -1091,6 +1115,7 @@ async def confirm_location(
         Action(
             at=now_utc(),
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=a.ref,
             action="confirm_location",
             note=f"{p.name} confirmed the location of {a.shop_name}",
@@ -1121,6 +1146,7 @@ async def remove_agent_photo(
             Action(
                 at=now_utc(),
                 actor=p.name,
+                actor_id=p.subject,
                 agent_ref=a.ref,
                 action="photo",
                 note=f"{p.name} removed the photo of {a.shop_name}",
@@ -1159,12 +1185,16 @@ async def issue_code(
         Action(
             at=now_utc(),
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=a.ref,
             action="register",
             note=f"{p.name} issued a new sign-in code for {a.shop_name}",
         )
     )
     await db.commit()
+    # A fresh code is also the way back in after the daily wrong-PIN lockout.
+    await clear_sign_in_failures(db, f"sign-in:agent:{a.ref}")
+    await clear_sign_in_failures(db, f"pin-check:agent:{a.ref}")
     return {"ref": a.ref, "code": code}
 
 
@@ -1181,7 +1211,8 @@ def _csv(rows: list[dict], filename: str) -> Response:
     if rows:
         w = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
         w.writeheader()
-        w.writerows(rows)
+        # Typed text (a street, a note) must never run as a formula in the aggregator's Excel.
+        w.writerows({k: safe_text(v) for k, v in r.items()} for r in rows)
     return Response(
         content=buf.getvalue(),
         media_type="text/csv; charset=utf-8",

@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-CUST = {"X-Client": "cust-fb-1"}
+from customers import each_customer
+
+CUST = each_customer("cust-fb")
 
 
 async def _report(client, token: str, headers: dict | None = None, **over):

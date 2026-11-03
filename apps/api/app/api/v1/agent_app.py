@@ -7,12 +7,13 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import Principal, hash_pin, require_role, verify_pin
+from app.core.auth import Principal, hash_pin, require_role, token_key, verify_pin
 from app.core.errors import AppError
+from app.core.limits import check_sign_in_allowed, clear_sign_in_failures, rate_limit
 from app.core.settings import get_settings
 from app.db.models import (
     Action,
@@ -322,6 +323,7 @@ class TransactionBody(BaseModel):
     client_token: str = Field(min_length=8, max_length=64)
 
 
+TRANSACTIONS_PER_HOUR = 120
 BAND_EDGES = ((500, "≤500"), (2_000, "≤2k"), (5_000, "≤5k"), (10_000, "≤10k"), (50_000, "≤50k"))
 
 
@@ -333,13 +335,16 @@ def band_for_amount(amount_sle: int) -> str:
 
 
 def _customer_parts(msisdn: str | None) -> tuple[str | None, str | None]:
-    """The customer's number never stored whole: its last three digits and a salted hash."""
+    """The customer's number never stored whole: its last three digits and a keyed hash
+    (HMAC with CUSTOMER_HASH_KEY), which cannot be reversed without the key."""
+    import hashlib
+    import hmac
+
     digits = "".join(ch for ch in (msisdn or "") if ch.isdigit())
     if len(digits) < 8:
         return None, None
-    import hashlib
-
-    return digits[-3:], hashlib.sha256(f"agent-finder:{digits[-8:]}".encode()).hexdigest()
+    key = (get_settings().customer_hash_key or "development-only-key").encode()
+    return digits[-3:], hmac.new(key, digits[-8:].encode(), hashlib.sha256).hexdigest()
 
 
 def _amount_text(t: AgentTransaction) -> str:
@@ -391,6 +396,11 @@ async def log_transaction(
             raise AppError("Not available.", code="not_found", status_code=404)
         counts = await today_counts(db, p.subject, now)
         return _transaction_out(existing, counts["logged"])
+    # A retry above is free; a new record counts, keyed on the agent, so a stuck button or a
+    # phone in the wrong hands cannot flood the forecast. A busy shop rarely tops 60 an hour.
+    await rate_limit(
+        db, f"transaction:agent:{p.subject}", TRANSACTIONS_PER_HOUR, timedelta(hours=1)
+    )
     last3, digest = _customer_parts(body.customer_msisdn)
     row = AgentTransaction(
         id=body.client_token,
@@ -1021,14 +1031,27 @@ class PinChangeBody(BaseModel):
 async def change_pin(
     body: PinChangeBody,
     p: Principal = Depends(require_role("agent")),
+    authorization: str = Header(),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
+    """The current PIN first, under the same lockout as signing in, so a borrowed phone cannot
+    be used to guess it. A new PIN signs out every other phone: whoever knew the old one is
+    out."""
     a = await load_agent(db, p.subject)
+    key = f"pin-check:agent:{a.ref}"
+    await check_sign_in_allowed(db, key)
     if not verify_pin(body.current_pin, a.ref, a.pin_hash):
         raise AppError("That PIN is not correct.", code="wrong_pin", status_code=403)
+    await clear_sign_in_failures(db, key)
     if body.new_pin == body.current_pin:
         raise AppError("Choose a different PIN.", code="validation", status_code=422)
     a.pin_hash = hash_pin(body.new_pin, a.ref)
+    token = authorization.split(" ", 1)[1].strip()
+    await db.execute(
+        delete(Session).where(
+            Session.role == "agent", Session.subject == a.ref, Session.token != token_key(token)
+        )
+    )
     db.add(Action(actor=a.shop_name, agent_ref=a.ref, action="agent_pin", note="Changed their PIN"))
     await db.commit()
     return {"pin_set": True}
@@ -1050,7 +1073,7 @@ async def sign_out_others(
                     Session.role == "agent",
                     Session.subject == p.subject,
                     Session.revoked.is_(False),
-                    Session.token != token,
+                    Session.token != token_key(token),
                 )
             )
         )
@@ -1130,8 +1153,8 @@ class PhoneBody(BaseModel):
 
 
 class LocationBody(BaseModel):
-    lat: float
-    lng: float
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lng: float = Field(ge=-180, le=180, allow_inf_nan=False)
     street: str | None = Field(default=None, max_length=80)
 
 
@@ -1391,6 +1414,10 @@ async def check_in(
     else:
         c.last_at = now
         c.away_since = None
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Two first check-ins at the same moment: the other one made the row; this one is moot.
+        await db.rollback()
     await db.refresh(a, ["checkin"])
     return {"checkin": checkin.state(a, now), "checkin_text": checkin.reason_text(a, now)}

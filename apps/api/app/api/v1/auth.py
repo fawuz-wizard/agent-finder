@@ -6,29 +6,35 @@ PIN, and is the authority on the role; an older client may still send a role as 
 from __future__ import annotations
 
 import re
+from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import (
     Principal,
-    check_sign_in_allowed,
-    clear_sign_in_failures,
     current_principal,
     hash_pin,
     new_token,
-    note_sign_in_failure,
     settled_principal,
+    token_key,
     verify_pin,
 )
 from app.core.errors import AppError, UnauthorizedError
+from app.core.limits import (
+    check_sign_in_allowed,
+    clear_sign_in_failures,
+    limited,
+)
 from app.db.models import Action, Agent, Dealer, Session
 from app.db.session import get_session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+_DUMMY_HASH = hash_pin("0000", "no-such-account")
 
 
 class SignInRequest(BaseModel):
@@ -47,6 +53,22 @@ class SessionOut(BaseModel):
     permissions: list[str]
     # Signed in with the one-time code: choose a PIN before anything else opens.
     must_set_pin: bool = False
+
+
+# Orange's national account sees every agent in the country, so its PIN is longer: a
+# 6-digit PIN has a hundred times more guesses to get through than a 4-digit one.
+NATIONAL_PIN_DIGITS = 6
+
+
+def is_national(account) -> bool:
+    return isinstance(account, Dealer) and "VIEW_NATIONAL" in account.permissions.split(",")
+
+
+def _national_pin_ok(account, pin: str) -> None:
+    if is_national(account) and len(pin) < NATIONAL_PIN_DIGITS:
+        raise AppError(
+            "Orange's national account needs a 6-digit PIN.", code="validation", status_code=422
+        )
 
 
 class FirstPinBody(BaseModel):
@@ -121,21 +143,33 @@ async def find_dealer(db: AsyncSession, ident: str) -> Dealer | None:
 async def sign_in(
     body: SignInRequest,
     db: AsyncSession = Depends(get_session),
+    # On top of the per-account lockout: one phone or address trying many accounts.
+    _limit: None = Depends(
+        limited("sign-in", per_client=30, per_address=300, window=timedelta(minutes=10))
+    ),
     user_agent: str | None = Header(default=None),
 ) -> SessionOut:
     ident = body.ref.strip()
-    key = f"sign-in:{ident.lower() or '-'}"
-    check_sign_in_allowed(key)
     agent = await find_agent(db, ident) if body.role != "dealer" else None
     dealer = await find_dealer(db, ident.lower()) if body.role != "agent" else None
+    # The lockout counts against the account, however its number is typed (076…, +232…,
+    # 76-…): otherwise every spelling would get its own five tries. A typed name that matches
+    # no account is counted under what was typed, so guessing who exists is slowed too.
+    keys = [f"sign-in:agent:{agent.ref}"] if agent else []
+    keys += [f"sign-in:dealer:{dealer.id}"] if dealer else []
+    keys = keys or [f"sign-in:unknown:{ident.lower() or '-'}"]
+    for key in keys:
+        await check_sign_in_allowed(db, key)
     device = (user_agent or "")[:80]
     # The same number may be an agent's line and an aggregator's: the PIN says which one is
     # signing in. Whoever the number is not, the answer is the same wrong-PIN sentence, so a
     # guess learns nothing about who exists.
     if agent is not None and verify_pin(body.pin, agent.ref, agent.pin_hash):
-        clear_sign_in_failures(key)
+        await clear_sign_in_failures(db, f"sign-in:agent:{agent.ref}")
         token = new_token()
-        db.add(Session(token=token, role="agent", subject=agent.ref, device_label=device))
+        db.add(
+            Session(token=token_key(token), role="agent", subject=agent.ref, device_label=device)
+        )
         await db.commit()
         return SessionOut(
             token=token,
@@ -146,9 +180,14 @@ async def sign_in(
             must_set_pin=agent.must_set_pin,
         )
     if dealer is not None and verify_pin(body.pin, dealer.id, dealer.pin_hash):
-        clear_sign_in_failures(key)
+        await clear_sign_in_failures(db, f"sign-in:dealer:{dealer.id}")
+        if is_national(dealer) and len(body.pin) < NATIONAL_PIN_DIGITS:
+            # A short PIN from before the rule: this session may only choose a 6-digit one.
+            dealer.must_set_pin = True
         token = new_token()
-        db.add(Session(token=token, role="dealer", subject=dealer.id, device_label=device))
+        db.add(
+            Session(token=token_key(token), role="dealer", subject=dealer.id, device_label=device)
+        )
         await db.commit()
         return SessionOut(
             token=token,
@@ -158,7 +197,10 @@ async def sign_in(
             permissions=[p for p in dealer.permissions.split(",") if p],
             must_set_pin=dealer.must_set_pin,
         )
-    note_sign_in_failure(key)
+    # No account by that name: spend the same time checking a PIN, so the answer's timing does
+    # not tell a guesser who exists. The attempt was already counted by check_sign_in_allowed.
+    if agent is None and dealer is None:
+        verify_pin(body.pin, "no-such-account", _DUMMY_HASH)
     raise UnauthorizedError("That PIN is not correct.")
 
 
@@ -184,6 +226,7 @@ async def choose_pin(
         salt = account.ref if account else ""
     if account is None:
         raise UnauthorizedError("That session has ended. Sign in again.")
+    _national_pin_ok(account, body.pin)
     if verify_pin(body.pin, salt, account.pin_hash):
         raise AppError("Choose a PIN that is not the code.", code="validation", status_code=422)
     account.pin_hash = hash_pin(body.pin, salt)
@@ -192,7 +235,9 @@ async def choose_pin(
     others = (
         await db.execute(
             select(Session).where(
-                Session.role == p.role, Session.subject == p.subject, Session.token != this_token
+                Session.role == p.role,
+                Session.subject == p.subject,
+                Session.token != token_key(this_token),
             )
         )
     ).scalars()
@@ -209,6 +254,7 @@ async def choose_pin(
 @router.post("/change-pin", summary="Change my PIN: the current one first, then the new one")
 async def change_pin(
     body: PinChangeBody,
+    authorization: str | None = Header(default=None),
     p: Principal = Depends(settled_principal),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
@@ -224,11 +270,22 @@ async def change_pin(
         salt = account.ref if account else ""
     if account is None:
         raise UnauthorizedError("That session has ended. Sign in again.")
+    # Same lockout as signing in; a new PIN signs out every other phone.
+    key = f"pin-check:{p.role}:{p.subject}"
+    await check_sign_in_allowed(db, key)
     if not verify_pin(body.current_pin, salt, account.pin_hash):
         raise AppError("That PIN is not correct.", code="wrong_pin", status_code=403)
+    await clear_sign_in_failures(db, key)
+    _national_pin_ok(account, body.new_pin)
     if body.new_pin == body.current_pin:
         raise AppError("Choose a different PIN.", code="validation", status_code=422)
     account.pin_hash = hash_pin(body.new_pin, salt)
+    token = (authorization or "").split(" ", 1)[-1].strip()
+    await db.execute(
+        delete(Session).where(
+            Session.role == p.role, Session.subject == p.subject, Session.token != token_key(token)
+        )
+    )
     if p.role == "agent":
         db.add(
             Action(actor=p.name, agent_ref=p.subject, action="agent_pin", note="Changed their PIN")
@@ -243,7 +300,7 @@ async def sign_out(
     authorization: str = Header(),
     db: AsyncSession = Depends(get_session),
 ) -> None:
-    sess = await db.get(Session, authorization.split(" ", 1)[1].strip())
+    sess = await db.get(Session, token_key(authorization.split(" ", 1)[1].strip()))
     if sess:
         sess.revoked = True
         await db.commit()
@@ -259,7 +316,7 @@ async def check_pin(
     asks. Nothing moves and no session is made; wrong guesses count against the same lockout
     as signing in, so the keypad cannot be used to guess the PIN."""
     key = f"pin-check:{p.role}:{p.subject}"
-    check_sign_in_allowed(key)
+    await check_sign_in_allowed(db, key)
     if p.role == "dealer":
         account = await db.get(Dealer, p.subject)
         salt = account.id if account else ""
@@ -271,7 +328,6 @@ async def check_pin(
     if account is None:
         raise UnauthorizedError("That session has ended. Sign in again.")
     if not verify_pin(body.pin, salt, account.pin_hash):
-        note_sign_in_failure(key)
         raise AppError("That PIN is not correct.", code="wrong_pin", status_code=403)
-    clear_sign_in_failures(key)
+    await clear_sign_in_failures(db, key)
     return {"ok": True}

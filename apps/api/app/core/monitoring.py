@@ -39,6 +39,8 @@ def init_monitoring(settings: Settings) -> bool:
         server_name=settings.app_name,  # never the machine's own name
         release=f"{settings.app_name}@{settings.app_version}",
         send_default_pii=False,
+        # A stack frame's variables could hold a PIN, a token or a customer's number.
+        include_local_variables=False,
         max_request_body_size="never",
         traces_sample_rate=0.0,
         before_send=scrub,

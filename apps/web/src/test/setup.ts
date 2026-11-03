@@ -18,3 +18,8 @@ class PinnedDate extends RealDate {
   }
 }
 globalThis.Date = PinnedDate as DateConstructor
+
+// jsdom has no layout, so it leaves scrollIntoView out. Pages call it after a short delay to
+// bring a section into view; without this stub the call throws after the test has finished
+// and Vitest exits with an error even though every test passed.
+if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {}

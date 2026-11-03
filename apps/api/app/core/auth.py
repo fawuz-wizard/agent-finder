@@ -6,7 +6,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
-import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -56,29 +55,14 @@ def new_code() -> str:
 
 SESSION_MAX_AGE = timedelta(days=30)
 
-# A 4-6 digit PIN survives only if guessing is slow. Per-account lockout, in memory: the
-# API is one process, so this needs no store. Cleared on a successful sign-in.
-LOCK_AFTER_FAILURES = 5
-LOCK_WINDOW_SECONDS = 15 * 60
-_failed_sign_ins: dict[str, list[float]] = {}
+
+def token_key(token: str) -> str:
+    """What the sessions table keeps of a sign-in token: its SHA-256, never the token itself,
+    so a leaked database or backup holds no working sign-ins."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
-def check_sign_in_allowed(key: str) -> None:
-    now = time.monotonic()
-    recent = [t for t in _failed_sign_ins.get(key, []) if now - t < LOCK_WINDOW_SECONDS]
-    _failed_sign_ins[key] = recent
-    if len(recent) >= LOCK_AFTER_FAILURES:
-        raise AppError(
-            "Too many attempts. Try again in 15 minutes.", code="rate_limited", status_code=429
-        )
-
-
-def note_sign_in_failure(key: str) -> None:
-    _failed_sign_ins.setdefault(key, []).append(time.monotonic())
-
-
-def clear_sign_in_failures(key: str) -> None:
-    _failed_sign_ins.pop(key, None)
+# The PIN lockout lives in app/core/limits.py, in the database, so it survives restarts.
 
 
 @dataclass(frozen=True)
@@ -105,7 +89,7 @@ async def current_principal(
     if not authorization or not authorization.lower().startswith("bearer "):
         raise UnauthorizedError("Sign in first.")
     token = authorization.split(" ", 1)[1].strip()
-    sess = await db.get(Session, token)
+    sess = await db.get(Session, token_key(token))
     if sess is None or sess.revoked:
         raise UnauthorizedError("That session has ended. Sign in again.")
     created = sess.created_at if sess.created_at.tzinfo else sess.created_at.replace(tzinfo=UTC)

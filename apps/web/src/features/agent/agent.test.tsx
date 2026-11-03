@@ -288,55 +288,48 @@ describe('working hours', () => {
 })
 
 describe('transaction log', () => {
-  it('recording a transaction follows the design: number, amount, PIN, recorded; and lands on the timeline', async () => {
+  it('Do Transaction records a cash in in two steps: number and amount, then the PIN; and lands on the timeline', async () => {
     const user = userEvent.setup()
     render(<App start="/agent/services" />)
     await signIn(user)
     const counter = await screen.findByText(/Logged today: \d+/)
     const before = Number(counter.textContent!.match(/\d+/)![0])
-    await user.click(screen.getByRole('radio', { name: 'Cash in' }))
-    // 1 · The customer's number, checked with the customer; no name is looked up.
-    expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
+    // Cash out is started by the customer on their own phone: no choice, no cash-out screen.
+    expect(screen.queryByRole('radio', { name: 'Cash out' })).not.toBeInTheDocument()
+    // 1 · The customer's number and the amount together; no name is looked up, never a balance.
+    expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
     await user.type(screen.getByLabelText('Customer phone number'), '76 123 456')
     expect(screen.getByText('Orange Money number')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
-    // 2 · The amount, with the quick picks and the commission; never a balance.
-    expect(screen.getByText('Step 2 of 4')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: '1,000' }))
     await user.clear(screen.getByLabelText('Amount (SLE)'))
     await user.type(screen.getByLabelText('Amount (SLE)'), '2000')
     expect(screen.queryByText(/balance/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue' }))
-    // 3 · Confirm with the agent's own PIN: a wrong one is refused and nothing is recorded.
+    // 2 · Check, then the agent's own PIN: a wrong one is refused and nothing is recorded.
+    expect(screen.getByText('Step 2 of 2')).toBeInTheDocument()
     const check = screen.getByLabelText('Check')
-    expect(within(check).getByText('Deposit')).toBeInTheDocument()
     expect(within(check).getByText('+232 76 123 456')).toBeInTheDocument()
+    expect(within(check).getByText('SLE 2,000')).toBeInTheDocument()
     for (const k of '9999') await user.click(screen.getByRole('button', { name: k }))
     await user.click(screen.getByRole('button', { name: 'Record' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/PIN is not correct/)
     for (const k of '1234') await user.click(screen.getByRole('button', { name: k }))
     await user.click(screen.getByRole('button', { name: 'Record' }))
-    // 4 · Recorded, with our own record number, masked number, Share Receipt.
-    expect(await screen.findByText('Deposit recorded')).toBeInTheDocument()
+    // Recorded, with our own record number, the masked number and Share Receipt.
+    expect(await screen.findByText('Cash in recorded')).toBeInTheDocument()
     expect(screen.getByText(/^AF-[0-9A-F]{6}$/)).toBeInTheDocument()
     expect(screen.getAllByText('+232 •• ••• 456').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'Share Receipt' })).toBeInTheDocument()
     const acts = await operatorApi.activity('Agent 024')
     expect(acts.some((a) => a.text === 'You recorded: Cash in · SLE 2,000')).toBe(true)
     expect(acts.every((a) => !/076|123 456/.test(a.text))).toBe(true)
-    // Cash out asks only for the amount: three steps.
-    await user.click(screen.getByRole('button', { name: 'New Transaction' }))
+    // Record another starts the next one empty, at step 1.
+    await user.click(screen.getByRole('button', { name: 'Record another' }))
     expect(await screen.findByText(`Logged today: ${before + 1}`)).toBeInTheDocument()
-    await user.click(screen.getByRole('radio', { name: 'Cash out' }))
-    expect(screen.getByText('Step 1 of 3')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Amount (SLE)'), '800')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
-    for (const k of '1234') await user.click(screen.getByRole('button', { name: k }))
-    await user.click(screen.getByRole('button', { name: 'Record' }))
-    expect(await screen.findByText('Withdrawal recorded')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'New Transaction' }))
-    expect(await screen.findByText(`Logged today: ${before + 2}`)).toBeInTheDocument()
+    expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
+    expect(screen.getByLabelText('Customer phone number')).toHaveValue('')
   })
 
   it('the Activity tab draws what the agent recorded, the commission and customers sent, and what customers said without who', async () => {

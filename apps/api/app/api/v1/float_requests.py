@@ -10,6 +10,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agent_app import FloatOut, float_out
@@ -81,7 +82,9 @@ async def create(
     if body.client_token:
         dup = (
             await db.execute(
-                select(FloatRequest).where(FloatRequest.client_token == body.client_token)
+                select(FloatRequest).where(
+                    FloatRequest.client_token == body.client_token, FloatRequest.agent_ref == a.ref
+                )
             )
         ).scalar_one_or_none()
         if dup:
@@ -109,7 +112,15 @@ async def create(
         client_token=body.client_token,
     )
     db.add(r)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # Another request from this agent got in at the same moment (the database keeps one).
+        await db.rollback()
+        raise AppError(
+            "You already have a request waiting. Cancel it first if the amount has changed.",
+            code="request_open",
+        ) from None
     db.add(
         FloatRequestEvent(
             request_id=r.id, from_state="none", to_state="pending", actor=a.ref, reason=body.reason

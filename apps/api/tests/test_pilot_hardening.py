@@ -28,12 +28,17 @@ def test_seed_defaults_on_only_in_tests(monkeypatch):
     monkeypatch.delenv("CORS_ORIGINS", raising=False)
     assert _settings(app_env="development").seed_on_start is False
     assert _settings(app_env="test").seed_on_start is True
-    prod = _settings(app_env="production", cors_origins="https://agentfinder.example")
+    prod = _settings(
+        app_env="production", cors_origins="https://agentfinder.example", customer_hash_key="k" * 32
+    )
     assert prod.seed_on_start is False
     # An explicit value still wins, in either direction.
     assert (
         _settings(
-            app_env="production", cors_origins="https://x.example", seed_on_start=True
+            app_env="production",
+            cors_origins="https://x.example",
+            seed_on_start=True,
+            customer_hash_key="k" * 32,
         ).seed_on_start
         is True
     )
@@ -51,7 +56,9 @@ def test_production_without_cors_origins_refuses_to_start(monkeypatch):
     assert "http://localhost:5174" in dev and "http://127.0.0.1:5178" in dev
     assert dev[-3:] == ["https://localhost", "http://localhost", "capacitor://localhost"]
     assert _settings(
-        app_env="production", cors_origins=" https://a.example, https://b.example "
+        app_env="production",
+        cors_origins=" https://a.example, https://b.example ",
+        customer_hash_key="k" * 32,
     ).cors_origins == [  # noqa: E501
         "https://a.example",
         "https://b.example",
@@ -170,3 +177,8 @@ async def test_admin_surface_is_not_mounted_for_the_pilot(client, dealer):
     for path in ("/api/v1/admin", "/api/v1/admin/", "/api/v1/admin/agents"):
         assert (await client.get(path, headers=dealer)).status_code == 404, path
     assert "admin" not in (await client.get("/api/v1")).json()["resources"]
+
+
+def test_production_without_a_customer_hash_key_refuses_to_start(monkeypatch):
+    with pytest.raises(ValidationError, match="CUSTOMER_HASH_KEY must be set in production"):
+        _settings(app_env="production", cors_origins="https://agentfinder.example")

@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, Navigate, RouterProvider, type RouteObject } from 'react-router-dom'
 import { AgentLayout, CustomerLayout, DealerBareLayout, DealerLayout, SignInLayout } from './layouts'
 import { RequireRole } from '@/features/auth/RequireRole'
+import { RequireNational } from '@/features/national/RequireNational'
 import { ResultCardSkeleton } from '@/design'
 import { config } from '@/lib/config'
 
@@ -48,7 +49,8 @@ const DealerSettings = lazy(() => import('@/features/dealer/SettingsPage'))
 const DealerRecords = lazy(() => import('@/features/dealer/RecordsPage'))
 const DealerReveals = lazy(() => import('@/features/dealer/RevealsPage'))
 const DealerActions = lazy(() => import('@/features/dealer/ActionsPage'))
-const DealerNetworkMap = lazy(() => import('@/features/dealer/NetworkMapPage'))
+const NationalMap = lazy(() => import('@/features/dealer/NetworkMapPage'))
+const NationalSignIn = lazy(() => import('@/features/national/NationalSignInPage'))
 const NotFound = lazy(() => import('./NotFound'))
 
 function Fallback() {
@@ -62,7 +64,15 @@ function Fallback() {
 
 const withSuspense = (el: React.ReactNode) => <Suspense fallback={<Fallback />}>{el}</Suspense>
 
-const router = createBrowserRouter([
+// Orange's national map: a page of its own for a laptop, full width, with its own sign-in. The
+// national build (VITE_APP_SURFACE=national) is only this; the customer build and the Agent
+// App never contain it, demo or live.
+const nationalRoutes: RouteObject[] = [
+  { path: '/national/sign-in', element: withSuspense(<NationalSignIn />) },
+  { path: '/national', element: <RequireNational />, children: [{ index: true, element: withSuspense(<NationalMap />) }] },
+]
+
+const appRoutes: RouteObject[] = [
   {
     element: <CustomerLayout />,
     children: [
@@ -153,13 +163,13 @@ const router = createBrowserRouter([
           { path: 'notifications', element: withSuspense(<DealerNotifications />) },
         ],
       },
-      // The national map is full width, outside the phone-sized console frame.
-      { path: 'map', element: withSuspense(<DealerNetworkMap />) },
     ],
   },
   // /admin (features/admin, AdminLayout) is not routed for the pilot; it returns after the competition.
   { path: '*', element: withSuspense(<NotFound />) },
-])
+]
+
+const router = createBrowserRouter(config.surface === 'national' ? [...nationalRoutes, { path: '*', element: <Navigate to="/national" replace /> }] : appRoutes)
 
 export function AppRouter() {
   return <RouterProvider router={router} />

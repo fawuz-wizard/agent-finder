@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import pytest
 
-HDR = {"X-Client": "cust-reports"}
+from customers import each_customer
+
+HDR = each_customer("cust-reports")
 
 
 async def _report(client, token, answer, reason=None, comment=None):

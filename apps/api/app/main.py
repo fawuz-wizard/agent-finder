@@ -15,8 +15,8 @@ from app.core.middleware import RequestIdMiddleware, SecurityHeadersMiddleware
 from app.core.monitoring import init_monitoring
 from app.core.settings import Settings, get_settings
 from app.db import models  # noqa: F401  (register tables)
-from app.db.base import Base
-from app.db.session import dispose_engine, get_engine
+from app.db.migrate import migrate
+from app.db.session import dispose_engine
 from app.seed import seed_if_empty
 
 log = get_logger("app")
@@ -33,8 +33,7 @@ DESCRIPTION = (
 async def lifespan(app: FastAPI):
     settings: Settings = app.state.settings
     log.info("startup", extra={"extra": {"env": settings.app_env, "auth_mode": settings.auth_mode}})
-    async with get_engine().begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await migrate()
     if settings.seed_on_start:
         await seed_if_empty()
     yield

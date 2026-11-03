@@ -27,8 +27,9 @@ export const config = {
   searchRefreshMs: 30_000,
   maxResults: 10,
   /**
-   * Which app this build is. One codebase ships as two installs: the customer's Agent Finder
-   * (opens on the host home) and the Agent App for agents and dealers (opens on sign-in).
+   * Which app this build is. One codebase ships as three: the customer's Agent Finder (opens on
+   * the host home), the Agent App for agents and aggregators (opens on sign-in), and Orange's
+   * national map, a web page of its own for a laptop (opens on its own sign-in).
    */
-  surface: ((env.VITE_APP_SURFACE as string | undefined) === 'agent' ? 'agent' : 'customer') as 'customer' | 'agent',
+  surface: (['agent', 'national'].includes(env.VITE_APP_SURFACE as string) ? env.VITE_APP_SURFACE : 'customer') as 'customer' | 'agent' | 'national',
 } as const

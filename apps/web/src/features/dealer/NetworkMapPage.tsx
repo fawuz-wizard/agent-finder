@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { LogoMark } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
@@ -105,15 +104,9 @@ export default function NetworkMapPage() {
         </span>
         <span className="flex shrink-0 items-center gap-4 text-sm font-semibold text-finder-muted">
           <span className="hidden md:inline">{session?.name}</span>
-          {national ? (
-            <button type="button" onClick={signOut} className="h-control font-bold text-finder-link">
-              Sign out
-            </button>
-          ) : (
-            <Link to="/dealer" className="flex h-control items-center font-bold text-finder-link">
-              ‹ Dashboard
-            </Link>
-          )}
+          <button type="button" onClick={signOut} className="h-control font-bold text-finder-link">
+            Sign out
+          </button>
         </span>
       </header>
 

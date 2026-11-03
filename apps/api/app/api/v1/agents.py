@@ -18,6 +18,7 @@ from app.api.v1.search import (
     to_result,
 )
 from app.core.errors import NotFoundError
+from app.core.limits import limited
 from app.core.settings import get_settings
 from app.db.models import Agent
 from app.db.session import get_session
@@ -58,9 +59,10 @@ async def agent_detail(
     transaction: Literal["cash_out", "withdraw", "deposit", "send"] | None = Query(default=None),
     amount_sle: int | None = Query(default=None, ge=1),
     area: str = Query(default="Freetown", min_length=1, max_length=60),
-    lat: float | None = None,
-    lng: float | None = None,
+    lat: float | None = Query(default=None, ge=-90, le=90, allow_inf_nan=False),
+    lng: float | None = Query(default=None, ge=-180, le=180, allow_inf_nan=False),
     db: AsyncSession = Depends(get_session),
+    _limit: None = Depends(limited("agent", per_client=120, per_address=1200)),
 ) -> AgentDetail:
     a = (
         await db.execute(select(Agent).where(Agent.ref == ref_from_public_id(public_id)))

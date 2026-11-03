@@ -44,3 +44,5 @@ ignore = ["B008"]  # FastAPI Depends() in defaults is idiomatic
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Shared test helpers (tests/customers.py) are imported by name.
+pythonpath = ["tests"]

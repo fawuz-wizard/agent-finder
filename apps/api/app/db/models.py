@@ -12,11 +12,13 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -216,6 +218,17 @@ class AgentTransaction(Base):
 
 class FloatRequest(Base):
     __tablename__ = "float_requests"
+    # One waiting request per agent, kept by the database: two taps at the same moment cannot
+    # both get through the check in the code.
+    __table_args__ = (
+        Index(
+            "uq_float_one_pending",
+            "agent_ref",
+            unique=True,
+            sqlite_where=text("state = 'pending'"),
+            postgresql_where=text("state = 'pending'"),
+        ),
+    )
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
     agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
     dealer_id: Mapped[str] = mapped_column(ForeignKey("dealers.id"), nullable=False)
@@ -273,6 +286,8 @@ class Action(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    # Who did it, by account id (the aggregator's), so lists never match on a shared name.
+    actor_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
     # contact|call|nudge|escalate|snooze|resolve
     action: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -292,6 +307,8 @@ class AuditLog(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    # Who did it, by account id (the aggregator's), so lists never match on a shared name.
+    actor_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     permission: Mapped[str] = mapped_column(String(60), nullable=False)
     agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
     field: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -355,3 +372,31 @@ class UsageEvent(Base):
     actor_kind: Mapped[str] = mapped_column(String(10), nullable=False)  # customer|agent|dealer
     actor_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     agent_ref: Mapped[str | None] = mapped_column(String(40))
+
+
+class RateEvent(Base):
+    """One counted event for a limit: a wrong PIN, a search, a sign-in attempt. Kept in the
+    database, not in memory, so a restart does not reset a lockout and several API servers
+    share one count. Old rows are pruned as the limits are checked."""
+
+    __tablename__ = "rate_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
+class ExportLog(Base):
+    """One download of a list of agents (the national map's CSV): who, when and which filter,
+    never the rows. Written before the file is returned, so a download that fails half way is
+    still on record."""
+
+    __tablename__ = "export_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    what: Mapped[str] = mapped_column(String(40), nullable=False)
+    filters: Mapped[str] = mapped_column(String(200), nullable=False)
+    rows: Mapped[int] = mapped_column(Integer, nullable=False)

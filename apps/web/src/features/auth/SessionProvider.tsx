@@ -1,16 +1,25 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { Role, Session } from '@/types/operator'
-import { SessionContext, readStoredSession, writeStoredSession } from './session'
+import { SessionContext, WRONG_PLACE, isNational, readStoredSession, writeStoredSession, type SignInPlace } from './session'
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(() => readStoredSession())
 
-  const signIn = useCallback(async (ref: string, pin: string, role?: Role) => {
+  const signIn = useCallback(async (ref: string, pin: string, role?: Role, where: SignInPlace = 'app') => {
     // Imported here, not at module scope: the provider wraps every route, and a static
     // import would put the whole operator service — and the seeded operator data with it —
     // into the customer's first payload.
     const { operatorApi } = await import('@/services/operatorApi')
     const s = await operatorApi.signIn(ref, pin, role)
+    // Orange's account belongs on its own page, and only there. The server still decides what
+    // any account may read; this keeps each app to the people it is for. The session just
+    // opened is ended on the server, not kept.
+    if (isNational(s) !== (where === 'national')) {
+      void operatorApi.signOut(s.token).catch(() => {
+        /* offline: the token was never stored here, and it expires on the server */
+      })
+      throw new Error(WRONG_PLACE[where])
+    }
     setSession(s)
     writeStoredSession(s)
     return s
