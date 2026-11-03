@@ -57,7 +57,7 @@ DEFAULT_WEIGHTS: dict[str, float] = {
 # reads the rule's percentage and its caps. The starting weights follow the rule's emphasis.
 WEEK_FEATURES = (
     "days_worked",  # active days of the last 7, as a share: 0 to 1
-    "size_done",  # this type at this size or larger 1, only smaller 0.5, not done 0
+    "size_done",  # any transaction at this size or larger 1, only smaller 0.5, none 0
     "report_balance",  # (served - failed) / reports, once there are 3; else 0
     "reports_known",  # 1 once there are 3 reports for this type
     "distance_km",

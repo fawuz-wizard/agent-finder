@@ -295,8 +295,8 @@ async def search(
                 **week_features(
                     active_days=w.active_days,
                     size_done=size_done(w, tx, req.amount_sle),
-                    served=w.served[side],
-                    failed=w.failed[side],
+                    served=w.served_all,
+                    failed=w.failed_all,
                     distance_m=dist,
                     low=(cash_low if side == "cash" else float_low) is not None,
                 ),

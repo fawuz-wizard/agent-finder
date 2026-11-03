@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Delete } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
@@ -11,6 +11,8 @@ import { formatSle } from './money'
 import { CHECK_IN_NOW } from './shopPresence'
 
 type Step = 'details' | 'pin' | 'done'
+type Kind = 'deposit' | 'cash_out'
+const KIND_LABEL: Record<Kind, string> = { deposit: 'Cash in', cash_out: 'Cash out' }
 const QUICK = [1_000, 5_000, 10_000, 20_000]
 
 function newToken(): string {
@@ -32,7 +34,7 @@ function recordNo(id: string): string {
   return `AF-${id.replace(/[^0-9a-f]/gi, '').slice(-6).toUpperCase()}`
 }
 
-function Header({ step, onBack }: { step: Step; onBack: () => void }) {
+function Header({ step, kind, onBack }: { step: Step; kind: Kind; onBack: () => void }) {
   const n = step === 'details' ? 1 : 2
   return (
     <>
@@ -40,7 +42,7 @@ function Header({ step, onBack }: { step: Step; onBack: () => void }) {
         <button type="button" aria-label="Back" onClick={onBack} className="-m-2 flex h-10 w-10 shrink-0 items-center justify-center">
           <ArrowLeft size={22} strokeWidth={2} aria-hidden />
         </button>
-        <h1 className="min-w-0 flex-1 truncate text-[19px] font-bold">Cash In</h1>
+        <h1 className="min-w-0 flex-1 truncate text-[19px] font-bold">{KIND_LABEL[kind]}</h1>
         {step !== 'done' && <span className="text-xs font-bold text-finder-muted">Step {n} of 2</span>}
       </div>
       <div className="flex gap-1.5 px-[22px] pb-2 pt-3" aria-hidden>
@@ -62,10 +64,12 @@ function Row({ label, value, tone = '' }: { label: string; value: string; tone?:
 }
 
 /**
- * Do Transaction records a cash in, the one transaction the agent starts: the customer hands
- * over cash and the agent sends them e-money. A cash out is started by the customer on their
- * own phone, so there is nothing for the agent to record here. Two steps: the customer's
- * number and the amount on one screen, then the agent's PIN on a keypad; then the result. It
+ * Do Transaction records a cash in or a cash out the agent has just served, so the 7-day rule
+ * sees every transaction while there is no Orange feed (the pilot). A cash in: the customer
+ * hands over cash and the agent sends e-money. A cash out: the customer asks for cash the usual
+ * way and the agent hands it over. Both count the same for the rule. Two steps: the type, the
+ * customer's number and the amount on one screen, then the agent's PIN on a keypad; then the
+ * result. `?type=cash_out` opens on cash out. It
  * moves no money. The number is checked with the customer, never looked up, and only its last
  * three digits are kept; the result shows "recorded" and our own record number, never an
  * Orange reference. The PIN is checked by the server (with the sign-in lockout) before the
@@ -77,6 +81,8 @@ export default function ServicesPage() {
   const ref = session?.ref ?? 'Agent 024'
   const home = useAsync<AgentHome>((s) => operatorApi.home(ref, s), [ref])
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const [kind, setKind] = useState<Kind>(params.get('type') === 'cash_out' ? 'cash_out' : 'deposit')
   const ids = useId()
   const [step, setStep] = useState<Step>('details')
   const [txAmount, setTxAmount] = useState('')
@@ -91,7 +97,7 @@ export default function ServicesPage() {
   const digits = customer.replace(/\D/g, '').replace(/^232/, '').replace(/^0/, '')
   const amountOk = Number.isFinite(amount) && amount > 0
   const numberOk = digits.length === 8
-  const commission = amountOk ? commissionFor('deposit', amount) : 0
+  const commission = amountOk ? commissionFor(kind, amount) : 0
 
   function go(s: Step) {
     setLogError(null)
@@ -123,7 +129,7 @@ export default function ServicesPage() {
     setLogging(true)
     try {
       await operatorApi.checkPin(ref, pin)
-      const out = await operatorApi.logTransaction(ref, { transaction: 'deposit', amount_sle: amount, customer_msisdn: digits, client_token: token })
+      const out = await operatorApi.logTransaction(ref, { transaction: kind, amount_sle: amount, customer_msisdn: digits, client_token: token })
       setDone(out)
       setStep('done')
       // Recording counts as a check-in when the phone is at the shop.
@@ -150,8 +156,15 @@ export default function ServicesPage() {
     const unlocated = home.data?.customers_see.state === 'unlocated'
     return (
       <div className={page}>
-        <Header step={step} onBack={back} />
+        <Header step={step} kind={kind} onBack={back} />
         <div className={content}>
+          <div role="radiogroup" aria-label="Transaction" className="grid grid-cols-2 gap-2">
+            {(['deposit', 'cash_out'] as const).map((k) => (
+              <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`${chip(kind === k)} h-12 justify-center text-[15px]`}>
+                {KIND_LABEL[k]}
+              </button>
+            ))}
+          </div>
           {unlocated && (
             <section className={`${BOX} flex flex-col gap-2 border-finder-accent px-4 py-4`}>
               <p className="text-base font-bold leading-tight">Your shop is not on the map yet</p>
@@ -191,7 +204,7 @@ export default function ServicesPage() {
           <div className={`${BOX} px-4 py-2`}>
             <Row label="Your commission" value={amountOk ? formatSle(commission) : '—'} tone="text-agent-green-ink" />
             <div className="border-t border-finder-card-line">
-              <Row label="Collect in cash" value={amountOk ? formatSle(amount) : '—'} />
+              <Row label={kind === 'deposit' ? 'Collect in cash' : 'Give in cash'} value={amountOk ? formatSle(amount) : '—'} />
             </div>
           </div>
           <p className="text-xs text-finder-muted">
@@ -210,9 +223,10 @@ export default function ServicesPage() {
   if (step === 'pin') {
     return (
       <div className={page}>
-        <Header step={step} onBack={back} />
+        <Header step={step} kind={kind} onBack={back} />
         <div className={content}>
           <div className={`${BOX} px-4 py-2`} aria-label="Check">
+            <Row label="Type" value={KIND_LABEL[kind]} />
             <Row label="Number" value={`+232 ${spaced(digits)}`} />
             <Row label="Amount" value={formatSle(amount)} />
             <div className="border-t border-finder-card-line">
@@ -251,7 +265,7 @@ export default function ServicesPage() {
   // Recorded.
   const share = async () => {
     if (!done) return
-    const text = `Agent Finder record ${recordNo(done.id)}: Cash in ${formatSle(amount)} for ${masked(digits)}, ${new Date(done.at).toLocaleString('en-GB')}. Not an Orange Money receipt.`
+    const text = `Agent Finder record ${recordNo(done.id)}: ${KIND_LABEL[kind]} ${formatSle(amount)} for ${masked(digits)}, ${new Date(done.at).toLocaleString('en-GB')}. Not an Orange Money receipt.`
     try {
       if (navigator.share) await navigator.share({ text })
       else await navigator.clipboard.writeText(text)
@@ -261,7 +275,7 @@ export default function ServicesPage() {
   }
   return (
     <div className={page}>
-      <Header step="done" onBack={again} />
+      <Header step="done" kind={kind} onBack={again} />
       <div className="flex flex-1 flex-col gap-3.5 px-[18px] pb-6 pt-4">
         <span aria-hidden className="mx-auto mt-2 flex h-[72px] w-[72px] items-center justify-center rounded-full bg-agent-green-tint">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-agent-green text-white">
@@ -269,7 +283,7 @@ export default function ServicesPage() {
           </span>
         </span>
         <h2 role="status" className="text-center text-xl font-extrabold">
-          Cash in recorded
+          {KIND_LABEL[kind]} recorded
         </h2>
         <p className="-mt-2 text-center text-sm text-finder-muted">
           {formatSle(amount)} for {masked(digits)}, in your history.

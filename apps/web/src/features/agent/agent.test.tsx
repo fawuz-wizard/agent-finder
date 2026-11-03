@@ -294,8 +294,9 @@ describe('transaction log', () => {
     await signIn(user)
     const counter = await screen.findByText(/Logged today: \d+/)
     const before = Number(counter.textContent!.match(/\d+/)![0])
-    // Cash out is started by the customer on their own phone: no choice, no cash-out screen.
-    expect(screen.queryByRole('radio', { name: 'Cash out' })).not.toBeInTheDocument()
+    // Cash in is the default; cash out is one tap away.
+    expect(screen.getByRole('radio', { name: 'Cash in' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: 'Cash out' })).toHaveAttribute('aria-checked', 'false')
     // 1 · The customer's number and the amount together; no name is looked up, never a balance.
     expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
@@ -330,6 +331,29 @@ describe('transaction log', () => {
     expect(await screen.findByText(`Logged today: ${before + 1}`)).toBeInTheDocument()
     expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
     expect(screen.getByLabelText('Customer phone number')).toHaveValue('')
+  })
+
+  it('Do Transaction records a cash out the same way, so the 7-day rule sees both types', async () => {
+    const user = userEvent.setup()
+    render(<App start="/agent/services" />)
+    await signIn(user)
+    await screen.findByText(/Logged today: \d+/)
+    await user.click(screen.getByRole('radio', { name: 'Cash out' }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Cash out' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Customer phone number'), '77 555 321')
+    await user.type(screen.getByLabelText('Amount (SLE)'), '3000')
+    expect(screen.getByText('Give in cash')).toBeInTheDocument()
+    expect(screen.queryByText('Collect in cash')).not.toBeInTheDocument()
+    // The cash-out commission: SLE 3,000 is in the up-to-5,000 band, 50.
+    expect(screen.getByText('SLE 50')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(within(screen.getByLabelText('Check')).getByText('Cash out')).toBeInTheDocument()
+    for (const k of '1234') await user.click(screen.getByRole('button', { name: k }))
+    await user.click(screen.getByRole('button', { name: 'Record' }))
+    expect(await screen.findByText('Cash out recorded')).toBeInTheDocument()
+    const acts = await operatorApi.activity('Agent 024')
+    expect(acts.some((a) => a.text === 'You recorded: Cash out · SLE 3,000')).toBe(true)
+    expect(acts.every((a) => !/077|555 321/.test(a.text))).toBe(true)
   })
 
   it('the Activity tab draws what the agent recorded, the commission and customers sent, and what customers said without who', async () => {
@@ -414,30 +438,27 @@ describe("today's commission on the dashboard", () => {
 
 describe('low on cash or float today', () => {
   // Off screen in the new agent design's first pass (2026-11-01): this part is not in the design file yet. Restore with it.
-  it.skip('lowers one side for customers, says why to the agent, and clears on Fine', async () => {
+  it('Cash today and Float today lower one side for customers until midnight, and OK clears it', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    render(<App start="/agent/status" />)
     await signIn(user)
-    await screen.findAllByText("Fatmata's Shop")
-    await user.click(screen.getByRole('link', { name: 'Open / Close' }))
-    await screen.findByRole('radiogroup', { name: 'Cash out today' })
-    const cash = screen.getByRole('radiogroup', { name: 'Cash out today' })
-    await user.click(within(cash).getByRole('radio', { name: 'Low today' }))
-    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash out today' })).getByRole('radio', { name: 'Low today' })).toHaveAttribute('aria-checked', 'true'))
-    const see = (await operatorApi.home('Agent 024')).customers_see
-    const cashSide = see.sides.find((s) => s.label === 'Cash out')!
-    expect(cashSide.range_text).toMatch(/^up to SLE/)
-    expect(cashSide.why).toMatch(/low on cash today/)
-    const float = see.sides.find((s) => s.label === 'Cash in')!
-    expect(float.why).toBeNull()
-    const floatGroup = screen.getByRole('radiogroup', { name: 'Cash in today' })
-    await user.click(within(floatGroup).getByRole('radio', { name: 'None today' }))
-    await waitFor(async () => expect((await operatorApi.home('Agent 024')).customers_see.sides.find((s) => s.label === 'Cash in')!.outcome).toBe('limited'))
-    await user.click(within(screen.getByRole('radiogroup', { name: 'Cash out today' })).getByRole('radio', { name: 'Normal' }))
-    // One save at a time: the pills are disabled while a change is being written.
-    await waitFor(async () => expect((await operatorApi.home('Agent 024')).low.cash_out).toBeNull())
-    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash in today' })).getByRole('radio', { name: 'Normal' })).toBeEnabled())
-    await user.click(within(screen.getByRole('radiogroup', { name: 'Cash in today' })).getByRole('radio', { name: 'Normal' }))
+    const cash = await screen.findByRole('radiogroup', { name: 'Cash today' })
+    expect(within(cash).getByRole('radio', { name: 'OK' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(within(cash).getByRole('radio', { name: 'Low' }))
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash today' })).getByRole('radio', { name: 'Low' })).toHaveAttribute('aria-checked', 'true'))
+    const home = await operatorApi.home('Agent 024')
+    expect(home.low).toMatchObject({ cash_out: 'low', deposit: null })
+    // Float is untouched: an empty drawer is exactly when the agent wants cash ins.
+    expect(within(screen.getByRole('radiogroup', { name: 'Float today' })).getByRole('radio', { name: 'OK' })).toHaveAttribute('aria-checked', 'true')
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Float today' })).getByRole('radio', { name: 'None' })).toBeEnabled())
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Float today' })).getByRole('radio', { name: 'None' }))
+    await waitFor(async () => expect((await operatorApi.home('Agent 024')).low.deposit).toBe('none'))
+    // Never a figure or a balance on this screen.
+    expect(document.body.textContent).not.toMatch(/\d+%|balance/i)
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Cash today' })).getByRole('radio', { name: 'OK' })).toBeEnabled())
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Cash today' })).getByRole('radio', { name: 'OK' }))
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Float today' })).getByRole('radio', { name: 'OK' })).toBeEnabled())
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Float today' })).getByRole('radio', { name: 'OK' }))
     await waitFor(async () => expect((await operatorApi.home('Agent 024')).low).toMatchObject({ cash_out: null, deposit: null }))
   })
 })

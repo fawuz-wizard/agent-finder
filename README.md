@@ -120,7 +120,7 @@ on another phone. Live mode is what makes them share one database.
 1. `POST /api/v1/search` with the transaction, optional amount, and a point.
 2. The API finds open, confirmed agents within 500 m (wider only when nobody near can serve).
 3. For each, it scores the served percentage with the 7-day rule (`app/services/week_rule.py`): days
-   the agent was active, whether they did this exact transaction at this size, and customer reports;
+   the agent was active, whether they did any transaction (cash out or cash in) at this size, and customer reports;
    rounded to fives, 5 to 95. Agents and aggregators read it in words (`seen_as`), never as a figure.
 4. It returns the agents with words, the percentage, the distance and how fresh the information is,
    never a money figure.

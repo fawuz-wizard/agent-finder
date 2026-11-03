@@ -42,7 +42,7 @@ describe('how customers see the agent, under the 7-day rule (demo)', () => {
           note={{
             sides: [
               { label: 'Cash out', outcome: 'likely', phrase: 'Likely to be served' },
-              { label: 'Cash in', outcome: 'limited', phrase: 'Not done this week' },
+              { label: 'Cash in', outcome: 'limited', phrase: 'Low today' },
             ],
             why: [{ tone: 'warn', title: 'You worked 4 of the last 7 days', detail: 'Record every day you work. Days count, not how many transactions.' }],
           }}
@@ -50,7 +50,7 @@ describe('how customers see the agent, under the 7-day rule (demo)', () => {
       </MemoryRouter>,
     )
     const card = screen.getByRole('article', { name: /how customers see this listing/i })
-    expect(within(card).getByText('Not done this week')).toBeInTheDocument()
+    expect(within(card).getByText('Low today')).toBeInTheDocument()
     expect(screen.getByText('You worked 4 of the last 7 days')).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/\d+%/)
   })

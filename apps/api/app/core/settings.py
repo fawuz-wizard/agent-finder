@@ -26,10 +26,11 @@ class Settings(BaseSettings):
     # every phrase and the agent is never asked to refresh capacity. Off for the pilot with
     # real agents, on for the demo build; on for real once the Orange Money feed is connected.
     operator_feed: bool = False
-    # "week" (the default): the 7-day rule in services/week_rule.py: active days, the exact
-    # transaction, customer reports; never 100, 95 at best. Agents and aggregators read it in
-    # words, never as a figure. "activity": the success probability the older ranker computes
-    # (position or ledger, recency, failures, trust, distance). "rules": the fixed order.
+    # "week" (the default): the 7-day rule in services/week_rule.py: active days, the size
+    # (cash out and cash in together), customer reports; never 100, 95 at best. Agents and
+    # aggregators read it in words, never as a figure. "activity": the success probability
+    # the older ranker computes (position or ledger, recency, failures, trust, distance).
+    # "rules": the fixed order.
     # "learned": the customer still reads the 7-day rule's percentage, while weights learned
     # from real visits on the same 7-day facts order the agents (scripts.train_ranker says
     # when they beat the rule).

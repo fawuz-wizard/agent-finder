@@ -60,8 +60,8 @@ knows whether they are an agent or an aggregator and opens the right screens.
    only one day of activity so far.
 5. **Thursday.** Fatmata has recorded transactions on four days, and three customers have reported that
    she served them. The same search now shows **80%**, and she is at the top as **Recommended**.
-6. Fatmata's own screen says "Cash out: Likely to be served. Cash in: Not done this week", with the advice
-   "Record cash ins when you do them, and customers will see you for both."
+6. Fatmata's own screen says "Cash out: Likely to be served. Cash in: Likely to be served", and "Done
+   this week: up to SLE 5,000". Her cash outs count for cash-in customers too.
 7. She runs low on float and asks Kissy for a top-up in the app. Kissy approves it and marks it done.
 8. At the end of the month Kissy downloads the report for Orange and opens it in Excel.
 
@@ -111,17 +111,19 @@ Each day is worth 40 ÷ 7, about 5.7 points. Seven days out of seven gives the f
 One transaction on a day counts the same as thirty. A small shop that works every day scores as well as
 a big one, so the rule does not favour big businesses.
 
-**Check 2. Has the agent done this exact transaction? Up to 35 points.**
-Only the type the customer asked for counts (cash out or cash in), and only in the last 7 days. Amounts
+**Check 2. Has the agent done a transaction this size? Up to 35 points.**
+Any transaction counts, cash out or cash in, in the last 7 days. Every transaction involves the agent on
+both sides: a cash in gives the agent notes for the next cash out, and a cash out gives float for the
+next cash in. So a week of either is evidence for both. Amounts
 are grouped into sizes: up to 500, up to 2,000, up to 5,000, up to 10,000, up to 50,000, and above.
 - Done at the customer's size or bigger: **35 points**.
 - Done, but only at smaller sizes: **15 points**, and the total can go no higher than **50%**. The
   customer reads "Not seen at this size this week". The system has no evidence either way, so it says so.
-- Not done at all this week: **no points**, and the total can go no higher than **35%**. The customer
-  reads, for example, "Does cash in; no cash out this week".
+- (With no transaction at all, check 1 is also zero: the agent reads **5%**, "No activity recorded this
+  week".)
 
 **Check 3. What have customers said? From minus 20 to plus 20 points.**
-Only visit reports for the same type, in the last 7 days.
+Every visit report in the last 7 days, cash out or cash in.
 - Fewer than 3 reports: **no effect**. One or two opinions are too few to judge an agent by.
 - 3 or more: 20 × (served − not served) ÷ (all reports). All served: +20. All not served: −20. Half and
   half: 0. A "served" and a "could not serve" weigh exactly the same.
@@ -134,19 +136,22 @@ Only visit reports for the same type, in the last 7 days.
 |---|---|---|
 | First day, two cash outs of SLE 5,000, no reports | 5.7 + 35 + 0 = 40.7 | **40%** |
 | Four days active, cash outs up to SLE 5,000, three customers said "served" | 22.9 + 35 + 20 = 77.9 | **80%** |
-| Seven days active, only cash ins, never a cash out | 40 + 0, capped at 35 | **35%**, "Does cash in; no cash out this week" |
+| Seven days active, only cash ins of up to SLE 2,000, never a cash out | 40 + 35 = 75 | **75%**: the cash ins count too |
 
 ### 6.4 The agent's own warning
 
-If an agent taps **Low today** for cash out or cash in, that side can show no more than **35%** for the
-rest of the day. **None today** keeps it at **5%**. An agent can lower what customers see, never raise it,
-so being honest costs them nothing and protects their reputation.
+This is the one place where the type matters. The agent has two switches: **Cash** (notes, for cash-out
+customers) and **Float** (phone money, for cash-in customers), each OK, **Low today** or **None today**.
+Low today keeps that side at no more than **35%** until midnight; **None today** keeps it at **5%**. The
+other side is untouched: an agent with an empty drawer is exactly the one who wants cash ins. An agent can
+lower what customers see, never raise it, so being honest costs them nothing and protects their
+reputation.
 
 ### 6.5 Who sees the percentage
 
 - **Customers** see it. It is the answer to their question.
 - **Agents and aggregators never see it, and never see the points.** They see the same listing in words
-  ("Likely to be served", "Less likely yet", "Not done this week", "No activity this week") and one line
+  ("Likely to be served", "Less likely yet", "Low today", "None today", "No activity this week") and one line
   per check with what would raise it ("You worked 4 of the last 7 days. Record every day you work.").
   The figure changes with every customer's request (a different amount gives a different answer), so a
   number on the agent's screen would be out of date the moment it was read. And a published formula
@@ -162,7 +167,7 @@ so being honest costs them nothing and protects their reputation.
 | **10** | The most agents in a group | Enough to choose from on a phone screen |
 | **About 110 metres** | How much the customer's position is rounded before it leaves the phone | Precise enough to measure the walk, not precise enough to identify a home. Nothing is stored against the customer |
 | **7 days** | The window for the activity score | Long enough that one quiet day does not punish an agent; short enough that the score reflects this week, not last month |
-| **40 / 35 / 20 points** | The three checks | Being open and working matters most; having done this exact transaction comes next; customer reports confirm or correct the picture |
+| **40 / 35 / 20 points** | The three checks | Being open and working matters most; having done a transaction of this size (either type) comes next; customer reports confirm or correct the picture |
 | **Fives (5, 10, 15 … 95)** | How the percentage is shown | The score is an estimate. "80%" is honest; "78.6%" would pretend to be exact |
 | **95% at most** | The top of the scale | Nobody can promise a customer certainty; 100% would be a promise the app cannot keep |
 | **5% at least** | The bottom of the scale | No activity is not proof an agent cannot serve; it means the app has not seen them work this week |

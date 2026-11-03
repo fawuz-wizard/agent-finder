@@ -1,4 +1,5 @@
-"""The 7-day served percentage: active days, the exact transaction, customer reports.
+"""The 7-day served percentage: active days, the size (cash out and cash in together),
+customer reports.
 Fair by construction: days count, not volume; served and failed reports weigh the same;
 never 100, 95 at best. The worked examples are the ones in the rule document."""
 
@@ -28,9 +29,30 @@ def test_four_days_and_three_confirmed_visits_reads_80_and_is_likely():
     assert (s.pct, s.outcome) == (80, "likely")
 
 
-def test_an_agent_who_only_does_cash_in_is_capped_and_told_why():
-    s = score(week(days=7, float_={"≤2k"}), "cash_out", 300)
-    assert s.pct == 35 and s.note == "Does cash in; no cash out this week"
+def test_cash_ins_count_for_a_cash_out_customer_and_the_other_way_round():
+    # A cash in brings the agent notes for the next cash out: the type no longer caps.
+    only_in = score(week(days=7, float_={"≤2k"}), "cash_out", 300)
+    only_out = score(week(days=7, cash={"≤2k"}), "deposit", 300)
+    assert (only_in.pct, only_in.outcome, only_in.note) == (75, "likely", None)
+    assert only_out.pct == only_in.pct == 75
+
+
+def test_the_size_reads_the_largest_transaction_of_either_type():
+    s = score(week(days=7, cash={"≤500"}, float_={"≤5k"}), "cash_out", 5_000)
+    assert (s.pct, s.note) == (75, None)
+
+
+def test_customer_reports_of_either_type_count_together():
+    w = week(days=4, cash={"≤5k"})
+    w.served["cash"], w.served["float"] = 2, 1  # two below three on their own; three together
+    assert score(w, "cash_out", 300).pct == 80
+    assert score(w, "deposit", 300).pct == 80
+
+
+def test_a_failed_cash_in_report_counts_against_a_cash_out_request_too():
+    w = week(days=7, cash={"≤2k"})
+    w.served["cash"], w.failed["float"] = 3, 3
+    assert score(w, "cash_out", 300).pct == 75
 
 
 def test_small_cash_outs_every_day_with_good_reports_reach_95_never_100():
@@ -72,6 +94,13 @@ def test_the_agents_own_low_today_caps_that_side():
     assert score(w, "cash_out", 300, low="none").pct == 5
 
 
+def test_the_example_in_the_team_briefing_none_today_on_cash_only():
+    # Agent C: 7 days, up to SLE 10,000, 4 served and 1 "no cash"; taps Cash: None today.
+    w = week(days=7, cash={"≤10k"}, served=4, failed=1)
+    assert score(w, "cash_out", 2_000, low="none").pct == 5
+    assert score(w, "deposit", 2_000, low=None).pct == 85
+
+
 async def _row(client, tx: str, amount: int | None, name: str = "Fatmata's Shop"):
     body = {"transaction": tx, "area": "Lumley"}
     if amount:
@@ -100,13 +129,10 @@ async def test_search_and_shop_page_use_the_week_rule_when_switched_on(client, a
         after = await _row(client, "cash_out", 300)
         assert after["served_pct"] >= 40 and after["served_pct"] <= 95
         assert after["served_pct"] % 5 == 0
-        # Cash in: the agent did none this week, so it is capped and says why.
+        # Cash in: the agent did only a cash out, and it counts the same.
         cash_in = await _row(client, "deposit", 300)
-        assert cash_in["served_pct"] <= 35
-        assert cash_in["note"] in (
-            "Does cash out; no cash in this week",
-            "No cash in recorded this week",
-        )
+        assert cash_in["served_pct"] == after["served_pct"]
+        assert cash_in["note"] is None
         # The shop page agrees with the search.
         page = (
             await client.get(
@@ -131,21 +157,21 @@ def test_the_note_gives_one_word_per_type_and_says_what_raises_it():
     note = week_note(week(days=4, cash={"≤5k"}, served=3), (None, None))
     assert [(s["label"], s["phrase"]) for s in note["sides"]] == [
         ("Cash out", "Likely to be served"),
-        ("Cash in", "Not done this week"),
+        ("Cash in", "Likely to be served"),
     ]
     titles = [w["title"] for w in note["why"]]
     assert titles == [
         "You worked 4 of the last 7 days",
-        "Cash out done this week; cash in not",
+        "Done this week: up to SLE 5,000",
         "Customers: 3 served, none failed",
     ]
-    assert note["why"][1]["detail"].startswith("Record cash ins")
+    assert note["why"][1]["detail"].startswith("Cash outs and cash ins count together")
 
 
 def test_the_aggregator_reads_the_same_note_in_the_third_person():
     note = week_note(week(days=4, cash={"≤5k"}, served=3), (None, None), viewer="dealer")
     assert note["why"][0]["title"] == "Worked 4 of the last 7 days"
-    assert note["why"][1]["detail"] == "Cash in shows once the agent records one."
+    assert note["why"][1]["detail"].endswith("read this agent as less likely.")
 
 
 def test_no_activity_and_the_agents_low_tap_are_said_in_words():
@@ -175,7 +201,7 @@ async def test_agent_and_aggregator_get_the_note_and_no_percentage(
     )
     home = (await client.get("/api/v1/agent/home", headers=agent)).json()
     mine = home["seen_as"]
-    assert mine["sides"][1]["phrase"] == "Not done this week"
+    assert mine["sides"][0]["phrase"] == mine["sides"][1]["phrase"] == "Less likely yet"
     assert mine["why"][0]["title"] == "You worked 1 of the last 7 days"
     page = (await client.get("/api/v1/dealer/agents/Agent 024", headers=dealer)).json()
     assert page["seen_as"]["sides"] == mine["sides"]
