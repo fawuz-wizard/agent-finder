@@ -49,3 +49,26 @@ def test_starts_with_a_dsn_and_the_app_still_builds():
     finally:
         sentry_sdk.get_client().close(timeout=0)
         sentry_sdk.init(dsn=None)
+
+
+def test_reports_under_the_same_release_and_environment_as_the_web_apps():
+    import sentry_sdk
+
+    settings = Settings(app_env="test", sentry_dsn="http://public@127.0.0.1:9/1")
+    try:
+        init_monitoring(settings)
+        options = sentry_sdk.get_client().options
+        assert options["release"] == "agent-finder@" + settings.app_version
+        assert options["environment"] == "test"
+    finally:
+        sentry_sdk.get_client().close(timeout=0)
+        sentry_sdk.init(dsn=None)
+
+
+def test_the_server_and_the_web_apps_carry_the_same_version():
+    """Both report as agent-finder@<version>; the numbers must move together."""
+    import json
+    from pathlib import Path
+
+    web = Path(__file__).resolve().parents[2] / "web" / "package.json"
+    assert json.loads(web.read_text())["version"] == Settings(app_env="test").app_version
