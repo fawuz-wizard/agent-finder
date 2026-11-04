@@ -1,5 +1,3 @@
-import { tileSource } from '@/lib/tiles'
-import { TileLayer } from '@/features/map/TileLayer'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Skeleton } from '@/design'
@@ -10,11 +8,12 @@ import { ServedLikelihood } from './components/ServedLikelihood'
 import { FreshnessBadge } from './components/FreshnessBadge'
 import { DistanceLabel } from './components/DistanceLabel'
 import { ErrorState } from './components/states'
-import { FinderCta, FinderHeader, PinIcon } from './components/finder'
+import { FinderCta, FinderHeader } from './components/finder'
 import { useBack } from './useBack'
 import { DirectionsIcon, PhoneIcon, actionClass } from './components/actions'
 import { requestFrom, useAgentDetail } from './useAgentDetail'
 import { photoSrc } from '@/lib/photo'
+import { initialsOf } from '@/lib/initials'
 
 function ratingToken(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -143,22 +142,18 @@ export default function AgentDetailPage() {
       <div className={`relative flex items-end justify-center overflow-hidden bg-finder-line text-white ${photo ? 'h-[13rem]' : 'h-[9rem]'}`}>
         {photo ? (
           <img src={photo} alt={`${agent.name}, photographed by the agent`} className="absolute inset-0 h-full w-full object-cover" />
-        ) : tileSource().provider === 'tomtom' && Number.isFinite(agent.lat) && Number.isFinite(agent.lng) ? (
-          // No photo yet: the shop's spot on TomTom's map, so the space still tells the customer where.
-          <TileLayer fit={[{ lat: agent.lat, lng: agent.lng }]} label={`Where ${agent.name} is`} className="absolute inset-0 h-full w-full">
-            {(at) => {
-              const p = at({ lat: agent.lat, lng: agent.lng })
-              return (
-                <span className="absolute -translate-x-1/2 -translate-y-full text-finder-link drop-shadow" style={{ left: p.x, top: p.y }} aria-hidden="true">
-                  <PinIcon size={40} />
-                </span>
-              )
-            }}
-          </TileLayer>
         ) : (
-          <span className="mb-9 text-finder-link" aria-hidden="true">
-            <PinIcon size={44} />
-          </span>
+          // No photo yet: the shop's initials, so the space reads as "picture to come", never as
+          // a map (the map is one tap away, on Directions). Never a person's photo without consent.
+          <div className="mb-6 flex flex-col items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border-2 border-finder-accent bg-finder-bg text-2xl font-bold text-finder-ink"
+            >
+              {initialsOf(agent.name)}
+            </span>
+            <span className="text-sm font-semibold text-finder-muted">No shop photo yet</span>
+          </div>
         )}
         {backButton}
       </div>
