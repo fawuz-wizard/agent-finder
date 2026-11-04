@@ -55,6 +55,14 @@ Needs Python 3.11+ (3.12 recommended) and Node 22.
 5. To stop, click the bin icon on each terminal.
 
 Each app can also be started alone (Terminal > Run Task > **Live: ...**), as long as **Live: API (8000)** is running.
+
+### On Windows
+The same VS Code tasks work on Windows (they run in PowerShell). Without VS Code, use the two
+files in the `windows` folder:
+1. Install **Python 3.12** from python.org (tick **Add Python to PATH**) and **Node.js 22** from nodejs.org.
+2. Double-click `windows\install.bat` (first time only; needs internet).
+3. Double-click `windows\run-all.bat`. Four windows open (the API and the three apps) and the
+   browser opens Orange's console. Close the four windows to stop.
 How the Global Report works, and a walk-through for showing it: `docs/global-report.md`.
 
 ### Signing in on the agent and aggregator app

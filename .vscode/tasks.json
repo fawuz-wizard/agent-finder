@@ -5,14 +5,21 @@
       "label": "Demo: install",
       "type": "shell",
       "command": "npm install --legacy-peer-deps",
-      "options": { "cwd": "${workspaceFolder}/apps/web" },
+      "options": {
+        "cwd": "${workspaceFolder}/apps/web"
+      },
       "problemMatcher": []
     },
     {
       "label": "Demo: customer app (5175)",
       "type": "shell",
       "command": "npx vite --port 5175 --strictPort",
-      "options": { "cwd": "${workspaceFolder}/apps/web", "env": { "VITE_API_MODE": "mock" } },
+      "options": {
+        "cwd": "${workspaceFolder}/apps/web",
+        "env": {
+          "VITE_API_MODE": "mock"
+        }
+      },
       "isBackground": true,
       "problemMatcher": []
     },
@@ -20,26 +27,48 @@
       "label": "Demo: agent and aggregator (5177)",
       "type": "shell",
       "command": "npx vite --port 5177 --strictPort",
-      "options": { "cwd": "${workspaceFolder}/apps/web", "env": { "VITE_API_MODE": "mock", "VITE_APP_SURFACE": "agent" } },
+      "options": {
+        "cwd": "${workspaceFolder}/apps/web",
+        "env": {
+          "VITE_API_MODE": "mock",
+          "VITE_APP_SURFACE": "agent"
+        }
+      },
       "isBackground": true,
       "problemMatcher": []
     },
     {
       "label": "Demo: run both",
-      "dependsOn": ["Demo: customer app (5175)", "Demo: agent and aggregator (5177)"],
+      "dependsOn": [
+        "Demo: customer app (5175)",
+        "Demo: agent and aggregator (5177)"
+      ],
       "dependsOrder": "parallel",
       "problemMatcher": []
     },
-
     {
       "label": "Live: install",
       "detail": "First time only: the API's Python packages (exact versions) and the web app's packages.",
       "type": "shell",
       "command": "python3 -m venv .venv && .venv/bin/pip install -r requirements.lock && .venv/bin/pip install --no-deps -e . && cd ../web && npm install --legacy-peer-deps",
       "windows": {
-        "command": "python -m venv .venv; if ($?) { .venv\\Scripts\\pip install -r requirements.lock }; if ($?) { .venv\\Scripts\\pip install --no-deps -e . }; if ($?) { cd ..\\web; npm install --legacy-peer-deps }"
+        "command": "py -3.12 -m venv .venv; if (-not $?) { python -m venv .venv }; if ($?) { .venv\\Scripts\\python -m pip install -r requirements.lock }; if ($?) { .venv\\Scripts\\python -m pip install --no-deps -e . }; if ($?) { cd ..\\web; npm install --legacy-peer-deps }",
+        "options": {
+          "cwd": "${workspaceFolder}/apps/api",
+          "shell": {
+            "executable": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-Command"
+            ]
+          }
+        }
       },
-      "options": { "cwd": "${workspaceFolder}/apps/api" },
+      "options": {
+        "cwd": "${workspaceFolder}/apps/api"
+      },
       "problemMatcher": []
     },
     {
@@ -47,7 +76,28 @@
       "detail": "The real API on a local demo database (apps/api/meeting-demo.db) with the demo accounts.",
       "type": "shell",
       "command": ".venv/bin/python -m uvicorn app.main:app --port 8000",
-      "windows": { "command": ".venv\\Scripts\\python -m uvicorn app.main:app --port 8000" },
+      "windows": {
+        "command": ".venv\\Scripts\\python -m uvicorn app.main:app --port 8000",
+        "options": {
+          "cwd": "${workspaceFolder}/apps/api",
+          "env": {
+            "APP_ENV": "development",
+            "SEED_ON_START": "true",
+            "OPERATOR_ADAPTER": "fake",
+            "DATABASE_URL": "sqlite+aiosqlite:///./meeting-demo.db",
+            "CORS_ORIGINS": "http://localhost:5173,http://localhost:5174,http://localhost:5181"
+          },
+          "shell": {
+            "executable": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-Command"
+            ]
+          }
+        }
+      },
       "options": {
         "cwd": "${workspaceFolder}/apps/api",
         "env": {
@@ -67,7 +117,10 @@
       "command": "npx vite --port 5173 --strictPort",
       "options": {
         "cwd": "${workspaceFolder}/apps/web",
-        "env": { "VITE_API_MODE": "live", "VITE_API_BASE_URL": "http://localhost:8000" }
+        "env": {
+          "VITE_API_MODE": "live",
+          "VITE_API_BASE_URL": "http://localhost:8000"
+        }
       },
       "isBackground": true,
       "problemMatcher": []
@@ -78,7 +131,11 @@
       "command": "npx vite --port 5174 --strictPort",
       "options": {
         "cwd": "${workspaceFolder}/apps/web",
-        "env": { "VITE_API_MODE": "live", "VITE_API_BASE_URL": "http://localhost:8000", "VITE_APP_SURFACE": "agent" }
+        "env": {
+          "VITE_API_MODE": "live",
+          "VITE_API_BASE_URL": "http://localhost:8000",
+          "VITE_APP_SURFACE": "agent"
+        }
       },
       "isBackground": true,
       "problemMatcher": []
@@ -89,7 +146,11 @@
       "command": "npx vite --port 5181 --strictPort",
       "options": {
         "cwd": "${workspaceFolder}/apps/web",
-        "env": { "VITE_API_MODE": "live", "VITE_API_BASE_URL": "http://localhost:8000", "VITE_APP_SURFACE": "national" }
+        "env": {
+          "VITE_API_MODE": "live",
+          "VITE_API_BASE_URL": "http://localhost:8000",
+          "VITE_APP_SURFACE": "national"
+        }
       },
       "isBackground": true,
       "problemMatcher": []
