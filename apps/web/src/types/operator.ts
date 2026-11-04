@@ -566,7 +566,49 @@ export const PERMISSIONS = {
   manageAgent: 'MANAGE_AGENT',
   /** Orange's national view: the map and counts for every agent in the country. Read only. */
   viewNational: 'VIEW_NATIONAL',
+  /** Upload Orange's daily Global Report in the national console. */
+  importGlobalReport: 'IMPORT_GLOBAL_REPORT',
 } as const
+
+/** One person or shop named in a report's preview: the row, the agent code and the name. */
+export interface ReportChangeItem {
+  row?: number
+  ref?: string
+  agent_code: string | null
+  name: string
+}
+
+export type ReportChangeKind = 'new' | 'updated' | 'deactivated' | 'reactivated' | 'moved' | 'located' | 'not_in_report'
+
+/** One upload of Orange's Global Report (GET/POST /national/reports). Counts, issues by row number, never a file value. */
+export interface GlobalReport {
+  id: string
+  report_date: string
+  file_name: string
+  size_bytes: number
+  uploaded_at: string
+  uploaded_by: string
+  status: 'previewed' | 'applying' | 'applied' | 'discarded'
+  applied_at: string | null
+  applied_by: string | null
+  duplicate?: boolean
+  summary: {
+    rows: number
+    importable: number
+    held_back: number
+    aggregators: number
+    issues: Record<string, number>
+    regions: Record<string, number>
+    rows_with_issues: { row: number; kind: string; issues: string[]; importable: boolean }[]
+    columns: { coordinates: boolean; float: boolean; commission: boolean; activity: boolean }
+    changes: {
+      counts: Record<ReportChangeKind, number>
+      lists: Record<ReportChangeKind, ReportChangeItem[]>
+      active_on_record: number
+    }
+    applied?: Record<string, number>
+  }
+}
 
 export const CAPACITY_RANGES: CapacityRange[] = [
   { word: 'most', label: 'Most', ceiling_sle: null, hint: 'above 10,000' },

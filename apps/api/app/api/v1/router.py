@@ -11,6 +11,7 @@ from app.api.v1 import (
     dealer,
     float_requests,
     float_sends,
+    global_report,
     network,
     reports,
     search,
@@ -49,6 +50,7 @@ api_v1.include_router(float_requests.router)
 api_v1.include_router(float_sends.router)
 api_v1.include_router(dealer.router)
 api_v1.include_router(network.router)
+api_v1.include_router(global_report.router)
 api_v1.include_router(reports.router)
 api_v1.include_router(auth.router)
 # admin.router is not mounted for the pilot; the admin surface returns after the competition.

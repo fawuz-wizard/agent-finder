@@ -169,7 +169,10 @@ async def test_h4_a_database_stamped_at_0001_with_tables_is_brought_forward(tmp_
     await migrate()  # used to fail: table dealers already exists
     async with dbsession.get_engine().connect() as conn:
         v = (await conn.execute(text("SELECT version_num FROM alembic_version"))).scalar_one()
-    assert v == "0006_device_lockout"
+    from alembic.script import ScriptDirectory
+    from app.db.migrate import alembic_config
+
+    assert v == ScriptDirectory.from_config(alembic_config()).get_current_head()
     await dbsession.dispose_engine()
 
 

@@ -113,4 +113,7 @@ export const api = {
   put: <T>(path: string, body: unknown, signal?: AbortSignal) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body), signal: signal ?? null }),
   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /** A file as the request body, as it is (no JSON, no form): the server reads its content. */
+  upload: <T>(path: string, file: Blob, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream', ...(headers ?? {}) } }),
 }

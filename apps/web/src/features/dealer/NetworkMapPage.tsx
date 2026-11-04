@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { LogoMark } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
@@ -103,6 +104,11 @@ export default function NetworkMapPage() {
           <span className="truncate">Agent network · {data?.scope_name ?? (national ? 'Sierra Leone' : '')}</span>
         </span>
         <span className="flex shrink-0 items-center gap-4 text-sm font-semibold text-finder-muted">
+          {can(PERMISSIONS.importGlobalReport) && (
+            <Link to="/national/reports" className="flex h-control items-center font-bold text-finder-link">
+              Global Report
+            </Link>
+          )}
           <span className="hidden md:inline">{session?.name}</span>
           <button type="button" onClick={signOut} className="h-control font-bold text-finder-link">
             Sign out

@@ -5,10 +5,11 @@ operator adapter and returned with their source.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -17,6 +18,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -411,3 +413,46 @@ class ExportLog(Base):
     what: Mapped[str] = mapped_column(String(40), nullable=False)
     filters: Mapped[str] = mapped_column(String(200), nullable=False)
     rows: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ReportImport(Base):
+    """One upload of Orange's Global Report. Read, cleaned and compared with what is on record
+    first (status "previewed"), written only when a person applies it ("applied") or set aside
+    ("discarded"). The cleaned rows wait here between the two steps, without the file's
+    personal columns, and are cleared once the report is applied or discarded. The same file
+    twice is one record (its SHA-256 is unique)."""
+
+    __tablename__ = "report_imports"
+
+    id: Mapped[str] = mapped_column(String(24), primary_key=True)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    file_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    uploaded_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    uploaded_by_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, index=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)  # JSON: counts, issues by row
+    rows: Mapped[str | None] = mapped_column(Text)  # JSON: cleaned rows, until applied
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    applied_by: Mapped[str | None] = mapped_column(String(120))
+
+
+class AgentDailyStat(Base):
+    """One agent's figures for one day, from Orange's Global Report: cash in, cash out, the
+    transaction count, and, when the report carries them, float and commission. Money figures:
+    never shown to customers; to an aggregator only with financial-detail permission."""
+
+    __tablename__ = "agent_daily_stats"
+    __table_args__ = (UniqueConstraint("agent_ref", "report_date", name="uq_daily_agent_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    cash_in: Mapped[float | None] = mapped_column(Float)
+    cash_out: Mapped[float | None] = mapped_column(Float)
+    tx_count: Mapped[float | None] = mapped_column(Float)
+    float_balance: Mapped[float | None] = mapped_column(Float)
+    commission: Mapped[float | None] = mapped_column(Float)
+    import_id: Mapped[str] = mapped_column(ForeignKey("report_imports.id"), nullable=False)

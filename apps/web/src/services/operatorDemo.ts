@@ -910,7 +910,7 @@ export function demoSignIn(ref: string, pin: string, role?: Role): Session {
   }
   // Orange's national account: sees every agent on the map and in the counts, changes nothing.
   if (role !== 'agent' && ident.toLowerCase() === 'orange' && pin === NATIONAL_DEMO_PIN) {
-    return { token: 'demo-national-token', role: 'dealer', name: 'Orange Sierra Leone', ref: 'orange', must_set_pin: false, permissions: [PERMISSIONS.viewAgent, PERMISSIONS.viewNational] }
+    return { token: 'demo-national-token', role: 'dealer', name: 'Orange Sierra Leone', ref: 'orange', must_set_pin: false, permissions: [PERMISSIONS.viewAgent, PERMISSIONS.viewNational, PERMISSIONS.importGlobalReport] }
   }
   if (dealer && pin === dealerSignIn.pin) {
     return {

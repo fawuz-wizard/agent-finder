@@ -51,6 +51,7 @@ const DealerReveals = lazy(() => import('@/features/dealer/RevealsPage'))
 const DealerActions = lazy(() => import('@/features/dealer/ActionsPage'))
 const NationalMap = lazy(() => import('@/features/dealer/NetworkMapPage'))
 const NationalSignIn = lazy(() => import('@/features/national/NationalSignInPage'))
+const GlobalReport = lazy(() => import('@/features/national/GlobalReportPage'))
 const NotFound = lazy(() => import('./NotFound'))
 
 function Fallback() {
@@ -69,7 +70,7 @@ const withSuspense = (el: React.ReactNode) => <Suspense fallback={<Fallback />}>
 // App never contain it, demo or live.
 const nationalRoutes: RouteObject[] = [
   { path: '/national/sign-in', element: withSuspense(<NationalSignIn />) },
-  { path: '/national', element: <RequireNational />, children: [{ index: true, element: withSuspense(<NationalMap />) }] },
+  { path: '/national', element: <RequireNational />, children: [{ index: true, element: withSuspense(<NationalMap />) }, { path: 'reports', element: withSuspense(<GlobalReport />) }] },
 ]
 
 const appRoutes: RouteObject[] = [

@@ -17,7 +17,7 @@ from app.db.models import Dealer, Session
 from app.db.session import get_session_factory
 from sqlalchemy import select
 
-NATIONAL_PERMS = "VIEW_AGENT,VIEW_NATIONAL"
+NATIONAL_PERMS = "VIEW_AGENT,VIEW_NATIONAL,IMPORT_GLOBAL_REPORT"
 
 
 async def main(account_id: str, name: str) -> None:
@@ -27,9 +27,10 @@ async def main(account_id: str, name: str) -> None:
         if d is None:
             d = Dealer(id=account_id, name=name, pin_hash="", permissions=NATIONAL_PERMS)
             db.add(d)
-        elif d.permissions != NATIONAL_PERMS:
+        elif "VIEW_NATIONAL" not in d.permissions.split(","):
             raise SystemExit(f"{account_id!r} is an aggregator account; choose another id")
         d.name = name
+        d.permissions = NATIONAL_PERMS
         d.pin_hash = hash_pin(code, account_id)
         d.must_set_pin = True
         d.code_issued_at = datetime.now(UTC)

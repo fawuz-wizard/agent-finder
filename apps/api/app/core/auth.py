@@ -28,6 +28,8 @@ PERMISSIONS = {
     "MANAGE_AGENT",
     # Orange's national view: the map and counts for every agent in the country. Read only.
     "VIEW_NATIONAL",
+    # Upload Orange's daily Global Report (national console): preview, then apply.
+    "IMPORT_GLOBAL_REPORT",
 }
 
 
