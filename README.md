@@ -43,6 +43,20 @@ $env:VITE_API_MODE="mock"; $env:VITE_APP_SURFACE="agent"; npx vite --port 5177
 $env:VITE_API_MODE="mock"; $env:VITE_APP_SURFACE="national"; npx vite --port 5178
 ```
 
+### Everything live in VS Code (API + all three apps, one shared database)
+Needs Python 3.11+ (3.12 recommended) and Node 22.
+1. Terminal > Run Task > **Live: install** (first time only).
+2. Terminal > Run Task > **Live: run all**. Four terminals open: the API and the three apps.
+3. Open:
+   - http://localhost:5173: customer app (tap the Agent Finder banner)
+   - http://localhost:5174: agent and aggregator app
+   - http://localhost:5181: Orange's national console (account `orange`, PIN `123456`), with **Global Report**
+4. The data lives in `apps/api/meeting-demo.db` (never uploaded to GitHub). Delete that file to start fresh.
+5. To stop, click the bin icon on each terminal.
+
+Each app can also be started alone (Terminal > Run Task > **Live: ...**), as long as **Live: API (8000)** is running.
+How the Global Report works, and a walk-through for showing it: `docs/global-report.md`.
+
 ### Signing in on the agent and aggregator app
 Nobody chooses a role; the number decides.
 

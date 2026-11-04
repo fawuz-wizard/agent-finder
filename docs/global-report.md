@@ -64,6 +64,9 @@ confirms the daily report's columns, new spellings are added in
 
 ## Show it on a laptop (no internet needed after installing)
 
+**In VS Code:** Terminal > Run Task > **Live: install** (first time), then **Live: run all**, and
+open http://localhost:5181. The terminal steps below do the same by hand.
+
 You need Python 3.12 and Node 22. Run each block in its own terminal, from the repository folder.
 
 **1. The API, with the demo accounts, on a fresh local database:**

@@ -27,7 +27,8 @@ infra/.pgdata/
 # editors / os
 .DS_Store
 .idea/
-.vscode/
+.vscode/*
+!.vscode/tasks.json
 
 # local sqlite (pilot default)
 apps/api/*.db
