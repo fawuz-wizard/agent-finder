@@ -89,7 +89,13 @@ async def test_no_trend_until_there_is_a_week_to_compare(client, dealer):
 
 
 @pytest.mark.asyncio
-async def test_tabs_page_20_at_a_time_and_filter_by_reason(client, dealer, frozen_clock):
+async def test_tabs_page_20_at_a_time_and_filter_by_reason(
+    client, dealer, frozen_clock, monkeypatch
+):
+    from app.api.v1 import reports
+
+    # Paging needs more reports on one agent than the hourly cap lets in (tests/test_limits).
+    monkeypatch.setattr(reports, "REPORTS_PER_AGENT_PER_HOUR", 100)
     for k in range(23):
         frozen_clock.advance(1)
         await _report(client, f"tok-pg-{k:02d}", "no", reason="could_not_complete")

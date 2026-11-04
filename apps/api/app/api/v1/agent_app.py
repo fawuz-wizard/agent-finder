@@ -7,13 +7,13 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Principal, hash_pin, require_role, token_key, verify_pin
 from app.core.errors import AppError
-from app.core.limits import check_sign_in_allowed, clear_sign_in_failures, rate_limit
+from app.core.limits import check_pin_allowed, clear_sign_in_failures, rate_limit
 from app.core.settings import get_settings
 from app.db.models import (
     Action,
@@ -343,6 +343,8 @@ def _customer_parts(msisdn: str | None) -> tuple[str | None, str | None]:
     digits = "".join(ch for ch in (msisdn or "") if ch.isdigit())
     if len(digits) < 8:
         return None, None
+    # Staging and production refuse to start without the key (core/settings); the fallback
+    # exists only for a laptop and the tests.
     key = (get_settings().customer_hash_key or "development-only-key").encode()
     return digits[-3:], hmac.new(key, digits[-8:].encode(), hashlib.sha256).hexdigest()
 
@@ -1039,7 +1041,7 @@ async def change_pin(
     out."""
     a = await load_agent(db, p.subject)
     key = f"pin-check:agent:{a.ref}"
-    await check_sign_in_allowed(db, key)
+    await check_pin_allowed(db, key)
     if not verify_pin(body.current_pin, a.ref, a.pin_hash):
         raise AppError("That PIN is not correct.", code="wrong_pin", status_code=403)
     await clear_sign_in_failures(db, key)
@@ -1048,9 +1050,11 @@ async def change_pin(
     a.pin_hash = hash_pin(body.new_pin, a.ref)
     token = authorization.split(" ", 1)[1].strip()
     await db.execute(
-        delete(Session).where(
-            Session.role == "agent", Session.subject == a.ref, Session.token != token_key(token)
-        )
+        # Revoked, not deleted: the rows say which phones are the owner's own, which the
+        # wrong-PIN lockout must keep recognising (core/limits.device_known).
+        update(Session)
+        .where(Session.role == "agent", Session.subject == a.ref, Session.token != token_key(token))
+        .values(revoked=True)
     )
     db.add(Action(actor=a.shop_name, agent_ref=a.ref, action="agent_pin", note="Changed their PIN"))
     await db.commit()

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from datetime import UTC, datetime
 
 from app.core.auth import hash_pin, new_code
 from app.core.limits import clear_sign_in_failures
@@ -24,6 +25,7 @@ async def main(subject: str) -> None:
         if d:
             d.pin_hash = hash_pin(code, d.id)
             d.must_set_pin = True
+            d.code_issued_at = datetime.now(UTC)
             role, who = "dealer", d.id
         else:
             a = (await db.execute(select(Agent).where(Agent.ref == subject))).scalar_one_or_none()
@@ -31,6 +33,7 @@ async def main(subject: str) -> None:
                 raise SystemExit(f"no agent or dealer called {subject!r}")
             a.pin_hash = hash_pin(code, a.ref)
             a.must_set_pin = True
+            a.code_issued_at = datetime.now(UTC)
             role, who = "agent", a.ref
         for s in (
             await db.execute(select(Session).where(Session.role == role, Session.subject == who))

@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
+# Pinned: the container builds the app with exactly this, not whatever is newest that day.
+requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]

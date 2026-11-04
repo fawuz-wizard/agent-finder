@@ -117,6 +117,18 @@ async def create(
     except IntegrityError:
         # Another request from this agent got in at the same moment (the database keeps one).
         await db.rollback()
+        if body.client_token:
+            # The same tap sent twice at once: the first one's result, not an error.
+            first = (
+                await db.execute(
+                    select(FloatRequest).where(
+                        FloatRequest.client_token == body.client_token,
+                        FloatRequest.agent_ref == a.ref,
+                    )
+                )
+            ).scalar_one_or_none()
+            if first:
+                return float_out(first, a.shop_name, now)
         raise AppError(
             "You already have a request waiting. Cancel it first if the amount has changed.",
             code="request_open",

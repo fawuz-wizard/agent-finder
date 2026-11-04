@@ -27,6 +27,7 @@ from app.db.models import (
     AvailabilityEvent,
     Dealer,
     DealerPhoto,
+    ExportLog,
     FloatRequest,
     OutcomeReport,
     SearchImpression,
@@ -1000,6 +1001,7 @@ async def register_agent(
         verified=body.verified,
         pin_hash=hash_pin(code, ref),
         must_set_pin=True,
+        code_issued_at=datetime.now(UTC),
         presence="closed",  # until the agent signs in and taps Open
         open_hour=o // 60,
         close_hour=max(o // 60 + 1, c // 60),
@@ -1176,6 +1178,7 @@ async def issue_code(
     code = new_code()
     a.pin_hash = hash_pin(code, a.ref)
     a.must_set_pin = True
+    a.code_issued_at = datetime.now(UTC)
     sessions = (
         await db.execute(select(Session).where(Session.role == "agent", Session.subject == a.ref))
     ).scalars()
@@ -1220,8 +1223,29 @@ def _csv(rows: list[dict], filename: str) -> Response:
     )
 
 
-async def report_rows(db: AsyncSession, p: Principal, now: datetime) -> list[dict]:
+FINANCIAL = "VIEW_AGENT_FINANCIAL_DETAIL"
+
+
+async def report_rows(db: AsyncSession, p: Principal, now: datetime, purpose: str) -> list[dict]:
+    """One row per agent. Orange's money figures (cash in, cash out, transactions) are only
+    for an aggregator allowed to see financial detail, and every report that carries them is
+    recorded in the audit log first, one row per agent: who, which agent, why, never the
+    value."""
     agents = await my_agents(db, p.subject)
+    with_money = p.can(FINANCIAL)
+    if with_money and agents:
+        db.add_all(
+            AuditLog(
+                actor=p.name,
+                actor_id=p.subject,
+                permission=FINANCIAL,
+                agent_ref=a.ref,
+                field="orange_month",
+                purpose=purpose,
+            )
+            for a in agents
+        )
+        await db.commit()
     trust = await trust_for(db, agents, now)
     ledgers = await ledgers_for(db, agents, now)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1252,12 +1276,36 @@ async def report_rows(db: AsyncSession, p: Principal, now: datetime) -> list[dic
                 "found_you_today": counts["found"],
                 "reported_problems_today": counts["problems"],
                 "logged_transactions_today": counts["logged"],
-                "orange_april_cash_in": a.orange_cash_in if a.orange_cash_in is not None else "",
-                "orange_april_cash_out": a.orange_cash_out if a.orange_cash_out is not None else "",
-                "orange_april_tx_count": a.orange_tx_count if a.orange_tx_count is not None else "",
             }
         )
+        if with_money:
+            rows[-1].update(
+                {
+                    "orange_april_cash_in": _blank(a.orange_cash_in),
+                    "orange_april_cash_out": _blank(a.orange_cash_out),
+                    "orange_april_tx_count": _blank(a.orange_tx_count),
+                }
+            )
     return rows
+
+
+def _blank(value: object) -> object:
+    return "" if value is None else value
+
+
+async def log_export(db: AsyncSession, p: Principal, what: str, filters: str, rows: int) -> None:
+    """Recorded before the file leaves: who took which list, never what was in it."""
+    db.add(
+        ExportLog(
+            at=now_utc(),
+            actor=p.name,
+            actor_id=p.subject,
+            what=what[:40],
+            filters=(filters or "all")[:200],
+            rows=rows,
+        )
+    )
+    await db.commit()
 
 
 async def count_today(db: AsyncSession, ref: str, start: datetime) -> dict[str, int]:
@@ -1293,14 +1341,15 @@ async def count_today(db: AsyncSession, ref: str, start: datetime) -> dict[str, 
 
 @router.get(
     "/dealer/report",
-    summary="The Global Report for my agents — status, location, activity, never money",
+    summary="The Global Report for my agents — status, location, activity; Orange's money "
+    "figures only with financial-detail permission, audited",
 )
 async def dealer_report(
     p: Principal = Depends(require_permission("VIEW_AGENT")),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     now = now_utc()
-    rows = await report_rows(db, p, now)
+    rows = await report_rows(db, p, now, "Agent report (screen)")
     by_region: dict[str, int] = {}
     by_bucket: dict[str, int] = {}
     for r in rows:
@@ -1324,7 +1373,9 @@ async def dealer_report_csv(
     db: AsyncSession = Depends(get_session),
 ) -> Response:
     now = now_utc()
-    return _csv(await report_rows(db, p, now), f"agent-report-{date.today().isoformat()}.csv")
+    rows = await report_rows(db, p, now, "Agent report (CSV download)")
+    await log_export(db, p, "report.csv", "all", len(rows))
+    return _csv(rows, f"agent-report-{date.today().isoformat()}.csv")
 
 
 RECORD_KINDS = ("searches", "reports", "transactions", "actions", "usage", "audit")
@@ -1415,10 +1466,9 @@ async def records_csv(
                 }
             )
     elif kind == "usage":
-        q = select(UsageEvent).where(
-            (UsageEvent.agent_ref.in_(refs)) | (UsageEvent.actor_kind == "customer"),
-            UsageEvent.at >= start,
-        )
+        # Only events about my own agents: a customer event names the agent it was about,
+        # and one with no agent (a search) belongs to no aggregator.
+        q = select(UsageEvent).where(UsageEvent.agent_ref.in_(refs), UsageEvent.at >= start)
         for x in (await db.execute(q.order_by(UsageEvent.at))).scalars().all():
             rows.append(
                 {
@@ -1440,4 +1490,5 @@ async def records_csv(
                     "purpose": x.purpose,
                 }
             )
+    await log_export(db, p, f"records/{kind}.csv", f"since={start.date().isoformat()}", len(rows))
     return _csv(rows, f"{kind}-{date.today().isoformat()}.csv")

@@ -8,8 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000
 
 WORKDIR /app
+# The exact versions first (requirements.lock), then the app itself without re-resolving.
+COPY requirements.lock .
+RUN pip install -r requirements.lock
 COPY . .
-RUN pip install --upgrade pip && pip install .
+RUN pip install --no-deps .
 
 # Never root inside the container.
 RUN useradd --create-home --uid 10001 api && chown -R api:api /app

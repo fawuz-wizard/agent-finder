@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from datetime import UTC, datetime
 
 from app.core.auth import hash_pin, new_code
 from app.db.models import Dealer, Session
@@ -31,6 +32,7 @@ async def main(account_id: str, name: str) -> None:
         d.name = name
         d.pin_hash = hash_pin(code, account_id)
         d.must_set_pin = True
+        d.code_issued_at = datetime.now(UTC)
         for s in (
             await db.execute(
                 select(Session).where(Session.role == "dealer", Session.subject == account_id)

@@ -35,11 +35,22 @@ def upgrade() -> None:
                 batch.add_column(sa.Column("actor_id", sa.String(length=40), nullable=True))
             if f"ix_{table}_actor_id" not in indexes:
                 batch.create_index(f"ix_{table}_actor_id", ["actor_id"])
+        # Only rows an aggregator wrote: an agent's own rows (their PIN, a note, their photo or
+        # pin) carry the agent's name as actor, and a shop named like an aggregator must not
+        # hand that aggregator the agent's history.
+        agent_wrote = (
+            " AND actions.action NOT LIKE 'agent\\_%' ESCAPE '\\'"
+            " AND NOT EXISTS (SELECT 1 FROM agents a WHERE a.ref = actions.agent_ref"
+            " AND actions.actor IN (a.shop_name, a.person_name))"
+            if table == "actions"
+            else ""
+        )
         op.execute(
             f"""
             UPDATE {table} SET actor_id = (SELECT d.id FROM dealers d WHERE d.name = {table}.actor)
             WHERE actor_id IS NULL
               AND (SELECT COUNT(*) FROM dealers d WHERE d.name = {table}.actor) = 1
+              {agent_wrote}
             """
         )
     bind = op.get_bind()

@@ -9,15 +9,16 @@ import re
 from datetime import timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import (
     Principal,
     current_principal,
     hash_pin,
+    needs_rehash,
     new_token,
     settled_principal,
     token_key,
@@ -25,9 +26,15 @@ from app.core.auth import (
 )
 from app.core.errors import AppError, UnauthorizedError
 from app.core.limits import (
+    check_pin_allowed,
     check_sign_in_allowed,
     clear_sign_in_failures,
+    client_address,
+    code_is_fresh,
+    device_id,
+    device_known,
     limited,
+    new_devices_refused,
 )
 from app.db.models import Action, Agent, Dealer, Session
 from app.db.session import get_session
@@ -141,6 +148,7 @@ async def find_dealer(db: AsyncSession, ident: str) -> Dealer | None:
 
 @router.post("/sign-in", response_model=SessionOut, summary="Sign in as an agent or a dealer")
 async def sign_in(
+    request: Request,
     body: SignInRequest,
     db: AsyncSession = Depends(get_session),
     # On top of the per-account lockout: one phone or address trying many accounts.
@@ -148,28 +156,68 @@ async def sign_in(
         limited("sign-in", per_client=30, per_address=300, window=timedelta(minutes=10))
     ),
     user_agent: str | None = Header(default=None),
+    x_client: str | None = Header(default=None),
 ) -> SessionOut:
     ident = body.ref.strip()
     agent = await find_agent(db, ident) if body.role != "dealer" else None
     dealer = await find_dealer(db, ident.lower()) if body.role != "agent" else None
-    # The lockout counts against the account, however its number is typed (076…, +232…,
-    # 76-…): otherwise every spelling would get its own five tries. A typed name that matches
-    # no account is counted under what was typed, so guessing who exists is slowed too.
-    keys = [f"sign-in:agent:{agent.ref}"] if agent else []
-    keys += [f"sign-in:dealer:{dealer.id}"] if dealer else []
-    keys = keys or [f"sign-in:unknown:{ident.lower() or '-'}"]
-    for key in keys:
-        await check_sign_in_allowed(db, key)
-    device = (user_agent or "")[:80]
+    device = device_id(x_client, client_address(request))
+    # Counted per account, however its number is typed (076…, +232…, 76-…), and per device:
+    # wrong PINs lock the phone that typed them, never the owner's own phone (core/limits).
+    # A name that matches no account is counted under its normal form, the same way, so the
+    # lockout's answer does not tell a guesser which names exist.
+    accounts: list[tuple[str, tuple[str, str] | None]] = []
+    if agent:
+        accounts.append((f"sign-in:agent:{agent.ref}", ("agent", agent.ref)))
+    if dealer:
+        accounts.append((f"sign-in:dealer:{dealer.id}", ("dealer", dealer.id)))
+    if not accounts:
+        accounts.append((f"sign-in:unknown:{_normal_form(ident)}", None))
+    crowded = False  # an account's count for new phones is used up
+    for key, account in accounts:
+        known = await device_known(db, account, device)
+        crowded |= await check_sign_in_allowed(db, key, device, known_device=known)
+    label = (user_agent or "")[:80]
+
+    async def opened(role: str, subject: str, account: Agent | Dealer, salt: str) -> str:
+        # This device's counts end for every account tried in this request: a number that is
+        # both an agent's and an aggregator's must not lock itself by being typed correctly.
+        for key, _ in accounts:
+            await clear_sign_in_failures(db, key, device)
+        if needs_rehash(account.pin_hash):
+            account.pin_hash = hash_pin(body.pin, salt)
+        token = new_token()
+        db.add(
+            Session(
+                token=token_key(token),
+                role=role,
+                subject=subject,
+                device_label=label,
+                client=device,
+            )
+        )
+        return token
+
     # The same number may be an agent's line and an aggregator's: the PIN says which one is
     # signing in. Whoever the number is not, the answer is the same wrong-PIN sentence, so a
     # guess learns nothing about who exists.
-    if agent is not None and verify_pin(body.pin, agent.ref, agent.pin_hash):
-        await clear_sign_in_failures(db, f"sign-in:agent:{agent.ref}")
-        token = new_token()
-        db.add(
-            Session(token=token_key(token), role="agent", subject=agent.ref, device_label=device)
-        )
+    # Past the new-phone count only a fresh one-time code gets in; the PIN is still checked
+    # first, so the answer and its timing are the same whether it was right or wrong.
+    agent_ok = agent is not None and verify_pin(body.pin, agent.ref, agent.pin_hash)
+    dealer_ok = (
+        not agent_ok and dealer is not None and verify_pin(body.pin, dealer.id, dealer.pin_hash)
+    )
+    # No account by that name: spend the same time checking a PIN, so the answer's timing does
+    # not tell a guesser who exists. The attempt was already counted by check_sign_in_allowed.
+    if agent is None and dealer is None:
+        verify_pin(body.pin, "no-such-account", _DUMMY_HASH)
+    if crowded and not (
+        (agent_ok and code_is_fresh(agent.must_set_pin, agent.code_issued_at))
+        or (dealer_ok and code_is_fresh(dealer.must_set_pin, dealer.code_issued_at))
+    ):
+        raise new_devices_refused()
+    if agent_ok:
+        token = await opened("agent", agent.ref, agent, agent.ref)
         await db.commit()
         return SessionOut(
             token=token,
@@ -179,15 +227,11 @@ async def sign_in(
             permissions=[],
             must_set_pin=agent.must_set_pin,
         )
-    if dealer is not None and verify_pin(body.pin, dealer.id, dealer.pin_hash):
-        await clear_sign_in_failures(db, f"sign-in:dealer:{dealer.id}")
+    if dealer_ok:
+        token = await opened("dealer", dealer.id, dealer, dealer.id)
         if is_national(dealer) and len(body.pin) < NATIONAL_PIN_DIGITS:
             # A short PIN from before the rule: this session may only choose a 6-digit one.
             dealer.must_set_pin = True
-        token = new_token()
-        db.add(
-            Session(token=token_key(token), role="dealer", subject=dealer.id, device_label=device)
-        )
         await db.commit()
         return SessionOut(
             token=token,
@@ -197,11 +241,19 @@ async def sign_in(
             permissions=[p for p in dealer.permissions.split(",") if p],
             must_set_pin=dealer.must_set_pin,
         )
-    # No account by that name: spend the same time checking a PIN, so the answer's timing does
-    # not tell a guesser who exists. The attempt was already counted by check_sign_in_allowed.
-    if agent is None and dealer is None:
-        verify_pin(body.pin, "no-such-account", _DUMMY_HASH)
     raise UnauthorizedError("That PIN is not correct.")
+
+
+def _normal_form(ident: str) -> str:
+    """One spelling for a name that matches no account, as find_agent reads it: a phone line
+    in any format, '24', '024' and 'Agent 024' are the same name."""
+    text = ident.strip().lower()
+    if m := as_msisdn(text):
+        return f"line:{m}"
+    digits = text.removeprefix("agent").strip()
+    if digits.isdigit():
+        return f"agent:{int(digits)}"
+    return text or "-"
 
 
 @router.post("/pin", summary="Choose my PIN after signing in with a one-time code")
@@ -272,7 +324,7 @@ async def change_pin(
         raise UnauthorizedError("That session has ended. Sign in again.")
     # Same lockout as signing in; a new PIN signs out every other phone.
     key = f"pin-check:{p.role}:{p.subject}"
-    await check_sign_in_allowed(db, key)
+    await check_pin_allowed(db, key)
     if not verify_pin(body.current_pin, salt, account.pin_hash):
         raise AppError("That PIN is not correct.", code="wrong_pin", status_code=403)
     await clear_sign_in_failures(db, key)
@@ -282,9 +334,13 @@ async def change_pin(
     account.pin_hash = hash_pin(body.new_pin, salt)
     token = (authorization or "").split(" ", 1)[-1].strip()
     await db.execute(
-        delete(Session).where(
+        # Revoked, not deleted: the rows say which phones are the owner's own, which the
+        # wrong-PIN lockout must keep recognising (core/limits.device_known).
+        update(Session)
+        .where(
             Session.role == p.role, Session.subject == p.subject, Session.token != token_key(token)
         )
+        .values(revoked=True)
     )
     if p.role == "agent":
         db.add(
@@ -316,7 +372,7 @@ async def check_pin(
     asks. Nothing moves and no session is made; wrong guesses count against the same lockout
     as signing in, so the keypad cannot be used to guess the PIN."""
     key = f"pin-check:{p.role}:{p.subject}"
-    await check_sign_in_allowed(db, key)
+    await check_pin_allowed(db, key)
     if p.role == "dealer":
         account = await db.get(Dealer, p.subject)
         salt = account.id if account else ""

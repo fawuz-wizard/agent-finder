@@ -37,7 +37,9 @@ async def test_a_wrong_pin_lockout_is_kept_in_the_database(client):
     async with dbsession.get_session_factory()() as db:
         n = (
             await db.execute(
-                select(func.count()).select_from(RateEvent).where(RateEvent.key.like("fail:%"))
+                select(func.count())
+                .select_from(RateEvent)
+                .where(RateEvent.key.like("fail:sign-in:agent:Agent 024:dev:%"))
             )
         ).scalar_one()
     # Every attempt is recorded first (five wrong, then the refused sixth).
@@ -116,16 +118,22 @@ async def test_records_per_hour_are_capped_per_agent_and_a_retry_is_free(
     assert r.status_code == 429 and "Too many requests" in r.text
 
 
-async def _earlier_failures(key: str, n: int) -> None:
-    """Wrong PINs typed an hour ago: outside the 15-minute lockout, inside today's count."""
+TEST_ADDRESS = "127.0.0.1"  # the test client's address (httpx ASGITransport)
+
+
+async def _earlier_failures(key: str, n: int, x_client: str | None = None) -> None:
+    """Wrong PINs typed an hour ago from the test client's device: outside the 15-minute
+    lockout, inside today's count."""
     from datetime import UTC, datetime, timedelta
 
+    from app.core.limits import device_id
     from app.db import session as dbsession
     from app.db.models import RateEvent
 
+    dev = device_id(x_client, TEST_ADDRESS)
     async with dbsession.get_session_factory()() as db:
         at = datetime.now(UTC) - timedelta(hours=1)
-        db.add_all([RateEvent(key=f"fail:{key}", at=at) for _ in range(n)])
+        db.add_all([RateEvent(key=f"fail:{key}:dev:{dev}", at=at) for _ in range(n)])
         await db.commit()
 
 

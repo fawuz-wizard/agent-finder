@@ -31,12 +31,70 @@ PERMISSIONS = {
 }
 
 
-def hash_pin(pin: str, salt: str) -> str:
+PEPPERED = "p1$"
+
+
+def _legacy_hash(pin: str, salt: str) -> str:
     return hashlib.pbkdf2_hmac("sha256", pin.encode(), salt.encode(), 100_000).hex()
 
 
+def hash_pin(pin: str, salt: str) -> str:
+    """PBKDF2 over an HMAC of the PIN with PIN_PEPPER, a secret that lives only in the host's
+    secret store: a copy of the database or a backup is not enough to try the 10^4 PINs."""
+    from app.core.settings import get_settings
+
+    pepper = get_settings().pin_pepper.encode()
+    peppered = hmac.new(pepper, pin.encode(), hashlib.sha256).digest()
+    return PEPPERED + hashlib.pbkdf2_hmac("sha256", peppered, salt.encode(), 100_000).hex()
+
+
+# A hash from before the pepper, sealed with it in place (wrap_legacy_hashes): HMAC with the
+# pepper over the old PBKDF2, so a copy of the database no longer opens it either.
+WRAPPED = "p2$"
+
+
+def _wrap(legacy: str) -> str:
+    from app.core.settings import get_settings
+
+    pepper = get_settings().pin_pepper.encode()
+    return WRAPPED + hmac.new(pepper, legacy.encode(), hashlib.sha256).hexdigest()
+
+
 def verify_pin(pin: str, salt: str, stored: str) -> bool:
-    return hmac.compare_digest(hash_pin(pin, salt), stored)
+    """Constant-time. Older hashes (wrapped, or from before the pepper) still verify;
+    needs_rehash says to replace them the next time their owner signs in."""
+    if stored.startswith(PEPPERED):
+        return hmac.compare_digest(hash_pin(pin, salt), stored)
+    if stored.startswith(WRAPPED):
+        return hmac.compare_digest(_wrap(_legacy_hash(pin, salt)), stored)
+    return hmac.compare_digest(PEPPERED + _legacy_hash(pin, salt), PEPPERED + stored)
+
+
+def needs_rehash(stored: str) -> bool:
+    return not stored.startswith(PEPPERED)
+
+
+async def wrap_legacy_hashes(db: AsyncSession) -> int:
+    """At start-up: every PIN or unused code hashed before the pepper is sealed with it now,
+    not only when its owner next signs in (some never do). Returns how many were sealed."""
+    from app.db.models import Agent
+
+    sealed = 0
+    for model in (Agent, Dealer):
+        rows = (
+            await db.execute(
+                select(model).where(
+                    model.pin_hash != "",
+                    model.pin_hash.not_like(f"{PEPPERED}%"),
+                    model.pin_hash.not_like(f"{WRAPPED}%"),
+                )
+            )
+        ).scalars()
+        for row in rows:
+            row.pin_hash = _wrap(row.pin_hash)
+            sealed += 1
+    await db.commit()
+    return sealed
 
 
 def new_token() -> str:

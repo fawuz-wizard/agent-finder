@@ -136,6 +136,18 @@ async def record_send(
         await db.commit()
     except IntegrityError:
         await db.rollback()
+        if body.client_token:
+            # The same tap sent twice at once: the first one's result, not an error.
+            first = (
+                await db.execute(
+                    select(FloatSend).where(
+                        FloatSend.client_token == body.client_token,
+                        FloatSend.dealer_id == p.subject,
+                    )
+                )
+            ).scalar_one_or_none()
+            if first:
+                return _out(first, a.shop_name, first.actor)
         raise AppError(
             "That send was already recorded.", code="duplicate", status_code=409
         ) from None

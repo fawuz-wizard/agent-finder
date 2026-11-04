@@ -104,7 +104,12 @@ async def agent_detail(
 
 
 @router.get("/{public_id}/photo", summary="The shop's picture, when the agent has taken one")
-async def agent_photo(public_id: str, db: AsyncSession = Depends(get_session)) -> Response:
+async def agent_photo(
+    public_id: str,
+    db: AsyncSession = Depends(get_session),
+    # Pictures are bigger than answers: walking the ids to copy every shop's photo is slowed.
+    _limit: None = Depends(limited("photo", per_client=120, per_address=1200)),
+) -> Response:
     """Bytes only, for the app's image tag. 404 for a shop that is not on the customer map,
     the same answer as for one that does not exist."""
     a = (

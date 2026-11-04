@@ -59,21 +59,45 @@ agent may record at most 120 transactions an hour. Every download of the agents 
 in `export_log` (who, when, filter, row count). Customer search allows 60 a minute per device and 600 per network
 address (many phones share one address on mobile networks); the public agent page 120 and
 1,200; sign-in 30 and 300 per 10 minutes. Behind a load balancer, make sure the API sees the
-customer's address, not the balancer's, or the address limits will be shared by everyone.
+customer's address, not the balancer's, or the address limits will be shared by everyone:
+set `FORWARDED_ALLOW_IPS` (below).
 
-**Backups**, from `apps/api`, on a schedule (daily at least), each followed by its check:
+**Wrong PINs** lock the device that typed them (5 in 15 minutes, 20 a day), never the owner's
+own phone. Devices the account has never signed in from share one count (10 in 15 minutes,
+20 a day); past it, only a phone used before or a new sign-in code gets in: a code read out in
+the last 30 minutes gets through even a full count, so a stranger cannot keep its owner out. A
+new code clears every count for the account, and changing a PIN signs the other phones out
+without forgetting that they are the owner's. Aggregators and Orange get a new code from the
+team: `python -m scripts.issue_code <account id>`.
 
-    .venv/bin/python scripts/backup_db.py backup --dir /secure/backups --keep 14
-    .venv/bin/python scripts/backup_db.py check  --dir /secure/backups
+PINs and codes hashed before `PIN_PEPPER` existed are sealed with it at start-up and replaced
+by the full form at their owner's next sign-in. Run every script that sets PINs (imports,
+codes) with the same `PIN_PEPPER` as the server, or the hashes it writes will never match.
 
-`check` restores the newest backup into a scratch database and counts every table; for
-PostgreSQL set `RESTORE_CHECK_URL` to an empty scratch database. Keep backups encrypted, off
-GitHub (`backups/` and `*.dump` are git-ignored) and copied to a second place.
+**Backups**, from `apps/api`, on a schedule (daily at least), each followed by its check where
+the private key is kept. The folder must be outside the repository; on a live server the
+backup must be encrypted and copied to a second place, or the script refuses:
 
-**Before going live** (from the security review of 2026-11-01):
-- `APP_ENV=production` exactly: it hides `/docs`, refuses localhost CORS origins and never seeds
-  demo PINs. Production also refuses to start without `CORS_ORIGINS` and `CUSTOMER_HASH_KEY`.
-- Behind a load balancer, start the API with `--forwarded-allow-ips` set to the balancer's
-  addresses only (never `*`), so the per-address limits see each customer's own address.
+    .venv/bin/python -m scripts.backup_db backup --dir /secure/backups --keep 14 \
+        --encrypt-to backups@agentfinder --copy-to s3://agentfinder-backups/db
+    .venv/bin/python -m scripts.backup_db check  --dir /secure/backups
+
+Each backup has a manifest of every table's row count; `check` restores the newest backup into
+a scratch database and fails on a table missing or short. For PostgreSQL set
+`RESTORE_CHECK_URL` to an empty scratch database; the script refuses any database that holds
+tables it did not restore itself, whatever its address.
+On AWS the managed database's own encrypted backups, copied to a second region, come first.
+
+**Before going live** (security reviews of 2026-11-01 and 2026-11-04). A live server
+(`APP_ENV=staging` or `production`) refuses to start without each of these:
+- `CUSTOMER_HASH_KEY` and `PIN_PEPPER`: 32 or more random characters each, from the host's
+  secret store. A PIN hash from before the pepper is replaced at its owner's next sign-in.
+- `SEED_ON_START` false: the demo accounts' PINs are public.
+- Production only: `FORWARDED_ALLOW_IPS`, the load balancer's address range (never `*`), and
+  `CORS_ORIGINS` listing only `https://` origins (plus `https://localhost` and
+  `capacitor://localhost` for the Android app).
+- `/docs` is off in production. The container runs uvicorn without its own proxy handling or
+  access log: the app reads the forwarded address, and logs paths without query strings.
+- Dependencies install from `apps/api/requirements.lock`; CI runs `pip-audit` on it.
 - Still open: one-time sign-in codes do not expire yet (an aggregator re-issues one if lost).
 

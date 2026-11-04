@@ -34,6 +34,10 @@ class Dealer(Base, TimestampMixin):
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     # True while the account holds a one-time sign-in code, not a PIN the person chose.
     must_set_pin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # When the one-time code now in pin_hash was issued. For a short while after, a sign-in
+    # with it is let through the new-phone lockout (core/limits): the code is how a locked-out
+    # person gets back in, so a stranger filling that count must not be able to stop it.
+    code_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Named grants, comma-separated. The API is the authority on these.
     permissions: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # Orange's regions: east | north | west | south. Derived from the city on import.
@@ -119,6 +123,10 @@ class Agent(Base, TimestampMixin):
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     # True while the account holds a one-time sign-in code, not a PIN the person chose.
     must_set_pin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # When the one-time code now in pin_hash was issued. For a short while after, a sign-in
+    # with it is let through the new-phone lockout (core/limits): the code is how a locked-out
+    # person gets back in, so a stranger filling that count must not be able to stop it.
+    code_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Current declaration. PRIVATE words; compared server-side only.
     presence: Mapped[str] = mapped_column(
@@ -325,6 +333,9 @@ class Session(Base):
     )
     device_label: Mapped[str | None] = mapped_column(String(80))
     revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # A hash of the device that signed in (core/limits.device_id): a phone the account has
+    # used before is never refused by the lockout that guards against new phones.
+    client: Mapped[str | None] = mapped_column(String(32), index=True)
 
 
 class SearchImpression(Base):

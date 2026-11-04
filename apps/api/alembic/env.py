@@ -19,7 +19,9 @@ config = context.config
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# configparser reads "%" as interpolation, and a generated database password is URL-encoded
+# (%40 for @): doubled here, or start-up fails and the error message carries the password.
+config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 
