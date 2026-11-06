@@ -199,3 +199,23 @@ async def test_admin_surface_is_not_mounted_for_the_pilot(client, dealer):
 def test_production_without_a_customer_hash_key_refuses_to_start(monkeypatch):
     with pytest.raises(ValidationError, match="CUSTOMER_HASH_KEY must be set in production"):
         _settings(app_env="production", cors_origins="https://agentfinder.example")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("env", ["staging", "production"])
+async def test_a_public_server_hides_the_api_docs_and_insists_on_https(env):
+    """Staging is a public address too: no API map for strangers, and browsers are told to
+    use HTTPS only (HSTS). A laptop in development keeps both."""
+    from httpx import ASGITransport, AsyncClient
+
+    app = create_app(_settings(app_env=env, **LIVE))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as c:
+        for path in ("/docs", "/openapi.json", "/redoc"):
+            assert (await c.get(path)).status_code == 404, path
+        r = await c.get("/health")
+        assert r.headers["strict-transport-security"].startswith("max-age=")
+        assert r.headers["x-frame-options"] == "DENY"
+    dev = create_app(_settings(app_env="development"))
+    async with AsyncClient(transport=ASGITransport(app=dev), base_url="http://test") as c:
+        assert (await c.get("/openapi.json")).status_code == 200
+        assert "strict-transport-security" not in (await c.get("/health")).headers

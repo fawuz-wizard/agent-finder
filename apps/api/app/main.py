@@ -62,14 +62,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=settings.app_version,
         description=DESCRIPTION,
         lifespan=lifespan,
-        docs_url=None if settings.is_production else "/docs",
+        docs_url=None if settings.is_live else "/docs",
         redoc_url=None,
-        openapi_url=None if settings.is_production else "/openapi.json",
+        openapi_url=None if settings.is_live else "/openapi.json",
     )
     app.state.settings = settings
 
     # Middleware order: outermost first. Request id must wrap everything so logs carry it.
-    app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_production)
+    app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_live)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

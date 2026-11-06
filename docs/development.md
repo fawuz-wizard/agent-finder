@@ -96,8 +96,21 @@ On AWS the managed database's own encrypted backups, copied to a second region, 
 - Production only: `FORWARDED_ALLOW_IPS`, the load balancer's address range (never `*`), and
   `CORS_ORIGINS` listing only `https://` origins (plus `https://localhost` and
   `capacitor://localhost` for the Android app).
-- `/docs` is off in production. The container runs uvicorn without its own proxy handling or
+- `/docs` and `/openapi.json` are off on staging and production, and every answer carries HSTS
+  (HTTPS only). The container runs uvicorn without its own proxy handling or
   access log: the app reads the forwarded address, and logs paths without query strings.
 - Dependencies install from `apps/api/requirements.lock`; CI runs `pip-audit` on it.
 - Still open: one-time sign-in codes do not expire yet (an aggregator re-issues one if lost).
+
+**The seven classic holes** (checked 2026-11-06; the tests named here keep them shut):
+
+| | Hole | How Agent Finder locks it |
+|---|---|---|
+| 1 | A secret key in the browser code | Only `VITE_*` values reach the browser, and none is secret (API address, Sentry DSN, map keys). A scan of a live build found no server secret. **At hosting:** restrict the TomTom and Google Maps keys to the site's domains and the Android app in their consoles. |
+| 2 | The `.env` file on the live site | `.dockerignore` keeps `.env*` out of the API image; the web build ships only `dist/` (no `.env`). **At hosting:** upload `dist/` only. |
+| 3 | A login only checked in the browser | Every API route checks the session on the server except the public ones (search, an agent's public page and photo, sign-in, customer reports, health), which are rate-limited. |
+| 4 | Change the number in the address: someone else's record | Every record is checked against its owner; the wrong owner gets the same 404 as a missing one (`tests/test_other_aggregator_404.py`, plus the scoping tests per feature). |
+| 5 | No row level security: the whole database answers | No browser talks to the database; the API is the only door. **At hosting:** the database sits in a private network with no public address, reachable only from the API. |
+| 6 | An admin page hidden, not locked | The national console and Global Report need an account and the `IMPORT_GLOBAL_REPORT` / national permissions, checked on the server (404 otherwise); API docs are off on public servers. |
+| 7 | No HTTPS | HSTS on staging and production (`test_a_public_server_hides_the_api_docs_and_insists_on_https`), `https://`-only CORS in production, sessions in a header, not a cookie. **At hosting:** the load balancer and CDN redirect HTTP to HTTPS. |
 
