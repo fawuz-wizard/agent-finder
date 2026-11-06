@@ -40,6 +40,8 @@ const ISSUE_TEXT: Record<string, string> = {
   short_address: 'address too short',
   name_has_digits: 'name contains digits',
   bad_coordinates: 'location not in Sierra Leone (not used)',
+  aggregator_clash: "aggregator's line belongs to another account (set aside)",
+  line_in_use: 'Orange Money number already belongs to another account (set aside)',
 }
 
 const COLUMN_TEXT: { key: keyof GlobalReport['summary']['columns']; label: string }[] = [

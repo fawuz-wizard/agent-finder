@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Header, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Principal, require_permission
@@ -51,6 +52,17 @@ class ApplyBody(BaseModel):
 
 def _today() -> date:
     return datetime.now(ZoneInfo(get_settings().app_timezone)).date()
+
+
+# The preview lists at most this many rows with problems; the counts say how many in all.
+MAX_ISSUE_ROWS = 200
+
+
+def _cap_issues(summary: dict) -> None:
+    rows = summary.get("rows_with_issues")
+    if isinstance(rows, list) and len(rows) > MAX_ISSUE_ROWS:
+        summary["rows_with_issues"] = rows[:MAX_ISSUE_ROWS]
+        summary["rows_with_issues_total"] = len(rows)
 
 
 def _safe_name(name: str | None) -> str:
@@ -114,7 +126,7 @@ async def upload(
     same = (
         await db.execute(select(ReportImport).where(ReportImport.sha256 == digest))
     ).scalar_one_or_none()
-    if same is not None:
+    if same is not None and same.status != "discarded":
         return {**_out(same), "duplicate": True}
     day = report_date or _today()
     if day > _today():
@@ -138,21 +150,38 @@ async def upload(
     summary = orange_report.report(results)
     summary["columns"] = orange_report.columns_found(rows)
     summary["changes"] = await orange_report.preview(db, results)
-    record = ReportImport(
-        id=f"gr-{secrets.token_hex(8)}",
-        sha256=digest,
-        report_date=day,
-        file_name=_safe_name(x_file_name),
-        size_bytes=len(data),
-        uploaded_at=datetime.now(UTC),
-        uploaded_by=p.name,
-        uploaded_by_id=p.subject,
-        status="previewed",
-        summary=json.dumps(summary),
-        rows=json.dumps([asdict(r) for r in results]),
-    )
-    db.add(record)
-    await db.commit()
+    _cap_issues(summary)
+    fields = {
+        "report_date": day,
+        "file_name": _safe_name(x_file_name),
+        "size_bytes": len(data),
+        "uploaded_at": datetime.now(UTC),
+        "uploaded_by": p.name,
+        "uploaded_by_id": p.subject,
+        "status": "previewed",
+        "summary": json.dumps(summary),
+        "rows": json.dumps([asdict(r) for r in results]),
+        "applied_at": None,
+        "applied_by": None,
+        "applied_by_id": None,
+    }
+    if same is not None:
+        # The same file, set aside before: read again, as a fresh preview.
+        for k, v in fields.items():
+            setattr(same, k, v)
+        record = same
+    else:
+        record = ReportImport(id=f"gr-{secrets.token_hex(8)}", sha256=digest, **fields)
+        db.add(record)
+    try:
+        await db.commit()
+    except IntegrityError:
+        # The same file sent twice at once: the other upload won; answer with it.
+        await db.rollback()
+        first = (
+            await db.execute(select(ReportImport).where(ReportImport.sha256 == digest))
+        ).scalar_one()
+        return {**_out(first), "duplicate": True}
     return {**_out(record), "duplicate": False}
 
 
@@ -209,6 +238,25 @@ async def apply(
 ) -> dict:
     r = await _load(db, import_id)
     summary = json.loads(r.summary)
+    if r.status == "previewed":
+        newer = (
+            await db.execute(
+                select(ReportImport.report_date)
+                .where(ReportImport.status == "applied", ReportImport.report_date > r.report_date)
+                .order_by(ReportImport.report_date.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if newer is not None:
+            raise AppError(
+                f"A newer report ({newer.isoformat()}) is already applied. Applying this older one "
+                "would undo Orange's later changes, so it is not applied. Set it aside.",
+                code="older_report",
+                status_code=409,
+            )
+        # The network may have changed since the upload: compare with it as it is now.
+        results_now = [RowResult(**row) for row in json.loads(r.rows or "[]")]
+        summary["changes"] = await orange_report.preview(db, results_now)
     changes = summary.get("changes", {})
     active = changes.get("active_on_record", 0)
     in_file = changes.get("counts", {}).get("updated", 0)
@@ -226,12 +274,27 @@ async def apply(
         days = await orange_report.record_day(db, results, r.report_date, r.id)
         r = await _load(db, import_id)
         summary["applied"] = created | {"daily_figures": days}
+        set_aside = [
+            {
+                "row": x.row,
+                "issues": [i for i in x.issues if i in ("line_in_use", "aggregator_clash")],
+            }
+            for x in results
+            if {"line_in_use", "aggregator_clash"} & set(x.issues)
+        ]
+        if set_aside:
+            summary["rows_with_issues"] = set_aside + list(summary.get("rows_with_issues", []))
+        # Once applied, the counts stay; the names in the change lists are not kept for ever.
+        if isinstance(summary.get("changes"), dict):
+            summary["changes"]["lists"] = {}
+        _cap_issues(summary)
         r.summary = json.dumps(summary)
         r.status = "applied"
         r.rows = None  # the cleaned rows are in the network now; no second copy is kept
         r.applied_at = datetime.now(UTC)
         r.applied_by = p.name
-        await db.commit()
+        r.applied_by_id = p.subject
+        await db.commit()  # one commit: the agents, the day's figures and this record together
     except Exception:
         await db.rollback()
         await db.execute(

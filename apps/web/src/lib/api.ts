@@ -158,6 +158,8 @@ export const api = {
   put: <T>(path: string, body: unknown, signal?: AbortSignal) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body), signal: signal ?? null }),
   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /** A POST the server may take a while over (applying a national report): the upload's longer limit. */
+  postLong: <T>(path: string, body: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }, UPLOAD_TIMEOUT_MS),
   /** A file as the request body, as it is (no JSON, no form): the server reads its content. */
   upload: <T>(path: string, file: Blob, headers?: Record<string, string>) =>
     request<T>(path, { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream', ...(headers ?? {}) } }, UPLOAD_TIMEOUT_MS),

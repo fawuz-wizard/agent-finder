@@ -437,6 +437,7 @@ class ReportImport(Base):
     rows: Mapped[str | None] = mapped_column(Text)  # JSON: cleaned rows, until applied
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     applied_by: Mapped[str | None] = mapped_column(String(120))
+    applied_by_id: Mapped[str | None] = mapped_column(String(40))  # the account, not just its name
 
 
 class AgentDailyStat(Base):

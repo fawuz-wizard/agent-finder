@@ -159,15 +159,15 @@ async def test_apply_creates_aggregators_and_unlocated_agents_that_customers_nev
         a = await db.get(Agent, "Agent 100001")
         assert a.street == "12 Lumley Road" and a.area == "Freetown"
     async with dbsession.get_session_factory()() as db:
-        agg = await db.get(Dealer, "agg-000001")
+        agg = await db.get(Dealer, "agg-23276000001")
         assert agg is not None and agg.msisdn == "+23276000001" and agg.region == "west"
         assert "MANAGE_AGENT" in agg.permissions
         sub = (
-            await db.execute(select(Dealer).where(Dealer.parent_id == "agg-000001"))
+            await db.execute(select(Dealer).where(Dealer.parent_id == "agg-23276000001"))
         ).scalar_one()
         assert sub.region == "north"
         a = await db.get(Agent, "Agent 100001")
-        assert a is not None and a.lat is None and a.dealer_id == "agg-000001"
+        assert a is not None and a.lat is None and a.dealer_id == "agg-23276000001"
         assert a.agent_code == "100001" and a.msisdn == "+23276111111"
         assert a.region == "west" and a.city == "Freetown" and a.verified and a.active
         assert a.presence == "closed"  # nobody has signed in: not open until they say so
@@ -206,7 +206,7 @@ async def test_apply_creates_aggregators_and_unlocated_agents_that_customers_nev
     assert "100003" not in r.text
     assert (await client.get("/api/v1/agents/af-100003")).status_code == 404
     s = await client.post(
-        "/api/v1/auth/sign-in", json={"ref": "agg-000001", "pin": "1234", "role": "dealer"}
+        "/api/v1/auth/sign-in", json={"ref": "agg-23276000001", "pin": "1234", "role": "dealer"}
     )
     assert s.status_code == 401
 

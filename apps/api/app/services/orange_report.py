@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import re
 import secrets
+import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,8 +42,42 @@ class UnreadableFileError(ValueError):
     problem, never a value from the file."""
 
 
+# A national report has a few thousand rows; anything far past these is not one.
+MAX_ROWS = 60_000
+MAX_COLS = 200
+
+
+def _tag(el) -> str:
+    """An element's name without its namespace: Excel writes one, other tools may not."""
+    return el.tag.rsplit("}", 1)[-1]
+
+
+def _all(el, name: str):
+    return (x for x in el.iter() if _tag(x) == name)
+
+
+def _first(el, name: str):
+    return next((x for x in el if _tag(x) == name), None)
+
+
+def _xml(z: zipfile.ZipFile, name: str):
+    """Stream one XML part. A part that declares its own entities or a DOCTYPE is refused: a
+    spreadsheet never needs one, and it is how entity-expansion tricks start."""
+    with z.open(name) as f:
+        head = f.read(4096)
+    if b"<!DOCTYPE" in head or b"<!ENTITY" in head:
+        raise UnreadableFileError("The Excel file contains something a report never has.")
+    return ET.iterparse(z.open(name), events=("end",))
+
+
+def _col(ref: str) -> str:
+    return "".join(ch for ch in ref if ch.isalpha())
+
+
 def read_xlsx(path: Path | bytes) -> list[dict[str, str]]:
-    """First sheet as a list of {header: value}; empty cells are empty strings."""
+    """First sheet as a list of {header: value}; empty cells are empty strings. Read with the
+    standard streaming XML reader (no regular expressions over the whole sheet), with caps on
+    rows and columns, so a small crafted file can never hold the server."""
     try:
         z = zipfile.ZipFile(io.BytesIO(path) if isinstance(path, bytes) else path)
     except zipfile.BadZipFile as e:
@@ -52,27 +87,42 @@ def read_xlsx(path: Path | bytes) -> list[dict[str, str]]:
         raise UnreadableFileError("The Excel file has no first sheet.")
     if sum(i.file_size for i in z.infolist()) > MAX_UNPACKED:
         raise UnreadableFileError("The Excel file is too large once opened.")
-    shared: list[str] = []
-    if "xl/sharedStrings.xml" in z.namelist():
-        ss = z.read("xl/sharedStrings.xml").decode("utf-8", "ignore")
-        shared = [re.sub(r"<[^>]+>", "", m) for m in re.findall(r"<si>(.*?)</si>", ss, re.S)]
-    sheet = z.read("xl/worksheets/sheet1.xml").decode("utf-8", "ignore")
-    rows: list[dict[str, str]] = []
-    for rm in re.finditer(r"<row[^>]*>(.*?)</row>", sheet, re.S):
-        cells: dict[str, str] = {}
-        for cm in re.finditer(r'<c r="([A-Z]+)\d+"([^>]*?)(?:/>|>(.*?)</c>)', rm.group(1), re.S):
-            col, attrs, inner = cm.group(1), cm.group(2), cm.group(3) or ""
-            v = re.search(r"<v>(.*?)</v>", inner, re.S)
-            t = re.search(r't="(\w+)"', attrs)
-            if v:
-                val = v.group(1)
-                if t and t.group(1) == "s":
-                    val = shared[int(val)]
-            else:
-                isv = re.search(r"<is>.*?<t[^>]*>(.*?)</t>", inner, re.S)
-                val = isv.group(1) if isv else ""
-            cells[col] = val.strip()
-        rows.append(cells)
+    try:
+        shared: list[str] = []
+        if "xl/sharedStrings.xml" in names:
+            for _, el in _xml(z, "xl/sharedStrings.xml"):
+                if _tag(el) == "si":
+                    shared.append("".join(t.text or "" for t in _all(el, "t")))
+                    el.clear()
+                    if len(shared) > MAX_ROWS * MAX_COLS:
+                        raise UnreadableFileError("The Excel file has far more text than a report.")
+        rows: list[dict[str, str]] = []
+        for _, el in _xml(z, "xl/worksheets/sheet1.xml"):
+            if _tag(el) != "row":
+                continue
+            cells: dict[str, str] = {}
+            for c in _all(el, "c"):
+                if len(cells) >= MAX_COLS:
+                    raise UnreadableFileError("The Excel file has far more columns than a report.")
+                col = _col(c.get("r", ""))
+                if not col:
+                    continue
+                v = _first(c, "v")
+                if v is not None:
+                    val = v.text or ""
+                    if c.get("t") == "s":
+                        val = shared[int(val)]
+                else:
+                    val = "".join(t.text or "" for t in _all(c, "t"))
+                cells[col] = val.strip()
+            el.clear()
+            rows.append(cells)
+            if len(rows) > MAX_ROWS:
+                raise UnreadableFileError("The Excel file has far more rows than a report.")
+    except UnreadableFileError:
+        raise
+    except (ET.ParseError, ValueError, IndexError, KeyError, zipfile.BadZipFile, EOFError) as e:
+        raise UnreadableFileError("The Excel file is damaged or not a report.") from e
     if not rows:
         return []
     header = rows[0]
@@ -260,11 +310,22 @@ def read_table(path: Path) -> list[dict[str, str]]:
 def read_upload(data: bytes) -> list[dict[str, str]]:
     """An uploaded file, told apart by its content, not its name: an .xlsx is a zip archive;
     anything else must be text (CSV)."""
+    import csv
+
     if data[:4] == b"PK\x03\x04":
         return canonical(read_xlsx(data))
     if b"\x00" in data[:4096]:
         raise UnreadableFileError("This is not an Excel or CSV file.")
-    return canonical(read_csv(data))
+    try:
+        rows = read_csv(data)
+    except UnreadableFileError:
+        raise
+    except (csv.Error, ValueError, KeyError, IndexError) as e:
+        # A field far too long, a broken quote: say the file is damaged, never a 500.
+        raise UnreadableFileError("The CSV file is damaged or not a report.") from e
+    if len(rows) > MAX_ROWS:
+        raise UnreadableFileError("The CSV file has far more rows than a report.")
+    return canonical(rows)
 
 
 REQUIRED_HEADERS = ("PARENT_USER_MSISDN", "MSISDN", "AGENT_CODE")
@@ -483,20 +544,43 @@ def report(results: list[RowResult]) -> dict:
 
 
 def dealer_id_for(msisdn: str) -> str:
-    return "agg-" + msisdn[-6:]
+    """A new aggregator's account id from its whole line, never part of it: two lines that share
+    their last digits are two accounts, never one."""
+    return "agg-" + re.sub(r"\D", "", msisdn)
+
+
+async def dealer_for_line(db: AsyncSession, msisdn: str | None) -> Dealer | None:
+    """The account that already holds this line, whatever its id (an older import named
+    accounts by the line's last six digits; they are found by the line itself)."""
+    if not msisdn:
+        return None
+    return (await db.execute(select(Dealer).where(Dealer.msisdn == msisdn))).scalar_one_or_none()
+
+
+def _national(d: Dealer) -> bool:
+    return "VIEW_NATIONAL" in (d.permissions or "").split(",")
 
 
 async def apply(db: AsyncSession, results: list[RowResult]) -> dict:
+    """Write the report. Nothing is committed here: the caller commits once, so a failure
+    leaves the network exactly as it was. A row that cannot be written (its line already
+    belongs to someone else) is set aside with an issue code, never a crash."""
+    from sqlalchemy.exc import IntegrityError
+
     created = {"aggregators": 0, "subaggregators": 0, "agents": 0, "updated_agents": 0}
+    set_aside = 0
     # Aggregators first: one dealer per parent line, with a PIN nobody knows until it is set.
     parents: dict[str, dict] = {}
     for res in results:
         if importable(res) and res.aggregator and res.aggregator["msisdn"]:
             parents.setdefault(res.aggregator["msisdn"], res.aggregator)
+    parent_ids: dict[str, str] = {}
     for msisdn, agg in parents.items():
-        did = dealer_id_for(msisdn)
-        d = await db.get(Dealer, did)
+        d = await dealer_for_line(db, msisdn)
         if d is None:
+            did = dealer_id_for(msisdn)
+            if await db.get(Dealer, did) is not None:
+                continue  # that id is someone else's (no line on record): never merge into it
             d = Dealer(
                 id=did,
                 name=agg["name"],
@@ -508,103 +592,148 @@ async def apply(db: AsyncSession, results: list[RowResult]) -> dict:
             )
             db.add(d)
             created["aggregators"] += 1
+        elif _national(d):
+            continue  # an Orange national account never receives agents
         d.region = d.region or agg["region"]
+        parent_ids[msisdn] = d.id
     await db.flush()
     for res in results:
         if not importable(res) or res.agent is None or res.aggregator is None:
             continue
-        parent_id = dealer_id_for(res.aggregator["msisdn"])
-        a = res.agent
-        if res.kind == "subaggregator":
-            sid = "agg-" + (a["msisdn"] or a["agent_code"])[-6:]
-            if await db.get(Dealer, sid) is None:
-                db.add(
-                    Dealer(
-                        id=sid,
-                        name=a["person_name"] or "Sub-aggregator",
-                        pin_hash=hash_pin(secrets.token_hex(4), sid),
-                        must_set_pin=True,
-                        permissions=AGGREGATOR_PERMS,
-                        region=a["region"],
-                        msisdn=a["msisdn"],
-                        parent_id=parent_id,
-                        source="orange_file",
-                        source_row=a["source_row"],
-                    )
-                )
-                created["subaggregators"] += 1
+        parent_id = parent_ids.get(res.aggregator["msisdn"])
+        if parent_id is None:
+            res.issues.append("aggregator_clash")
+            set_aside += 1
             continue
-        existing = None
-        if a["agent_code"]:
-            existing = (
-                await db.execute(select(Agent).where(Agent.agent_code == a["agent_code"]))
-            ).scalar_one_or_none()
-        if existing is None and a["msisdn"]:
-            existing = (
-                await db.execute(select(Agent).where(Agent.msisdn == a["msisdn"]))
-            ).scalar_one_or_none()
-        ref = f"Agent {a['agent_code']}"
-        if existing is None and await db.get(Agent, ref) is not None:
-            existing = await db.get(Agent, ref)
-        if existing is None:
-            existing = Agent(
-                ref=ref,
-                dealer_id=parent_id,
-                person_name=a["person_name"] or "Agent",
-                shop_name=a["person_name"] or ref,
-                area=a["city"] or "City not given",
-                street=a["street"],
-                lat=None,
-                lng=None,
-                pin_hash=hash_pin(secrets.token_hex(4), ref),
-                must_set_pin=True,
-                # Not open until the agent says so: nobody has signed in yet.
-                presence="closed",
-                source="orange_file",
-            )
-            db.add(existing)
-            created["agents"] += 1
-        else:
-            created["updated_agents"] += 1
-        if existing.source == "orange_file":
-            # Orange's record is the truth for what it holds; a re-run restores it.
-            existing.person_name = a["person_name"] or existing.person_name
-            if existing.shop_name == existing.ref or existing.shop_name == existing.person_name:
-                existing.shop_name = a["person_name"] or existing.shop_name
-            existing.street = a["street"]
-            existing.area = a["city"] or "City not given"
-        existing.agent_code = a["agent_code"]
-        existing.msisdn = a["msisdn"] or existing.msisdn
-        existing.region = a["region"] or existing.region
-        existing.city = a["city"] or existing.city
-        existing.active = a["active"]
-        if existing.declared_at is None:
-            existing.presence = "closed"  # never declared: not open, whatever an older import wrote
-        # A clean row is verified by the file itself; a row with issues waits, and the
-        # note says why. Every run re-reads the file, so fixing the file fixes the agent.
-        existing.verified = not res.issues
-        existing.verification_note = pending_note(res.issues)
-        existing.source_row = a["source_row"]
-        existing.orange_cash_in = a["cash_in"]
-        existing.orange_cash_out = a["cash_out"]
-        existing.orange_tx_count = a["tx_count"]
-        # Orange's own record of where the shop is goes on the map as confirmed, unless the
-        # agent or their aggregator has confirmed a point standing at the shop.
-        if a.get("lat") is not None and a.get("lng") is not None:
-            stood_there = existing.location_confirmed and existing.location_source in (
-                "agent",
-                "dealer",
-            )
-            if not stood_there:
-                existing.lat, existing.lng = a["lat"], a["lng"]
-                existing.location_source = "orange"
-                existing.location_confirmed = True
-                created["located"] = created.get("located", 0) + 1
-        res.ref = existing.ref
-        if existing.dealer_id != parent_id and existing.source == "orange_file":
-            existing.dealer_id = parent_id
-    await db.commit()
+        a = res.agent
+        try:
+            async with db.begin_nested():
+                if res.kind == "subaggregator":
+                    if await _apply_subaggregator(db, a, parent_id):
+                        created["subaggregators"] += 1
+                    continue
+                new = await _apply_agent(db, res, a, parent_id, created)
+                if new:
+                    created["agents"] += 1
+                else:
+                    created["updated_agents"] += 1
+                await db.flush()
+        except (IntegrityError, _ClashError):
+            # The line (or code) already belongs to another account. Set aside; the row
+            # number and code say which, never the value.
+            res.issues.append("line_in_use")
+            res.ref = None  # nothing was written for this row, so no daily figures either
+            set_aside += 1
+    await db.flush()
+    if set_aside:
+        created["set_aside"] = set_aside
     return created
+
+
+class _ClashError(Exception):
+    """A row that would join two different accounts into one."""
+
+
+async def _apply_subaggregator(db: AsyncSession, a: dict, parent_id: str) -> bool:
+    d = await dealer_for_line(db, a["msisdn"])
+    if d is not None:
+        if _national(d) or d.id == parent_id:
+            raise _ClashError
+        return False  # already on record under its own line
+    sid = dealer_id_for(a["msisdn"]) if a["msisdn"] else "agg-code-" + a["agent_code"]
+    if await db.get(Dealer, sid) is not None:
+        raise _ClashError  # the id is taken by an account without this line
+    db.add(
+        Dealer(
+            id=sid,
+            name=a["person_name"] or "Sub-aggregator",
+            pin_hash=hash_pin(secrets.token_hex(4), sid),
+            must_set_pin=True,
+            permissions=AGGREGATOR_PERMS,
+            region=a["region"],
+            msisdn=a["msisdn"],
+            parent_id=parent_id,
+            source="orange_file",
+            source_row=a["source_row"],
+        )
+    )
+    await db.flush()
+    return True
+
+
+async def _apply_agent(
+    db: AsyncSession, res: RowResult, a: dict, parent_id: str, created: dict
+) -> bool:
+    """Create or update one agent; True when it is new."""
+    is_new = False
+    existing = None
+    if a["agent_code"]:
+        existing = (
+            await db.execute(select(Agent).where(Agent.agent_code == a["agent_code"]))
+        ).scalar_one_or_none()
+    if existing is None and a["msisdn"]:
+        existing = (
+            await db.execute(select(Agent).where(Agent.msisdn == a["msisdn"]))
+        ).scalar_one_or_none()
+    ref = f"Agent {a['agent_code']}"
+    if existing is None and await db.get(Agent, ref) is not None:
+        existing = await db.get(Agent, ref)
+    if existing is None:
+        existing = Agent(
+            ref=ref,
+            dealer_id=parent_id,
+            person_name=a["person_name"] or "Agent",
+            shop_name=a["person_name"] or ref,
+            area=a["city"] or "City not given",
+            street=a["street"],
+            lat=None,
+            lng=None,
+            pin_hash=hash_pin(secrets.token_hex(4), ref),
+            must_set_pin=True,
+            # Not open until the agent says so: nobody has signed in yet.
+            presence="closed",
+            source="orange_file",
+        )
+        db.add(existing)
+        is_new = True
+    if existing.source == "orange_file":
+        # Orange's record is the truth for what it holds; a re-run restores it.
+        existing.person_name = a["person_name"] or existing.person_name
+        if existing.shop_name == existing.ref or existing.shop_name == existing.person_name:
+            existing.shop_name = a["person_name"] or existing.shop_name
+        existing.street = a["street"]
+        existing.area = a["city"] or "City not given"
+    existing.agent_code = a["agent_code"]
+    existing.msisdn = a["msisdn"] or existing.msisdn
+    existing.region = a["region"] or existing.region
+    existing.city = a["city"] or existing.city
+    existing.active = a["active"]
+    if existing.declared_at is None:
+        existing.presence = "closed"  # never declared: not open, whatever an older import wrote
+    # A clean row is verified by the file itself; a row with issues waits, and the
+    # note says why. Every run re-reads the file, so fixing the file fixes the agent.
+    existing.verified = not res.issues
+    existing.verification_note = pending_note(res.issues)
+    existing.source_row = a["source_row"]
+    existing.orange_cash_in = a["cash_in"]
+    existing.orange_cash_out = a["cash_out"]
+    existing.orange_tx_count = a["tx_count"]
+    # Orange's own record of where the shop is goes on the map as confirmed, unless the
+    # agent or their aggregator has confirmed a point standing at the shop.
+    if a.get("lat") is not None and a.get("lng") is not None:
+        stood_there = existing.location_confirmed and existing.location_source in (
+            "agent",
+            "dealer",
+        )
+        if not stood_there:
+            existing.lat, existing.lng = a["lat"], a["lng"]
+            existing.location_source = "orange"
+            existing.location_confirmed = True
+            created["located"] = created.get("located", 0) + 1
+    res.ref = existing.ref
+    if existing.dealer_id != parent_id and existing.source == "orange_file":
+        existing.dealer_id = parent_id
+    return is_new
 
 
 async def find_existing(db: AsyncSession, a: dict) -> Agent | None:
@@ -640,7 +769,12 @@ async def preview(db: AsyncSession, results: list[RowResult]) -> dict:
         if not importable(res) or res.kind != "agent" or res.agent is None:
             continue
         a = res.agent
-        parent = dealer_id_for(res.aggregator["msisdn"]) if res.aggregator else None
+        held = await dealer_for_line(db, res.aggregator["msisdn"]) if res.aggregator else None
+        parent = (
+            held.id
+            if held
+            else (dealer_id_for(res.aggregator["msisdn"]) if res.aggregator else None)
+        )
         item = {"row": res.row, "agent_code": a["agent_code"], "name": a["person_name"]}
         hit = await find_existing(db, a)
         has_point = a.get("lat") is not None and a.get("lng") is not None

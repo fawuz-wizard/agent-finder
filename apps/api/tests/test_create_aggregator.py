@@ -81,6 +81,7 @@ async def test_bad_input_and_national_accounts_are_refused(client):
         ("test-agg", "x", "middle", None),  # not a region
         ("test-agg", "x", "west", "12345"),  # not a Sierra Leone number
         ("orange", "x", "west", None),  # Orange's national account
+        ("agg-123456", "x", "west", None),  # kept for aggregators from Orange's report
     ):
         with pytest.raises(SystemExit):
             await create(*args)

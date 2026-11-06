@@ -41,7 +41,12 @@ own recording stays as it is.
 | The raw file | Never stored. Only the cleaned rows are kept, and only until the report is applied or set aside. |
 | Money figures (cash in/out, float, commission) | Stored per agent per day. Never shown to customers. An aggregator sees them only with the financial-detail permission, and every view is logged. |
 | Who can upload | Only accounts with the `IMPORT_GLOBAL_REPORT` permission (Orange's national accounts). Anyone else gets "not found". |
-| File checks | Content is checked, not the name (an .xlsx is a zip archive, anything else must be text). Files over 10 MB, or that unpack too large, are refused. |
+| An older report after a newer one is applied | Refused: it would undo Orange's later changes (for example re-open an agent Orange closed). Set it aside. |
+| Aggregators | Matched by their whole Orange Money line, never part of it: two lines that end the same are two accounts. |
+| A row whose line already belongs to another account | Set aside with its row number and the reason, never applied over the other account; the rest of the report applies. |
+| Applying | All or nothing: the agents, the day's figures and the record of who applied it are written together. Once applied, only the counts are kept, not the names. |
+| A report set aside | Can be uploaded again later and is read afresh. |
+| File checks | Content is checked, not the name (an .xlsx is a zip archive, anything else must be text). Files over 10 MB, that unpack too large, that have far more rows or columns than a report, or that are damaged, are refused with a plain reason. |
 
 ## Columns
 
