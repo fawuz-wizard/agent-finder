@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { AgentProfile } from '@/types/operator'
@@ -21,7 +22,7 @@ import { BOX, OUTLINE, PRIMARY } from './components/agentClasses'
 export default function ShopPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
-  const { data, setData, state, error } = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
+  const { data, setData, state, error, refresh } = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState<string | null>(null)
   const [watch, setWatch] = useState(() => readPrefs().leftShopWatch)
@@ -96,7 +97,7 @@ export default function ShopPage() {
       <AgentTitle title="Your shop" back="/agent/status" />
       <div className="flex flex-col gap-3 px-[18px] pb-8 pt-5">
         {state === 'loading' && !data && <p className="text-sm text-finder-muted">Loading…</p>}
-        {state === 'error' && <p className="text-sm font-semibold text-danger">{error}</p>}
+        {state === 'error' && <LoadError what="your shop" error={error} onRetry={refresh} />}
         {data && (
           <>
             {data.lat !== null && data.lng !== null && (

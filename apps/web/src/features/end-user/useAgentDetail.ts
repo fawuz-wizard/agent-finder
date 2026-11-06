@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { customerApi } from '@/services/customerApi'
 import { ApiRequestError } from '@/lib/api'
 import type { AgentDetail, TransactionType } from '@/types/public'
@@ -26,10 +26,12 @@ export function requestFrom(params: URLSearchParams): AgentRequest {
  * directions page load the same answer from the same URL, so what the customer read on one
  * is exactly what the other draws.
  */
-export function useAgentDetail(id: string, req: AgentRequest): { agent: AgentDetail | null; error: string | null } {
+export function useAgentDetail(id: string, req: AgentRequest): { agent: AgentDetail | null; error: string | null; retry: () => void } {
   const [agent, setAgent] = useState<AgentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const pointKey = req.point ? `${req.point.lat},${req.point.lng}` : ''
+  const [tick, setTick] = useState(0)
+  const retry = useCallback(() => setTick((n) => n + 1), [])
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -47,7 +49,7 @@ export function useAgentDetail(id: string, req: AgentRequest): { agent: AgentDet
       })
     return () => ctrl.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, req.tx, req.amount, req.area, pointKey])
+  }, [id, req.tx, req.amount, req.area, pointKey, tick])
 
-  return { agent, error }
+  return { agent, error, retry }
 }

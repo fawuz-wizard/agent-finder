@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Check, CircleCheck, Smartphone } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { DealerAgentRow, FloatRequest, FloatSend } from '@/types/operator'
@@ -122,10 +123,11 @@ export default function SendFloatPage() {
               <CircleCheck size={14} strokeWidth={2.2} aria-hidden />
               {agent.name} · {agent.ref.replace(/^Agent /, 'Code ')} · your agent
             </span>
-          ) : digits.length === 8 ? (
+          ) : digits.length === 8 && agents.data ? (
             <span className="text-danger">That number is not one of your agents.</span>
           ) : null}
         </p>
+        {agents.state === 'error' && !agents.data && <LoadError what="your agents" error={agents.error} onRetry={agents.refresh} />}
       </div>
 
       <div className={`${CARD} flex flex-col items-center gap-1.5 px-[18px] py-6`}>

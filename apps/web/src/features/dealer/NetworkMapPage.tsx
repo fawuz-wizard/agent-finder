@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LogoMark } from '@/design'
+import { LoadError, LogoMark } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -169,7 +169,7 @@ export default function NetworkMapPage() {
                     {data.regions
                       .filter((r) => level.kind === 'country' || r.region === level.region)
                       .map((r) => (
-                        <RegionBlock key={r.region} r={r} level={level} agents={agents.data} picked={picked} onRegion={() => { setLevel({ kind: 'region', region: r.region }); setPicked(null) }} onAggregator={(id, name) => { setLevel({ kind: 'aggregator', region: r.region, id, name }); setPicked(null) }} onAgent={setPicked} />
+                        <RegionBlock key={r.region} r={r} level={level} agents={agents.data} agentsError={agents.state === 'error' ? agents.error : null} onRetryAgents={agents.refresh} picked={picked} onRegion={() => { setLevel({ kind: 'region', region: r.region }); setPicked(null) }} onAggregator={(id, name) => { setLevel({ kind: 'aggregator', region: r.region, id, name }); setPicked(null) }} onAgent={setPicked} />
                       ))}
                     {(level.kind === 'country' || (level.kind !== 'aggregator' && level.region === 'none') || (level.kind === 'aggregator' && level.region === 'none')) && (
                       <CountRow name="No place on record" c={data.unplaced} indent={1} muted selected={level.kind === 'region' && level.region === 'none'} onClick={() => { setLevel({ kind: 'region', region: 'none' }); setPicked(null) }} />
@@ -253,7 +253,7 @@ function CountRow({ name, c, strong, indent = 0, muted, selected, onClick }: { n
   )
 }
 
-function RegionBlock({ r, level, agents, picked, onRegion, onAggregator, onAgent }: { r: MapSummary['regions'][number]; level: Level; agents: MapAgentRow[] | null; picked: string | null; onRegion: () => void; onAggregator: (id: string, name: string) => void; onAgent: (ref: string) => void }) {
+function RegionBlock({ r, level, agents, agentsError, onRetryAgents, picked, onRegion, onAggregator, onAgent }: { r: MapSummary['regions'][number]; level: Level; agents: MapAgentRow[] | null; agentsError: string | null; onRetryAgents: () => void; picked: string | null; onRegion: () => void; onAggregator: (id: string, name: string) => void; onAgent: (ref: string) => void }) {
   const open = level.kind !== 'country'
   return (
     <>
@@ -262,7 +262,7 @@ function RegionBlock({ r, level, agents, picked, onRegion, onAggregator, onAgent
         r.aggregators
           .filter((a) => level.kind !== 'aggregator' || a.id === level.id)
           .map((a) => (
-            <AggregatorBlock key={a.id} a={a} level={level} agents={agents} picked={picked} onClick={() => onAggregator(a.id, a.name)} onAgent={onAgent} />
+            <AggregatorBlock key={a.id} a={a} level={level} agents={agents} agentsError={agentsError} onRetryAgents={onRetryAgents} picked={picked} onClick={() => onAggregator(a.id, a.name)} onAgent={onAgent} />
           ))}
       {open && r.aggregators.length === 0 && (
         <tr>
@@ -275,11 +275,18 @@ function RegionBlock({ r, level, agents, picked, onRegion, onAggregator, onAgent
   )
 }
 
-function AggregatorBlock({ a, level, agents, picked, onClick, onAgent }: { a: MapSummary['regions'][number]['aggregators'][number]; level: Level; agents: MapAgentRow[] | null; picked: string | null; onClick: () => void; onAgent: (ref: string) => void }) {
+function AggregatorBlock({ a, level, agents, agentsError, onRetryAgents, picked, onClick, onAgent }: { a: MapSummary['regions'][number]['aggregators'][number]; level: Level; agents: MapAgentRow[] | null; agentsError: string | null; onRetryAgents: () => void; picked: string | null; onClick: () => void; onAgent: (ref: string) => void }) {
   const selected = level.kind === 'aggregator' && level.id === a.id
   return (
     <>
       <CountRow name={a.name} c={a} indent={2} selected={selected} onClick={onClick} />
+      {selected && agentsError && (
+        <tr>
+          <td colSpan={6} className="border-b border-finder-line px-2 py-2.5 pl-9 text-left">
+            <LoadError what={`${a.name}'s agents`} error={agentsError} onRetry={onRetryAgents} />
+          </td>
+        </tr>
+      )}
       {selected &&
         (agents ?? []).map((ag) => (
           <tr key={ag.ref} className={`cursor-pointer text-[0.8rem] hover:bg-finder-line/30 ${picked === ag.ref ? 'bg-finder-line/40' : ''}`} onClick={() => onAgent(ag.ref)}>

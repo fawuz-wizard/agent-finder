@@ -154,6 +154,8 @@ export default function ServicesPage() {
   // 1 · The customer's number and the amount, on one screen.
   if (step === 'details') {
     const unlocated = home.data?.customers_see.state === 'unlocated'
+    // Why Continue is grey, once they have started: the first thing still missing.
+    const missing = !numberOk ? "Enter the customer's 8-digit number" : !amountOk ? 'Enter an amount' : null
     return (
       <div className={page}>
         <Header step={step} kind={kind} onBack={back} />
@@ -214,6 +216,7 @@ export default function ServicesPage() {
           <button type="button" className={`${PRIMARY} mt-auto`} onClick={() => go('pin')} disabled={!numberOk || !amountOk}>
             Continue
           </button>
+          {missing && (customer !== '' || txAmount !== '') && <p className="-mt-1 text-center text-sm text-finder-muted">{missing}</p>}
         </div>
       </div>
     )

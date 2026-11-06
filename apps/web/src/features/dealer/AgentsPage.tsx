@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { PERMISSIONS } from '@/types/operator'
@@ -41,7 +42,7 @@ function isFilter(v: string | null): v is Filter {
  * the same filter, and the bucket comes from the server so a tile and its list never disagree.
  */
 export default function DealerAgentsPage() {
-  const { data, state } = useAsync<DealerAgentRow[]>((s) => operatorApi.dealerAgents(s))
+  const { data, state, error, refresh } = useAsync<DealerAgentRow[]>((s) => operatorApi.dealerAgents(s))
   const { can } = useSession()
   const [params, setParams] = useSearchParams()
   const raw = params.get('filter')
@@ -94,6 +95,9 @@ export default function DealerAgentsPage() {
         ))}
       </div>
 
+      {state === 'error' && !data ? (
+        <LoadError what="your agents" error={error} onRetry={refresh} />
+      ) : (
       <div className={`${CARD} flex flex-col py-1`}>
         {state === 'loading' && <p className="p-8 text-center text-sm text-finder-muted">Loading…</p>}
         {state === 'ready' && shown.length === 0 && <p className="p-8 text-center text-sm text-finder-muted">{q ? 'No agent matches that.' : current.empty}</p>}
@@ -101,6 +105,7 @@ export default function DealerAgentsPage() {
           <AgentRowCard key={a.ref} agent={a} index={i} />
         ))}
       </div>
+      )}
     </div>
   )
 }

@@ -954,3 +954,19 @@ describe('directions to an agent', () => {
     Reflect.deleteProperty(navigator, 'geolocation')
   })
 })
+
+describe('dealer agents, when the list will not load', () => {
+  it('says it could not load the agents, never an empty list, and Try again reloads', async () => {
+    signIn(ALL)
+    const user = userEvent.setup()
+    const spy = vi.spyOn(operatorApi, 'dealerAgents').mockRejectedValue(new Error('Something went wrong.'))
+    render(<App start="/dealer/agents" />)
+    expect(await screen.findByText(/couldn't load your agents/i)).toBeInTheDocument()
+    const retry = screen.getByRole('button', { name: /try again/i })
+    expect(screen.queryByText(/no agent matches/i)).not.toBeInTheDocument()
+    spy.mockRestore()
+    await user.click(retry)
+    await waitFor(() => expect(screen.queryByText(/couldn't load your agents/i)).not.toBeInTheDocument())
+    expect(await screen.findAllByRole('link', { name: /./ })).not.toHaveLength(0)
+  })
+})

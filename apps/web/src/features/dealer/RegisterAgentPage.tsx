@@ -15,6 +15,10 @@ import { OUTLINE, PAGE, SOLID } from './components/designClasses'
 const FIELD = 'h-12 w-full rounded-xl border-[1.5px] border-finder-card-line bg-finder-card px-3.5 text-[15px] font-semibold text-finder-ink outline-none placeholder:font-medium placeholder:text-finder-muted focus:border-finder-accent'
 const LABEL = 'text-[13px] font-bold'
 const PHONE = /^\+?[0-9 ]{6,20}$/
+/** An Orange Sierra Leone number: 0 and eight digits, with or without +232. */
+const localDigits = (phone: string) => phone.replace(/\D/g, '').replace(/^232/, '').replace(/^0/, '')
+/** Sierra Leone, roughly: a pin outside it is a typo, not a shop. */
+const inSierraLeone = (lat: number, lng: number) => lat >= 6.8 && lat <= 10.1 && lng >= -13.4 && lng <= -10.2
 
 /** A label over a field; defined once at module level so typing never remounts the input. */
 function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
@@ -76,8 +80,26 @@ export default function RegisterAgentPage() {
   if (!can(PERMISSIONS.manageAgent)) return <Navigate to="/dealer/agents" replace />
 
   const set = (k: keyof typeof form, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }))
-  const phoneOk = PHONE.test(form.phone.trim())
-  const ready = form.shop_name.trim() && form.person_name.trim() && phoneOk && form.street.trim() && form.area.trim() && form.lat && form.lng
+  const phoneOk = PHONE.test(form.phone.trim()) && localDigits(form.phone).length === 8
+  const coordsGiven = form.lat !== '' && form.lng !== ''
+  const coordsOk = coordsGiven && Number.isFinite(Number(form.lat)) && Number.isFinite(Number(form.lng)) && inSierraLeone(Number(form.lat), Number(form.lng))
+  const ready = form.shop_name.trim() && form.person_name.trim() && phoneOk && form.street.trim() && form.area.trim() && coordsOk
+  // Why Register is grey: the first thing still missing, in the order of the form.
+  const missing = !form.shop_name.trim()
+    ? 'Enter the shop name'
+    : !form.person_name.trim()
+      ? "Enter the agent's name"
+      : !phoneOk
+        ? "Enter the agent's phone number"
+        : !coordsGiven
+          ? 'Place the shop on the map'
+          : !coordsOk
+            ? 'Move the pin onto the shop in Sierra Leone'
+            : !form.area.trim()
+              ? 'Enter the area'
+              : !form.street.trim()
+                ? 'Enter a landmark customers read'
+                : null
 
   function useMyLocation() {
     if (!navigator.geolocation) {
@@ -145,7 +167,12 @@ export default function RegisterAgentPage() {
         <input id="reg-person" className={FIELD} value={form.person_name} onChange={(e) => set('person_name', e.target.value)} />
       </Field>
       <Field id="reg-phone" label="Phone">
-        <input id="reg-phone" className={FIELD} value={form.phone} inputMode="tel" placeholder="+232 76 000 000" aria-invalid={form.phone.trim() !== '' && !phoneOk} onChange={(e) => set('phone', e.target.value)} />
+        <input id="reg-phone" className={FIELD} value={form.phone} inputMode="tel" placeholder="+232 76 000 000" aria-invalid={form.phone.trim() !== '' && !phoneOk} aria-describedby="reg-phone-hint" onChange={(e) => set('phone', e.target.value)} />
+        {form.phone.trim() !== '' && !phoneOk && (
+          <p id="reg-phone-hint" className="text-xs font-semibold text-danger">
+            Enter a 9-digit Orange number, e.g. 076 123 456
+          </p>
+        )}
       </Field>
 
       <section aria-labelledby="reg-where" className="flex flex-col gap-2">
@@ -183,6 +210,11 @@ export default function RegisterAgentPage() {
               <input id="reg-lng" className={FIELD} value={form.lng} inputMode="decimal" placeholder="-13.2600" onChange={(e) => set('lng', e.target.value)} />
             </Field>
           </div>
+        )}
+        {placed && !coordsOk && (
+          <p role="alert" className="text-xs font-semibold text-danger">
+            That point is outside Sierra Leone. Check the numbers, or drag the map onto the shop.
+          </p>
         )}
         {!placed && <p className="text-xs font-medium text-finder-muted">Stand at the shop and use your location, or drag the map until the pin sits on it.</p>}
         {placed && (areaEdited || areaState === 'unknown') ? (
@@ -235,6 +267,7 @@ export default function RegisterAgentPage() {
       <button type="button" onClick={submit} disabled={!ready || busy} className={`${SOLID} text-[15px] disabled:opacity-50`}>
         {busy ? 'Registering…' : 'Register agent'}
       </button>
+      {!busy && missing && <p className="-mt-1.5 text-center text-xs font-medium text-finder-muted">{missing}</p>}
       {customRef ? (
         <Field id="reg-ref" label="Agent number">
           <input id="reg-ref" className={FIELD} value={form.ref} inputMode="numeric" placeholder="e.g. 101" onChange={(e) => set('ref', e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} />

@@ -66,7 +66,7 @@ const StarIcon = (
 export default function AgentDetailPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
-  const { agent, error } = useAgentDetail(id, requestFrom(params))
+  const { agent, error, retry } = useAgentDetail(id, requestFrom(params))
   const [rating, setRating] = useState<number | null>(null)
   const [ratingState, setRatingState] = useState<'idle' | 'sending' | 'sent'>('idle')
   const [ratingError, setRatingError] = useState<string | null>(null)
@@ -104,7 +104,7 @@ export default function AgentDetailPage() {
     return (
       <div className="flex flex-col gap-4 px-5 py-4 text-white">
         <FinderHeader back={back} />
-        <ErrorState message={error} />
+        <ErrorState message={error} onRetry={retry} />
         <Link to="/find">
           <FinderCta>Search again</FinderCta>
         </Link>

@@ -44,7 +44,12 @@ export function usePlacedAgents() {
     return p ? [{ ...a, lat: p.lat!, lng: p.lng!, tone: pinTone(a) }] : []
   })
   const loading = agents.state === 'loading' || points.state === 'loading'
-  return { placed, all: agents.data ?? [], loading, error: agents.state === 'error' ? agents.error : null }
+  const error = agents.state === 'error' ? agents.error : points.state === 'error' ? points.error : null
+  const refresh = () => {
+    agents.refresh()
+    points.refresh()
+  }
+  return { placed, all: agents.data ?? [], loading, error, refresh }
 }
 
 export const toPins = (rows: PlacedAgent[]): AgentPin[] => rows.map((a) => ({ key: a.ref, lat: a.lat, lng: a.lng, tone: a.tone, label: `${a.name} · ${TONE_LABEL[a.tone]}` }))

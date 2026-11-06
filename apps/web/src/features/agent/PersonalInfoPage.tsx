@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { useToast } from '@/design'
+import { LoadError, useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -40,7 +40,7 @@ export default function PersonalInfoPage() {
   const ref = session?.ref ?? 'Agent 024'
   const toast = useToast()
   const ids = useId()
-  const { data, setData, state, error } = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
+  const { data, setData, state, error, refresh } = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
   const [open, setOpen] = useState(false)
   const [field, setField] = useState<(typeof MISTAKE_FIELDS)[number][0]>('address')
   const [text, setText] = useState('')
@@ -72,7 +72,7 @@ export default function PersonalInfoPage() {
       <AgentTitle title="Personal Information" back="/agent/profile" />
       <div className="flex flex-col gap-3 px-[18px] pb-8 pt-5">
         {state === 'loading' && !data && <p className="text-sm text-finder-muted">Loading…</p>}
-        {state === 'error' && <p className="text-sm font-semibold text-danger">{error}</p>}
+        {state === 'error' && <LoadError what="your details" error={error} onRetry={refresh} />}
         {data && (
           <>
             <div className={`${BOX} flex flex-col`} aria-label="Your record">

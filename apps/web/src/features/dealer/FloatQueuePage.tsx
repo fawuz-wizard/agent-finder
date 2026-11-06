@@ -1,6 +1,7 @@
 import { ArrowUpRight, Check, ChevronRight, Phone, Send, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { operatorApi } from '@/services/operatorApi'
 import type { DealerAgentRow, FloatForecast, FloatRequest, FloatSend } from '@/types/operator'
 import { formatSle } from '@/features/agent/money'
@@ -152,6 +153,7 @@ export default function DealerFloatQueuePage() {
             Waiting
           </h2>
           {requests.state === 'loading' && <p className="px-[18px] pb-3.5 text-sm text-finder-muted">Loading…</p>}
+          {requests.state === 'error' && !requests.data && <LoadError what="float requests" error={requests.error} onRetry={requests.refresh} className="mx-[18px] mb-3.5" />}
           {requests.state === 'ready' && waiting.length === 0 && <p className="px-[18px] pb-3.5 text-sm text-finder-muted">Nothing waiting. Nothing expires silently.</p>}
           {waiting.map((r, i) => (
             <Link key={r.id} to={`/dealer/float/${r.id}`} className={`flex items-center gap-3 px-[18px] py-3.5 ${i ? 'border-t border-finder-card-line' : ''}`}>

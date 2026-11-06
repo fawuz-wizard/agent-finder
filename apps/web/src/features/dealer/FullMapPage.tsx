@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useBack } from '@/hooks/useBack'
+import { LoadError } from '@/design'
 import { ChevronLeft, Navigation, Phone, X } from 'lucide-react'
 import { fetchRoute, haversineM, type Route } from '@/lib/route'
 import { agentState } from './components/agentState'
@@ -38,7 +39,7 @@ export default function DealerFullMapPage() {
   const goBack = useBack('/dealer/network')
   const [params] = useSearchParams()
   const focus = params.get('focus')
-  const { placed, loading } = usePlacedAgents()
+  const { placed, loading, error, refresh } = usePlacedAgents()
   const [filter, setFilter] = useState<Filter>('all')
   const [selected, setSelected] = useState<string | null>(focus)
   const shown = placed.filter((a) => filter === 'all' || a.tone === filter)
@@ -107,7 +108,7 @@ export default function DealerFullMapPage() {
           ) : (
             <h1 className={`flex h-11 flex-1 items-center rounded-[14px] bg-finder-card px-4 text-[15px] font-extrabold ${FLOAT}`}>
               All agents
-              <span className="ml-auto text-[13px] font-bold text-finder-muted">{loading ? '…' : `${shown.length} shown`}</span>
+              <span className="ml-auto text-[13px] font-bold text-finder-muted">{loading || error ? '…' : `${shown.length} shown`}</span>
             </h1>
           )}
         </div>
@@ -146,7 +147,9 @@ export default function DealerFullMapPage() {
         )}
       </div>
 
-      {!sel && !directions && (
+      {error && !sel && <LoadError what="the map's agents" error={error} onRetry={refresh} className={`absolute inset-x-3 bottom-4 z-20 ${FLOAT}`} />}
+
+      {!sel && !directions && !error && (
         <ul aria-label="Legend" className={`absolute bottom-4 left-4 z-10 flex flex-col gap-1.5 rounded-[14px] bg-finder-card px-3 py-2.5 text-[11px] font-semibold ${FLOAT}`}>
           {(['open', 'limited', 'away', 'inactive'] as const).map((t) => (
             <li key={t} className="flex items-center gap-2">

@@ -1,9 +1,28 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { SESSION_ENDED_EVENT } from '@/lib/api'
 import type { Role, Session } from '@/types/operator'
-import { SessionContext, WRONG_PLACE, isNational, readStoredSession, writeStoredSession, type SignInPlace } from './session'
+import { SESSION_ENDED_KEY, SessionContext, WRONG_PLACE, isNational, readStoredSession, writeStoredSession, type SignInPlace } from './session'
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(() => readStoredSession())
+
+  // The server said this sign-in has ended (expired, signed out elsewhere, PIN changed): drop it
+  // here too. The route guard then sends the person to sign in, keeping the page they were on,
+  // and the sign-in page says why.
+  useEffect(() => {
+    const ended = () => {
+      if (!readStoredSession()) return
+      try {
+        sessionStorage.setItem(SESSION_ENDED_KEY, '1')
+      } catch {
+        /* storage off: the person still lands on sign-in, just without the note */
+      }
+      writeStoredSession(null)
+      setSession(null)
+    }
+    window.addEventListener(SESSION_ENDED_EVENT, ended)
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, ended)
+  }, [])
 
   const signIn = useCallback(async (ref: string, pin: string, role?: Role, where: SignInPlace = 'app') => {
     // Imported here, not at module scope: the provider wraps every route, and a static
