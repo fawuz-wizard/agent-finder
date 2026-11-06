@@ -6,9 +6,9 @@ import { ChevronLeft } from 'lucide-react'
 /**
  * The aggregator app's pieces, measured from the approved Claude Design file ("Aggregator
  * .html", 2026-10-29): 24 px page sides, borderless white cards with 16-18 px corners, the dark
- * header with the orange-ringed avatar, the white 40 px back button, 20 px titles. Colours come
- * from the platform tokens so the dark theme still works; orange is Orange's #FF7900 with
- * black text, as Orange's rules ask.
+ * header with the ringed avatar, the white 40 px back button, 20 px titles. Colours come from
+ * the platform tokens so the dark theme still works; the accent is the logo's purple with
+ * white text.
  */
 
 
@@ -48,7 +48,7 @@ export function ScreenTitle({ title, back, action }: { title: string; back?: str
   )
 }
 
-/** The home's dark header: the orange-ringed avatar (a link to Profile), the greeting, the name, the pill. */
+/** The home's dark header: the ringed avatar (a link to Profile), the greeting, the name, the pill. */
 export function DarkHeader({ name, pill, bell, photo }: { name: string; pill: string; bell?: ReactNode; photo?: string | null | undefined }) {
   const h = new Date().getHours()
   const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
@@ -91,7 +91,7 @@ export function Stat({ label, value, delta, deltaTone = "text-finder-muted", to,
   )
 }
 
-/** A quick action: the 36 px pale-orange box with its icon (a count on its corner when there is one), then the label. */
+/** A quick action: the 36 px pale-pink box with its icon (a count on its corner when there is one), then the label. */
 export function Action({ to, label, icon, badge }: { to: string; label: string; icon: ReactNode; badge?: number }) {
   const named = badge ? `${label}, ${badge} to look into` : label
   return (

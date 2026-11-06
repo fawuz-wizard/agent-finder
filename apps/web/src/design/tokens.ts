@@ -3,13 +3,14 @@
  * the PWA manifest, Google Maps marker SVGs, and canvas/SVG drawing.
  * Everything else uses the Tailwind utilities generated from tokens.css.
  */
-// Orange Design System palette (Boosted v5.3) — keep in lockstep with tokens.css.
+// The brand is the approved logo's pink and purple; the rest is the Orange Design System
+// palette (Boosted v5.3). Keep in lockstep with tokens.css.
 export const colors = {
-  brand: '#FF7900', // ods-orange-100
-  brandDeep: '#F16E00', // ods-orange-200
-  brandText: '#F16E00', // ods-orange-200
-  brandLight: '#FFF1E6',
-  brandFaint: '#FFF8F2',
+  brand: '#FEB4E5', // logo pink
+  brandDeep: '#E58FCB',
+  brandText: '#5922BB', // logo purple
+  brandLight: '#FCE9F6',
+  brandFaint: '#FEF5FB',
   ink: '#000000', // ods-black-900
   paper: '#FFFFFF', // ods-white-100
   canvas: '#FAFAFA',

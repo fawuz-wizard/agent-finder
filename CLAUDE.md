@@ -29,3 +29,10 @@ not yet been received; until it is, keep to the Orange design system tokens alre
 `apps/web/src/design/tokens.css`, produce documents and screens that could be shown at the national
 ceremony without rework, and record the brief's items here as soon as they arrive. When the brief
 arrives, check each new file, screen and document against it before it is considered done.
+
+**Brand colours (decided 2026-11-06, pending an organiser's confirmation):** the team's approved
+competition logo is pink `#FEB4E5` and purple `#5922BB`, and the apps now use those two instead
+of Orange's orange (branch `brand-logo-colours`). Purple fills carry white text, pink fills black
+text; purple is never text on dark surfaces and pink never text on white. Status colours (green,
+yellow, red) and the simulated Max it home stay as they were. If the organisers refuse it, the
+branch is dropped and the Orange palette before it stands.
