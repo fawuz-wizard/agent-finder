@@ -142,6 +142,11 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.app_env == "production"
 
+    @property
+    def is_live(self) -> bool:
+        """Staging or production: a public address. API docs off, HTTPS-only (HSTS) on."""
+        return self.app_env in ("staging", "production")
+
 
 @lru_cache
 def get_settings() -> Settings:
