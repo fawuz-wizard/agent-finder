@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useSession } from '@/features/auth/session'
 import { FinderHeader } from '@/features/end-user/components/finder'
+import { LoadError } from '@/design'
 import { useNotifications, type Notification } from './notifications'
 
 const TONE: Record<Notification['tone'], string> = {
@@ -15,7 +16,7 @@ const TONE: Record<Notification['tone'], string> = {
 export default function NotificationsPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
-  const { items, markSeen, loading } = useNotifications(ref)
+  const { items, markSeen, loading, error, refresh } = useNotifications(ref)
   useEffect(() => {
     if (!loading) markSeen()
   }, [loading, markSeen])
@@ -27,7 +28,8 @@ export default function NotificationsPage() {
       </div>
       <div className="mt-4 flex flex-col">
         {loading && <p className="py-3 text-sm font-medium text-finder-muted">Loading…</p>}
-        {!loading && items.length === 0 && <p className="py-3 text-base font-medium text-finder-muted">Nothing new. Customers, your aggregator and your status will show up here.</p>}
+        {!loading && error && <LoadError what="your notifications" error={error} onRetry={refresh} className="mb-3" />}
+        {!loading && !error && items.length === 0 && <p className="py-3 text-base font-medium text-finder-muted">Nothing new. Customers, your aggregator and your status will show up here.</p>}
         {items.map((n) => (
           <Link key={n.id} to={n.to} className="flex min-h-[3.5rem] items-start gap-4 border-b border-finder-line py-3 last:border-b-0">
             <span className="min-w-0 flex-1">

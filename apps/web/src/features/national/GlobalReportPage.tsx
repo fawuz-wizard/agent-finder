@@ -61,6 +61,9 @@ const STATUS_TEXT: Record<GlobalReport['status'], string> = {
   discarded: 'Set aside',
 }
 
+/** The largest report file read here; a daily report is far smaller. */
+const MAX_REPORT_BYTES = 10 * 1024 * 1024
+
 export default function GlobalReportPage() {
   const { session, signOut } = useSession()
   const history = useAsync<GlobalReport[]>((s) => operatorApi.globalReports(s))
@@ -73,6 +76,10 @@ export default function GlobalReportPage() {
 
   async function read() {
     if (!file) return
+    if (file.size > MAX_REPORT_BYTES) {
+      setError('That file is larger than 10 MB. Send the report as Excel (.xlsx) or CSV.')
+      return
+    }
     setBusy('reading')
     setError(null)
     setShrunk(null)
@@ -153,7 +160,17 @@ export default function GlobalReportPage() {
               <input
                 type="file"
                 accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  // Checked here, before any upload, so a huge file never sits on "Reading…".
+                  if (f && f.size > MAX_REPORT_BYTES) {
+                    setFile(null)
+                    setError('That file is larger than 10 MB. Send the report as Excel (.xlsx) or CSV.')
+                    return
+                  }
+                  setError(null)
+                  setFile(f)
+                }}
                 className="h-control text-base text-finder-ink file:mr-3 file:h-full file:rounded-pill file:border-0 file:bg-finder-line file:px-4 file:font-bold file:text-finder-ink"
               />
             </label>

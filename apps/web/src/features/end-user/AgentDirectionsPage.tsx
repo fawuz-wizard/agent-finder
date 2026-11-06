@@ -17,7 +17,7 @@ export default function AgentDirectionsPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
   const req = requestFrom(params)
-  const { agent, error } = useAgentDetail(id, req)
+  const { agent, error, retry } = useAgentDetail(id, req)
   const navigate = useNavigate()
   const location = useLocation()
   const detailsPath = `/agents/${id}${params.toString() ? `?${params.toString()}` : ''}`
@@ -32,7 +32,7 @@ export default function AgentDirectionsPage() {
     return (
       <div className="flex flex-col gap-4 px-5 py-4 text-white">
         <FinderHeader back={back} title="Directions" />
-        <ErrorState message={error} />
+        <ErrorState message={error} onRetry={retry} />
         <Link to="/find">
           <FinderCta>Search again</FinderCta>
         </Link>

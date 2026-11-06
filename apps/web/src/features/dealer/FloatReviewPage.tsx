@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useToast } from '@/design'
+import { LoadError, useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -53,6 +53,14 @@ export default function DealerFloatReviewPage() {
       <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
         <FinderHeader back="/dealer/float" title="Float request" />
         <p className="text-base font-medium text-finder-muted">Loading…</p>
+      </div>
+    )
+  // The list itself failed (offline, slow, server): say so, never "no longer exists".
+  if (list.state === 'error' && !list.data)
+    return (
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
+        <FinderHeader back="/dealer/float" title="Float request" />
+        <LoadError what="this request" error={list.error} onRetry={list.refresh} />
       </div>
     )
   if (!req)

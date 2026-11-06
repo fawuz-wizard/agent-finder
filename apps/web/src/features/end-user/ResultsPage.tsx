@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Banner } from '@/design'
+import { Banner, SlowHint } from '@/design'
 import { useSearch } from '@/hooks/useSearch'
 import type { SearchRequest, TransactionType } from '@/types/public'
 import { AgentResultCard } from './components/AgentResultCard'
@@ -115,7 +115,12 @@ export default function ResultsPage() {
         {stale && <OfflineBanner since={lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null} onRetry={refresh} />}
         {data?.banner && <Banner tone="warning">{data.banner}</Banner>}
 
-        {state === 'loading' && <LoadingResults />}
+        {state === 'loading' && (
+          <>
+            <SlowHint onRetry={refresh} />
+            <LoadingResults />
+          </>
+        )}
         {state === 'error' && error && <ErrorState message={error} onRetry={refresh} />}
 
         {data && state !== 'loading' && (

@@ -1,4 +1,5 @@
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { operatorApi } from '@/services/operatorApi'
 import type { AuditEntry } from '@/types/operator'
 import { FinderHeader } from '@/features/end-user/components/finder'
@@ -12,6 +13,7 @@ export default function DealerRevealsPage() {
       <FinderHeader back="/dealer/settings" title="Your financial reveals" />
       <div className="mt-4 flex flex-col">
         {audit.state === 'loading' && <p className="py-2 text-base font-medium text-finder-muted">Loading…</p>}
+        {audit.state === 'error' && !audit.data && <LoadError what="your reveals" error={audit.error} onRetry={audit.refresh} />}
         {(audit.data ?? []).map((a) => (
           <Line
             key={a.id}

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { BellRing, ChevronDown, Ellipsis, Navigation, Phone, TriangleAlert, Wallet } from 'lucide-react'
-import { useToast } from '@/design'
+import { ActionError, useToast } from '@/design'
 import { FinderCta } from '@/features/end-user/components/finder'
 import { FieldLabel, Line as ActionLine, TextField } from '@/features/agent/components/agentChrome'
 import { Block, Line, PillButton } from './components/dealerChrome'
@@ -76,15 +76,19 @@ export default function DealerAgentDetailPage() {
   const location = useLocation() as { state?: { code?: string } }
   const { state, data, error, refresh } = useAsync<DealerAgentDetail>((s) => operatorApi.dealerAgent(ref, s), [ref])
   const [busy, setBusy] = useState<DealerAction | null>(null)
+  const [actError, setActError] = useState<string | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({ more: Boolean(location.state?.code) })
   const [menu, setMenu] = useState(false)
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
 
   async function act(action: DealerAction) {
     setBusy(action)
+    setActError(null)
     try {
       const logged = await operatorApi.act(ref, action, session?.name ?? 'Dealer')
       toast.show(logged.note)
+    } catch (e) {
+      setActError(e instanceof Error ? e.message : 'Could not send that.')
     } finally {
       setBusy(null)
     }
@@ -228,6 +232,7 @@ export default function DealerAgentDetailPage() {
             Nudge
           </button>
         </div>
+        <ActionError error={actError} className="mt-2" />
       </div>
 
       {(needs.length > 0 || pinCard) && (

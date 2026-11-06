@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { keepOverview, readOverview } from './overviewCache'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useToast } from '@/design'
+import { ActionError, LoadError, useToast } from '@/design'
 import { useAsync } from '@/hooks/useAsync'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
@@ -28,17 +28,23 @@ export default function DealerAttentionPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { session } = useSession()
-  const { data, state, setData } = useAsync<DealerOverview>((s) => operatorApi.dealerOverview(s), [], readOverview())
+  const { data, state, error, refresh, setData } = useAsync<DealerOverview>((s) => operatorApi.dealerOverview(s), [], readOverview())
   useEffect(() => keepOverview(data), [data])
   const [busy, setBusy] = useState(false)
+  // A press that failed, shown next to the signal it was for.
+  const [failed, setFailed] = useState<{ id: string; message: string } | null>(null)
+  const failure = (sig: Signal, e: unknown) => setFailed({ id: sig.id, message: e instanceof Error ? e.message : 'Could not send that.' })
   const signals = data?.signals ?? []
   const open = id ? signals.find((s) => s.id === id) : null
 
   async function act(sig: Signal, action: DealerAction) {
     setBusy(true)
+    setFailed(null)
     try {
       const logged = await operatorApi.act(sig.agent_ref, action, session?.name ?? 'Dealer')
       toast.show(logged.note)
+    } catch (e) {
+      failure(sig, e)
     } finally {
       setBusy(false)
     }
@@ -47,15 +53,26 @@ export default function DealerAttentionPage() {
   /** Snooze or resolve: the row leaves my queue; the agent's status is untouched. */
   async function mute(sig: Signal, kind: SignalMuteKind) {
     setBusy(true)
+    setFailed(null)
     try {
       const muted = await operatorApi.muteSignal(sig.id, kind, session?.name ?? 'Dealer')
       toast.show(muted.note)
       setData((prev) => (prev ? { ...prev, signals: prev.signals.filter((s) => s.id !== sig.id) } : prev))
       if (id) navigate('/dealer/attention')
+    } catch (e) {
+      failure(sig, e)
     } finally {
       setBusy(false)
     }
   }
+
+  if (id && state === 'error' && !open)
+    return (
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
+        <FinderHeader back="/dealer/attention" title="Needs attention" />
+        <LoadError what="what needs attention" error={error} onRetry={refresh} />
+      </div>
+    )
 
   if (id && state === 'ready' && !open)
     return (
@@ -122,6 +139,7 @@ export default function DealerAttentionPage() {
               Resolve for today
             </PillButton>
           </div>
+          <ActionError error={failed?.id === open.id ? failed.message : null} className="text-center" />
           <p className="text-center text-xs font-medium text-finder-muted">No automatic suspension. No permanent block. Snooze and resolve only tidy your queue; the signal returns if the condition is still true.</p>
         </div>
       </div>
@@ -139,6 +157,7 @@ export default function DealerAttentionPage() {
       />
       <div className="flex flex-col gap-3">
         {state === 'loading' && <p className="text-sm text-finder-muted">Loading…</p>}
+        {state === 'error' && !data && <LoadError what="what needs attention" error={error} onRetry={refresh} />}
         {signals.map((s, i) => (
           <article key={s.id} className="flex flex-col gap-3.5 rounded-[18px] bg-finder-card p-[18px]">
             <Link to={`/dealer/attention/${s.id}`} className="flex items-start gap-3">
@@ -177,6 +196,7 @@ export default function DealerAttentionPage() {
                   Resolve
                 </button>
               </div>
+              <ActionError error={failed?.id === s.id ? failed.message : null} />
             </div>
           </article>
         ))}

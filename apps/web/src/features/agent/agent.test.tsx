@@ -462,3 +462,20 @@ describe('low on cash or float today', () => {
     await waitFor(async () => expect((await operatorApi.home('Agent 024')).low).toMatchObject({ cash_out: null, deposit: null }))
   })
 })
+
+describe('float request, when the list will not load', () => {
+  it('hides the form, says why, and offers Try again', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(operatorApi, 'floatRequests').mockRejectedValue(new Error("You're offline. Check your data or Wi-Fi, then try again."))
+    render(<App start="/agent/float" />)
+    await signIn(user)
+    expect(await screen.findByText(/couldn't load your float requests/i)).toBeInTheDocument()
+    expect(screen.getByText(/the form is hidden to stop a double request/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /submit request/i })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/^amount$/i)).not.toBeInTheDocument()
+    // Back online: Try again brings the form.
+    spy.mockRestore()
+    await user.click(screen.getByRole('button', { name: /try again/i }))
+    expect(await screen.findByRole('button', { name: /submit request/i })).toBeInTheDocument()
+  })
+})

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { User } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
 import type { AgentFeedback, AgentInsights, InsightRange } from '@/types/operator'
@@ -75,7 +76,8 @@ export default function ActivityPage() {
         <h2 id="act-heading" className="text-[13px] font-bold">
           {heading}
         </h2>
-        {!i && <p className="py-10 text-center text-sm text-agent-head-sub">{insights.state === 'error' ? (insights.error ?? 'Could not load.') : 'Loading…'}</p>}
+        {!i && insights.state === 'error' && <LoadError what="your activity" error={insights.error} onRetry={insights.refresh} className="text-finder-ink" />}
+        {!i && insights.state !== 'error' && <p className="py-10 text-center text-sm text-agent-head-sub">Loading…</p>}
         {i && (
           <>
             <ul aria-label="Legend" className="flex flex-col gap-2">
@@ -140,6 +142,7 @@ export default function ActivityPage() {
           )}
         </div>
         {said.state === 'loading' && !said.data && <p className="py-3 text-sm text-finder-muted">Loading…</p>}
+        {said.state === 'error' && !said.data && <LoadError what="what customers said" error={said.error} onRetry={said.refresh} className="mb-3 mt-1" />}
         {said.data && items.length === 0 && <p className="py-3 text-sm text-finder-muted">No customer has reported a visit yet.</p>}
         {shown.map((x) => (
           <div key={x.id} className="flex items-center gap-3 border-b border-agent-divider py-3 last:border-b-0">

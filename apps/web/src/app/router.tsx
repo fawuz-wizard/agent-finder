@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, RouterProvider, type RouteObject } from 
 import { AgentLayout, CustomerLayout, DealerBareLayout, DealerLayout, SignInLayout } from './layouts'
 import { RequireRole } from '@/features/auth/RequireRole'
 import { RequireNational } from '@/features/national/RequireNational'
+import { RouteError } from './RouteError'
 import { ResultCardSkeleton } from '@/design'
 import { config } from '@/lib/config'
 
@@ -170,7 +171,10 @@ const appRoutes: RouteObject[] = [
   { path: '*', element: withSuspense(<NotFound />) },
 ]
 
-const router = createBrowserRouter(config.surface === 'national' ? [...nationalRoutes, { path: '*', element: <Navigate to="/national" replace /> }] : appRoutes)
+// One error screen for every route: a crash, or a screen that cannot be fetched offline, shows
+// "Something went wrong" or "You're offline", never the router's developer page.
+const routes = config.surface === 'national' ? [...nationalRoutes, { path: '*', element: <Navigate to="/national" replace /> }] : appRoutes
+const router = createBrowserRouter([{ errorElement: <RouteError />, children: routes }])
 
 export function AppRouter() {
   return <RouterProvider router={router} />

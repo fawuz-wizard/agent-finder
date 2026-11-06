@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest'
+import { configure } from '@testing-library/react'
+
+// findBy… and waitFor wait up to 5 s (default 1 s), for the same reason as testTimeout.
+configure({ asyncUtilTimeout: 5_000 })
 
 // The demo network runs night mode 07:00–20:00 UTC, exactly as the API does. Shift the clock
 // so every run starts at midday UTC: time still advances, timers stay real, and a test that
