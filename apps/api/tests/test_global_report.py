@@ -210,3 +210,119 @@ async def test_history_lists_uploads_newest_first(client):
     assert [x["report_date"] for x in r.json()] == ["2026-11-02", "2026-11-01"]
     assert all("rows" not in x for x in r.json())
     assert json.dumps(r.json()).count("1990-01-01") == 0
+
+
+# --- Fixes from the independent review of 2026-11-06 ---------------------------------------
+
+
+def row_with_parent(code: str, line: str, parent: str, parent_name: str) -> str:
+    return (
+        f"CHANNEL,AGNT,{parent},{parent_name},{line},{code},Mariama,Sesay,Freetown,"
+        f"12 Main Motor Road Lumley,Y,1990-01-01,,,5000,7000,12,250000,1500"
+    )
+
+
+@pytest.mark.asyncio
+async def test_two_aggregators_sharing_their_last_six_digits_stay_two_accounts(client):
+    from app.db.models import Dealer
+
+    h = await _orange(client)
+    up = (
+        await _upload(
+            client,
+            h,
+            report(
+                row_with_parent("710001", "077100001", "076123456", "Aggregator One"),
+                row_with_parent("710002", "077100002", "077123456", "Aggregator Two"),
+            ),
+        )
+    ).json()
+    r = await client.post(f"{URL}/{up['id']}/apply", json={"confirm_shrink": True}, headers=h)
+    assert r.status_code == 200, r.text
+    async with dbsession.get_session_factory()() as db:
+        one = (await db.execute(select(Dealer).where(Dealer.msisdn == "+23276123456"))).scalar_one()
+        two = (await db.execute(select(Dealer).where(Dealer.msisdn == "+23277123456"))).scalar_one()
+        assert one.id != two.id
+        a1 = (await db.execute(select(Agent).where(Agent.agent_code == "710001"))).scalar_one()
+        a2 = (await db.execute(select(Agent).where(Agent.agent_code == "710002"))).scalar_one()
+    assert (a1.dealer_id, a2.dealer_id) == (one.id, two.id)
+
+
+@pytest.mark.asyncio
+async def test_a_line_already_held_by_another_account_is_set_aside_and_never_logged(client, caplog):
+    h = await _orange(client)
+    first = (
+        await _upload(client, h, report(row("740001", "077400001"), row("740002", "077400002")))
+    ).json()
+    await client.post(f"{URL}/{first['id']}/apply", json={"confirm_shrink": True}, headers=h)
+    # Next day agent 740001's row carries 740002's line: writing it would put one line on two
+    # agents. That row is set aside (no 500), the other is applied, and the log holds no values.
+    clash = report(row("740001", "077400002"), row("740003", "077400003"))
+    up = (await _upload(client, h, clash, day="2026-11-04")).json()
+    r = await client.post(f"{URL}/{up['id']}/apply", json={"confirm_shrink": True}, headers=h)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["summary"]["applied"].get("set_aside") == 1
+    assert any("line_in_use" in i["issues"] for i in body["summary"]["rows_with_issues"])
+    assert "77400002" not in caplog.text and "Mariama" not in caplog.text
+    async with dbsession.get_session_factory()() as db:
+        a1 = (await db.execute(select(Agent).where(Agent.agent_code == "740001"))).scalar_one()
+        new = (await db.execute(select(Agent).where(Agent.agent_code == "740003"))).scalar_one()
+    assert (
+        a1.msisdn == "+23277400001" and new.dealer_id
+    )  # the clash changed nothing; the rest applied
+
+
+@pytest.mark.asyncio
+async def test_an_older_report_after_a_newer_one_is_refused(client):
+    h = await _orange(client)
+    newer = (
+        await _upload(client, h, report(row("730001", "077300001", status="N")), day="2026-11-03")
+    ).json()
+    assert (
+        await client.post(f"{URL}/{newer['id']}/apply", json={"confirm_shrink": True}, headers=h)
+    ).status_code == 200
+    older = (await _upload(client, h, report(row("730001", "077300001")), day="2026-11-01")).json()
+    r = await client.post(f"{URL}/{older['id']}/apply", json={"confirm_shrink": True}, headers=h)
+    assert r.status_code == 409 and r.json()["error"]["code"] == "older_report"
+    async with dbsession.get_session_factory()() as db:
+        a = (await db.execute(select(Agent).where(Agent.agent_code == "730001"))).scalar_one()
+    assert a.active is False  # Orange's later word stands
+
+
+@pytest.mark.asyncio
+async def test_a_set_aside_report_can_be_uploaded_again(client):
+    h = await _orange(client)
+    first = (await _upload(client, h, THREE)).json()
+    await client.post(f"{URL}/{first['id']}/discard", headers=h)
+    again = (await _upload(client, h, THREE)).json()
+    assert again["duplicate"] is False and again["status"] == "previewed"
+
+
+@pytest.mark.asyncio
+async def test_damaged_or_crafted_files_get_a_plain_answer_quickly(client):
+    import io
+    import time
+    import zipfile
+
+    h = await _orange(client)
+    # A CSV with one enormous field.
+    big = (HEADER + "\n" + '"' + "x" * 200_000 + '"\n').encode()
+    assert (await _upload(client, h, big, name="big.csv")).status_code == 422
+    # An .xlsx whose sheet is one row of unclosed cells (froze the old reader for minutes).
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(
+            "xl/worksheets/sheet1.xml", "<worksheet><sheetData><row>" + '<c r="A1">' * 40_000
+        )
+    t = time.perf_counter()
+    r = await _upload(client, h, buf.getvalue(), name="trap.xlsx")
+    assert r.status_code == 422 and time.perf_counter() - t < 5
+    # An .xlsx that declares entities.
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr(
+            "xl/worksheets/sheet1.xml",
+            '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa">]><worksheet/>',
+        )
+    assert (await _upload(client, h, buf.getvalue(), name="ent.xlsx")).status_code == 422

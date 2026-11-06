@@ -27,7 +27,12 @@ def get_engine() -> AsyncEngine:
             # One file, many concurrent readers and writers: WAL lets reads proceed during a
             # write, and the busy timeout makes a second writer wait instead of failing.
             _engine = create_async_engine(
-                settings.database_url, echo=False, connect_args={"timeout": 30}
+                settings.database_url,
+                echo=False,
+                connect_args={"timeout": 30},
+                # A failed statement's values (names, numbers, PIN hashes) never reach the
+                # logs or Sentry with the error.
+                hide_parameters=True,
             )
 
             @event.listens_for(_engine.sync_engine, "connect")
@@ -38,7 +43,12 @@ def get_engine() -> AsyncEngine:
                 cur.close()
         else:
             _engine = create_async_engine(
-                settings.database_url, pool_pre_ping=True, pool_size=5, max_overflow=5, echo=False
+                settings.database_url,
+                pool_pre_ping=True,
+                pool_size=5,
+                max_overflow=5,
+                echo=False,
+                hide_parameters=True,
             )
     return _engine
 

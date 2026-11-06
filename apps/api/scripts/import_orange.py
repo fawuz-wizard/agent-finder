@@ -32,7 +32,9 @@ from app.services.orange_report import (  # noqa: F401  (the tests and the clean
 
 async def apply(results: list[RowResult]) -> dict:
     async with get_session_factory()() as db:
-        return await orange_report.apply(db, results)
+        created = await orange_report.apply(db, results)
+        await db.commit()  # one commit for the whole file
+        return created
 
 
 def main(argv: list[str]) -> int:

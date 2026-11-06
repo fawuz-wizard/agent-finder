@@ -493,7 +493,7 @@ export const operatorApi = {
   },
 
   applyGlobalReport(id: string, confirmShrink = false): Promise<GlobalReport> {
-    if (config.useLiveApi) return api.post<GlobalReport>(`/api/v1/national/reports/${encodeURIComponent(id)}/apply`, { confirm_shrink: confirmShrink })
+    if (config.useLiveApi) return api.postLong<GlobalReport>(`/api/v1/national/reports/${encodeURIComponent(id)}/apply`, { confirm_shrink: confirmShrink })
     return Promise.reject(new Error(GLOBAL_REPORT_DEMO))
   },
 

@@ -36,6 +36,9 @@ async def create(account_id: str, name: str, region: str, phone: str | None) -> 
     """Create or reset the account; return the one-time code."""
     if not ACCOUNT_ID.match(account_id):
         raise SystemExit("Account name: 2-39 lower-case letters, digits or '-', e.g. test-agg")
+    if account_id.startswith("agg-"):
+        # Names starting "agg-" belong to aggregators created from Orange's report.
+        raise SystemExit("Account names starting with 'agg-' are kept for Orange's report")
     if region not in REGIONS:
         raise SystemExit(f"Region must be one of {', '.join(REGIONS)}")
     msisdn = None
