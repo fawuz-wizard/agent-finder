@@ -6,9 +6,9 @@
 // The brand is the approved logo's pink and purple; the rest is the Orange Design System
 // palette (Boosted v5.3). Keep in lockstep with tokens.css.
 export const colors = {
-  brand: '#FEB4E5', // logo pink
+  brand: '#FDB2E1', // logo pink
   brandDeep: '#E58FCB',
-  brandText: '#5922BB', // logo purple
+  brandText: '#5A21B8', // logo purple
   brandLight: '#FCE9F6',
   brandFaint: '#FEF5FB',
   ink: '#000000', // ods-black-900

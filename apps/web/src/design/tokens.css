@@ -14,13 +14,13 @@
 */
 
 @theme {
-  /* Brand — the approved Agent Finder logo (2026-11-06): pink #FEB4E5 and purple #5922BB.
+  /* Brand — the approved Agent Finder logo (2026-11-06): pink #FDB2E1 and purple #5A21B8.
      Pink fills carry black text (12.9:1); purple fills carry white text (8.9:1). Purple is
      never text or a thin line on a dark surface (2.2:1), and pink never text on white (1.6:1).
      Pending the organisers' confirmation; the Orange palette is on the branch before it. */
-  --color-brand: #feb4e5;            /* logo pink — fills, with ink text */
+  --color-brand: #fdb2e1;            /* logo pink — fills, with ink text */
   --color-brand-deep: #e58fcb;       /* hover/pressed pink, still 9:1 with ink */
-  --color-brand-text: #5922bb;       /* logo purple — accent text on light surfaces (8.9:1 on white) */
+  --color-brand-text: #5a21b8;       /* logo purple — accent text on light surfaces (8.9:1 on white) */
   --color-brand-light: #fce9f6;      /* selected tints */
   /* Dashboard line series — ODS functional blue/green, CVD-safe pair */
   --color-series-tx: #4170d8;        /* ods-water-200 — transactions (operator data) */
@@ -55,7 +55,7 @@
   --color-app-selected: #2a1f3d;
   --color-app-tab-active: #4a4a4a;
   --color-app-star: #ffb400;         /* ods-yellow-400 */
-  --color-app-highlight: #feb4e5;    /* logo pink — passes on dark surfaces */
+  --color-app-highlight: #fdb2e1;    /* logo pink — passes on dark surfaces */
   --color-app-success: #66cc66;      /* ods-forest-100 — the light pair of forest-200 */
 
   /* Demo host shell only — the simulated super-app the customer module is embedded in.
@@ -107,10 +107,10 @@
   --color-finder-line: #303030;        /* inset glow and the tab track */
   --color-finder-muted: #a8a8a8;
   --color-finder-tab-off: #747474;
-  --color-finder-link: #feb4e5;        /* text links; on the dark surface the same pink fills pills */
-  --color-finder-accent: #feb4e5;      /* fills: pills, edges, the Call / Get directions buttons (black text on it) */
+  --color-finder-link: #fdb2e1;        /* text links; on the dark surface the same pink fills pills */
+  --color-finder-accent: #fdb2e1;      /* fills: pills, edges, the Call / Get directions buttons (black text on it) */
   --color-finder-ink: #ffffff;         /* primary text on the surface: white on the dark file, near-black in daylight */
-  --color-finder-cta: #5922bb;         /* the one big button: logo purple */
+  --color-finder-cta: #5a21b8;         /* the one big button: logo purple */
   --color-finder-on-cta: #ffffff;      /* text on the purple button: 8.9:1 */
   --color-finder-on-orange: #000000;   /* text on accent fills: black on pink here (12.9:1) */
   --color-finder-likely: #3fa36b;      /* on the dark surface: 5.3:1 */
@@ -154,9 +154,9 @@
   --color-finder-line: #e5e5e5;
   --color-finder-muted: #6b6862;
   --color-finder-tab-off: #9a958e;
-  --color-finder-link: #5922bb;        /* text links on white: 8.9:1 */
-  --color-finder-accent: #5922bb;      /* fills, with white text: 8.9:1 */
-  --color-finder-cta: #5922bb;
+  --color-finder-link: #5a21b8;        /* text links on white: 8.9:1 */
+  --color-finder-accent: #5a21b8;      /* fills, with white text: 8.9:1 */
+  --color-finder-cta: #5a21b8;
   --color-finder-on-orange: #ffffff;   /* text on the purple accent */
   --color-finder-ink: #1a1d24;
   --color-finder-open: #16803c;
@@ -197,7 +197,7 @@
   --color-ouds-on-action: #ffffff;                /* color-content-on-action-enabled / -hover */
   --color-ouds-action-disabled: rgba(0, 0, 0, 0.2); /* color-action-disabled */
   --color-ouds-on-disabled: #ffffff;              /* color-content-on-action-disabled */
-  --color-ouds-brand: #5922bb;                    /* the brand button: logo purple */
+  --color-ouds-brand: #5a21b8;                    /* the brand button: logo purple */
   --color-ouds-on-brand: #ffffff;                 /* white on purple: 8.9:1 */
   --color-ouds-brand-pressed: #000000;            /* button-color-bg-brand-pressed / -loading */
   --color-ouds-on-brand-pressed: #ffffff;         /* button-color-content-brand-pressed / -loading */
@@ -260,7 +260,7 @@
     --color-canvas: #141414;
     --color-line: #333333;
     --color-muted: #999999;
-    --color-brand-text: #feb4e5;
+    --color-brand-text: #fdb2e1;
     --color-brand-light: #2a1f3d;
     --color-brand-faint: #1c1527;
     --color-success: #66cc66;
@@ -278,7 +278,7 @@
   --color-canvas: #fafafa;
   --color-line: #cccccc;
   --color-muted: #666666;
-  --color-brand-text: #5922bb;
+  --color-brand-text: #5a21b8;
   --color-brand-light: #fce9f6;
   --color-brand-faint: #fef5fb;
   --color-success: #228722;
@@ -296,7 +296,7 @@
   --color-canvas: #141414;
   --color-line: #333333;
   --color-muted: #999999;
-  --color-brand-text: #feb4e5;
+  --color-brand-text: #fdb2e1;
   --color-brand-light: #2a1f3d;
   --color-brand-faint: #1c1527;
   --color-success: #66cc66;
@@ -422,9 +422,9 @@
   --color-agent-away-dot: #8e8882;
   --color-agent-curve: #fdf0f8;
   --color-agent-avatar: #fbddf1;
-  --color-agent-avatar-ink: #5922bb;
+  --color-agent-avatar-ink: #5a21b8;
   --color-agent-pill: #efe6fb;
-  --color-agent-pill-ink: #5922bb;
+  --color-agent-pill-ink: #5a21b8;
 }
 
 /* The agent Activity card (the new agent design, screen 14): its line colours and rules on dark. */
