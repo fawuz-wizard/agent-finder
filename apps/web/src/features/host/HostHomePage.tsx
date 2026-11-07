@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import frame from './frame.html?raw'
+import rawFrame from './frame.html?raw'
+import logoUrl from '@/design/agent-finder-mark.png'
 import './host-frame.css'
 import { config } from '@/lib/config'
 import { setOperatorFeedDemo } from '@/services/customerApi'
@@ -16,6 +17,9 @@ import { setOperatorFeedDemo } from '@/services/customerApi'
  * and a standing notice says so. The frame is used exactly as exported.
  * The only working control is the Agent Finder banner.
  */
+
+// The banner carries the Agent Finder logo; the export marks its place.
+const frame = rawFrame.replace('__AGENT_FINDER_LOGO__', logoUrl)
 
 const FRAME_W = 440
 const FRAME_H = 956

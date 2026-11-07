@@ -21,7 +21,7 @@ export default defineConfig({
         short_name: 'Agent Finder',
         description:
           'Find a mobile-money agent near you who can likely handle your transaction right now.',
-        theme_color: '#FF7900',
+        theme_color: '#5A21B8',
         background_color: '#FAFAFA',
         display: 'standalone',
         start_url: '/',

@@ -1,6 +1,6 @@
 import markUrl from './agent-finder-mark.png'
 
-/** The Agent Finder mark: the orange A with the agent magnifier, on its black tile. */
+/** The Agent Finder mark: the approved logo (pink diamond, pin and purple dot) on its black tile. */
 export function LogoMark({ size = 28, className }: { size?: number; className?: string }) {
   const rem = size / 16
   return (

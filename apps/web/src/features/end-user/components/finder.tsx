@@ -57,7 +57,7 @@ export function FinderCta({ className, ...rest }: React.ButtonHTMLAttributes<HTM
     <button
       type="button"
       className={cn(
-        'flex h-[3.5rem] w-full items-center justify-center rounded-action bg-finder-cta text-md font-bold text-finder-on-orange',
+        'flex h-[3.5rem] w-full items-center justify-center rounded-action bg-finder-cta text-md font-bold text-finder-on-cta',
         'transition-[filter] hover:brightness-95 active:brightness-90 disabled:opacity-45',
         className,
       )}

@@ -5,6 +5,7 @@
  * customer never has to leave Max it to see where to go.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { colors } from '@/design/tokens'
 import { config } from '@/lib/config'
 import { tileSource } from '@/lib/tiles'
 import { fetchRoute, type Route } from '@/lib/route'
@@ -182,7 +183,7 @@ function SketchRoute({ agent, origin, distance_m, fill = false }: { agent: Route
           <text x={ox} y={oy + 24} textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor">You</text>
         </>
       )}
-      <circle cx={ax} cy={ay} r="11" fill="#FF7900" stroke="#C25E00" strokeWidth="3" />
+      <circle cx={ax} cy={ay} r="11" fill={colors.brand} stroke={colors.brandText} strokeWidth="3" />
       <text x={ax} y={ay - 18} textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor">{agent.name}</text>
       {origin && (
         <text x={W / 2} y={H - 12} textAnchor="middle" fontSize="12" fontWeight="600" fill="currentColor" opacity="0.75">

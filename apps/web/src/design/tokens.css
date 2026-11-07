@@ -14,16 +14,18 @@
 */
 
 @theme {
-  /* Brand — Orange Design System palette (Boosted v5.3 _color-palette.scss). Every colour
-     below is an ODS token; nothing here comes from Tailwind or Material defaults. */
-  --color-brand: #ff7900;            /* ods-orange-100 — fills, with ink text */
-  --color-brand-deep: #f16e00;       /* ods-orange-200 — hover/pressed, the "accessible orange" */
-  --color-brand-text: #f16e00;       /* ods-orange-200 — accents and large text ONLY (≥18px bold on white); body links are ink + underline, as on orange.com */
-  --color-brand-light: #fff1e6;      /* selected tints (no ODS tint exists; derived from brand) */
+  /* Brand — the approved Agent Finder logo (2026-11-06): pink #FDB2E1 and purple #5A21B8.
+     Pink fills carry black text (12.9:1); purple fills carry white text (8.9:1). Purple is
+     never text or a thin line on a dark surface (2.2:1), and pink never text on white (1.6:1).
+     Pending the organisers' confirmation; the Orange palette is on the branch before it. */
+  --color-brand: #fdb2e1;            /* logo pink — fills, with ink text */
+  --color-brand-deep: #e58fcb;       /* hover/pressed pink, still 9:1 with ink */
+  --color-brand-text: #5a21b8;       /* logo purple — accent text on light surfaces (8.9:1 on white) */
+  --color-brand-light: #fce9f6;      /* selected tints */
   /* Dashboard line series — ODS functional blue/green, CVD-safe pair */
   --color-series-tx: #4170d8;        /* ods-water-200 — transactions (operator data) */
   --color-series-fresh: #0a6e31;     /* ods-green-600 — status fresh % */
-  --color-brand-faint: #fff8f2;      /* subtle surfaces (derived from brand) */
+  --color-brand-faint: #fef5fb;      /* subtle surfaces (derived from brand) */
 
   /* Neutrals — the ODS grey ramp: #fff #fafafa #eee #ddd #ccc #999 #666 #595959 #333 #141414 #000 */
   --color-ink: #000000;              /* ods-black-900 — body text, as Boosted $body-color */
@@ -50,10 +52,10 @@
   --color-app-card: #1f1f1f;
   --color-app-panel: #23211a;
   --color-app-surface: #333333;
-  --color-app-selected: #33200d;
+  --color-app-selected: #2a1f3d;
   --color-app-tab-active: #4a4a4a;
   --color-app-star: #ffb400;         /* ods-yellow-400 */
-  --color-app-highlight: #ff7900;    /* ods-orange-100 — passes on dark surfaces */
+  --color-app-highlight: #fdb2e1;    /* logo pink — passes on dark surfaces */
   --color-app-success: #66cc66;      /* ods-forest-100 — the light pair of forest-200 */
 
   /* Demo host shell only — the simulated super-app the customer module is embedded in.
@@ -105,12 +107,12 @@
   --color-finder-line: #303030;        /* inset glow and the tab track */
   --color-finder-muted: #a8a8a8;
   --color-finder-tab-off: #747474;
-  --color-finder-link: #fa7211;        /* text links; on the dark surface the same orange fills pills */
-  --color-finder-accent: #fa7211;      /* fills: pills, edges, the Call / Get directions buttons (black text on it) */
+  --color-finder-link: #fdb2e1;        /* text links; on the dark surface the same pink fills pills */
+  --color-finder-accent: #fdb2e1;      /* fills: pills, edges, the Call / Get directions buttons (black text on it) */
   --color-finder-ink: #ffffff;         /* primary text on the surface: white on the dark file, near-black in daylight */
-  --color-finder-cta: #ff7900;         /* the one big button */
-  --color-finder-on-cta: #000000;      /* text on the big button: black on orange */
-  --color-finder-on-orange: #000000;   /* Orange's rule: black text on orange, never white */
+  --color-finder-cta: #5a21b8;         /* the one big button: logo purple */
+  --color-finder-on-cta: #ffffff;      /* text on the purple button: 8.9:1 */
+  --color-finder-on-orange: #000000;   /* text on accent fills: black on pink here (12.9:1) */
   --color-finder-likely: #3fa36b;      /* on the dark surface: 5.3:1 */
   --color-finder-likely-ink: #27794b;  /* the same green for text on its tint: 4.7:1 (the mid green is 2.8:1 there) */
   --color-finder-likely-tint: #dff5e7;
@@ -122,7 +124,7 @@
      and the dark header of the two home screens, which stays dark in both themes. */
   --color-finder-card: #262626;
   --color-finder-card-line: #353535;
-  --color-finder-tile: #2b2118;
+  --color-finder-tile: #2a1f3d;
   --color-finder-head: #1b1b1b;
   --color-finder-on-head: #ffffff;
   --font-finder: 'Poppins', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
@@ -137,7 +139,8 @@
 
 /* The agent and aggregator platform in daylight. The screens are built from the same tokens as
    the customer module; this scope re-reads them as white surfaces, dark ink, orange only for
-   actions and accents, so one component serves both. The customer module never carries it. */
+   actions and accents (logo purple, white text on it), so one component serves both. The
+   customer module never carries it. */
 [data-platform='light'] {
   color-scheme: light;
   /* The approved Claude Design file (Aggregator .html, 2026-10-29): warm grey page, borderless
@@ -146,14 +149,15 @@
   --color-finder-bg: #f7f5f2;
   --color-finder-card: #ffffff;
   --color-finder-card-line: #f1eeea;
-  --color-finder-tile: #fff0e6;
+  --color-finder-tile: #fce9f6;
   --color-finder-head: #1a1d24;
   --color-finder-line: #e5e5e5;
   --color-finder-muted: #6b6862;
   --color-finder-tab-off: #9a958e;
-  --color-finder-link: #c2410c;        /* text links on white: 4.9:1 */
-  --color-finder-accent: #ff7900;      /* fills, with black text: 7.5:1 */
-  --color-finder-cta: #ff7900;
+  --color-finder-link: #5a21b8;        /* text links on white: 8.9:1 */
+  --color-finder-accent: #5a21b8;      /* fills, with white text: 8.9:1 */
+  --color-finder-cta: #5a21b8;
+  --color-finder-on-orange: #ffffff;   /* text on the purple accent */
   --color-finder-ink: #1a1d24;
   --color-finder-open: #16803c;
   --color-finder-star: #b7791f;
@@ -161,7 +165,7 @@
   --color-finder-likely-ink: #16803c;
   --color-finder-likely-tint: #e6f4ea;
   --color-finder-limited: #7a5d14;
-  --color-finder-limited-tint: #fff1e6;
+  --color-finder-limited-tint: #fbf3e2;
 }
 /* The platform's type, in both themes: Manrope. */
 [data-platform] {
@@ -193,8 +197,8 @@
   --color-ouds-on-action: #ffffff;                /* color-content-on-action-enabled / -hover */
   --color-ouds-action-disabled: rgba(0, 0, 0, 0.2); /* color-action-disabled */
   --color-ouds-on-disabled: #ffffff;              /* color-content-on-action-disabled */
-  --color-ouds-brand: #ff7900;                    /* color-surface-brand-primary: the brand button */
-  --color-ouds-on-brand: #000000;                 /* color-content-on-brand-primary */
+  --color-ouds-brand: #5a21b8;                    /* the brand button: logo purple */
+  --color-ouds-on-brand: #ffffff;                 /* white on purple: 8.9:1 */
   --color-ouds-brand-pressed: #000000;            /* button-color-bg-brand-pressed / -loading */
   --color-ouds-on-brand-pressed: #ffffff;         /* button-color-content-brand-pressed / -loading */
   --color-ouds-negative: #db0002;                 /* color-action-negative-enabled, color-content-status-negative */
@@ -245,7 +249,7 @@
   --breakpoint-2xl: 1440px;
 }
 
-/* Light small text stays darker for contrast; dark brand text uses Orange's #FF7900. */
+/* Brand text: logo purple on light surfaces, logo pink on dark ones. */
 :root {
   color-scheme: light dark;
 }
@@ -256,9 +260,9 @@
     --color-canvas: #141414;
     --color-line: #333333;
     --color-muted: #999999;
-    --color-brand-text: #ff7900;
-    --color-brand-light: #33200d;
-    --color-brand-faint: #1f160e;
+    --color-brand-text: #fdb2e1;
+    --color-brand-light: #2a1f3d;
+    --color-brand-faint: #1c1527;
     --color-success: #66cc66;
     --color-success-strong: #66cc66;
     --color-warning: #ffcc00;
@@ -274,9 +278,9 @@
   --color-canvas: #fafafa;
   --color-line: #cccccc;
   --color-muted: #666666;
-  --color-brand-text: #f16e00;
-  --color-brand-light: #fff1e6;
-  --color-brand-faint: #fff8f2;
+  --color-brand-text: #5a21b8;
+  --color-brand-light: #fce9f6;
+  --color-brand-faint: #fef5fb;
   --color-success: #228722;
   --color-success-strong: #0a6e31;
   --color-warning: #8f7200;
@@ -292,9 +296,9 @@
   --color-canvas: #141414;
   --color-line: #333333;
   --color-muted: #999999;
-  --color-brand-text: #ff7900;
-  --color-brand-light: #33200d;
-  --color-brand-faint: #1f160e;
+  --color-brand-text: #fdb2e1;
+  --color-brand-light: #2a1f3d;
+  --color-brand-faint: #1c1527;
   --color-success: #66cc66;
   --color-success-strong: #66cc66;
   --color-warning: #ffcc00;
@@ -340,7 +344,7 @@
     text-underline-offset: 2px;
   }
   a:hover, a:active {
-    color: var(--color-brand-deep);
+    color: var(--color-brand-text);
   }
   * {
     -webkit-tap-highlight-color: transparent;
@@ -359,7 +363,7 @@
 }
 
 /* The approved Claude Design file's own colours (Aggregator .html, 2026-10-29), named so
-   components never carry a hex value. Orange itself stays Orange's #FF7900 (finder-accent). */
+   components never carry a hex value. The brand colours are the logo's (finder-accent). */
 @theme {
   --color-design-ink: #1a1d24;
   --color-design-green: #1f9d55;
@@ -374,8 +378,8 @@
   --color-design-head-sub: #a9adb6;
   --color-design-head-tile: #2a2e37;
   --color-design-track: #f1eeea;
-  --color-design-peach: #ffe6d6;
-  --color-design-peach-bar: #ffc9a6;
+  --color-design-peach: #fce4f3;
+  --color-design-peach-bar: #f6bde3;
   --color-design-good-tint: #e2f4e8;
   --color-design-warn-tint: #fff3d1;
   --color-design-bad-tint: #fde8e8;
@@ -392,13 +396,13 @@
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* The agent app in the approved agent design ("agent platform.html", 2026-10-29): its own
-   page, ink, borders and tile, read over the platform tokens. Orange stays Orange's #FF7900. */
+   page, ink, borders and tile, read over the platform tokens. Accents are the logo's purple. */
 [data-platform='light'][data-app='agent'] {
   --color-finder-bg: #fbf9f7;
   --color-finder-ink: #1b1b1f;
   --color-finder-muted: #6b6660;
   --color-finder-card-line: #ece7e1;
-  --color-finder-tile: #fff2e8;
+  --color-finder-tile: #fce9f6;
   --color-finder-head: #1d1d20;
 }
 @theme {
@@ -407,20 +411,20 @@
   --color-agent-chip: #f3f1ee;
   --color-agent-chip-ink: #3a3a40;
   --color-agent-head-avatar: #3a3a40;
-  --color-agent-head-initials: #ffd9c2;
+  --color-agent-head-initials: #fbd3ee;
   --color-agent-head-sub: #b9b4ae;
-  --color-agent-tile-press: #ffe7d6;
+  --color-agent-tile-press: #f9ddf0;
   --color-agent-open-line: #bfe5cb;
   --color-agent-open-sub: #2f6b45;
   --color-agent-green: #1e8a47;
   --color-agent-green-ink: #155e31;
   --color-agent-green-tint: #eaf7ee;
   --color-agent-away-dot: #8e8882;
-  --color-agent-curve: #fff4ec;
-  --color-agent-avatar: #ffe3d1;
-  --color-agent-avatar-ink: #b84a08;
-  --color-agent-pill: #ffe7d6;
-  --color-agent-pill-ink: #c2540e;
+  --color-agent-curve: #fdf0f8;
+  --color-agent-avatar: #fbddf1;
+  --color-agent-avatar-ink: #5a21b8;
+  --color-agent-pill: #efe6fb;
+  --color-agent-pill-ink: #5a21b8;
 }
 
 /* The agent Activity card (the new agent design, screen 14): its line colours and rules on dark. */
