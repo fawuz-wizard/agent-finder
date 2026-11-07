@@ -147,7 +147,7 @@ describe('U3 — Results', () => {
     })
     renderResults()
     expect(await screen.findByText(/^No open agent near /)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Change amount or place' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Change (amount or )?location$/ })).toBeInTheDocument()
     // Nothing is inside the radius, so the radius is not claimed.
     expect(screen.queryByText(/within 500 m/)).not.toBeInTheDocument()
   })

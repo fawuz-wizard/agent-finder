@@ -27,6 +27,8 @@ export default function SignInPage() {
   const [ended] = useState(() => sessionEnded())
   useEffect(() => clearSessionEnded(), [])
   const [numberError, setNumberError] = useState<string | null>(null)
+  // A phone keypad has no letters: aggregators made by hand (test-agg) sign in with a name.
+  const [byName, setByName] = useState(false)
 
   const ready = pin.length >= 4 && ref.trim().length > 0
 
@@ -73,7 +75,7 @@ export default function SignInPage() {
             const digits = ref.replace(/[\s+()-]/g, '')
             // A number, but too short to be one: an account name or a 3-digit agent number
             // ("024") passes; "12" or "76123" does not.
-            if (/^\d+$/.test(digits) && (digits.length < 3 || (digits.length > 3 && digits.length < 8))) {
+            if (!byName && /^\d+$/.test(digits) && (digits.length < 3 || (digits.length > 3 && digits.length < 8))) {
               setNumberError('Enter your 9-digit Orange number, for example 076 123 456.')
               return
             }
@@ -105,13 +107,19 @@ export default function SignInPage() {
               </div>
             )}
             <h1 className={`${ended ? 'mt-8' : 'mt-14'} text-[30px] font-extrabold leading-tight tracking-[-0.03em]`}>Welcome back</h1>
-            <p className="mt-2 text-[15px] leading-normal text-design-muted">Enter your Orange phone number to continue.</p>
+            <p className="mt-2 text-[15px] leading-normal text-design-muted">
+              {byName ? 'Enter the account name you were given.' : 'Enter your Orange phone number to continue.'}
+            </p>
             <label htmlFor="sign-in-ref" className="sr-only">
-              Phone number
+              {byName ? 'Account name' : 'Phone number'}
             </label>
             <div className={`mt-8 ${field}`}>
-              <span className="text-base font-bold">+232</span>
-              <span aria-hidden="true" className="h-6 w-px bg-design-field-line" />
+              {!byName && (
+                <>
+                  <span className="text-base font-bold">+232</span>
+                  <span aria-hidden="true" className="h-6 w-px bg-design-field-line" />
+                </>
+              )}
               <input
                 id="sign-in-ref"
                 value={ref}
@@ -121,11 +129,12 @@ export default function SignInPage() {
                 }}
                 aria-invalid={numberError ? true : undefined}
                 aria-describedby={numberError ? 'sign-in-ref-error' : undefined}
-                placeholder="76X XXX XXX"
+                placeholder={byName ? 'e.g. test-agg' : '76X XXX XXX'}
                 autoComplete="username"
                 autoCapitalize="off"
+                autoCorrect="off"
                 spellCheck={false}
-                inputMode="tel"
+                inputMode={byName ? 'text' : 'tel'}
                 className="h-full min-w-0 flex-1 bg-transparent text-base font-semibold tracking-[0.04em] outline-none placeholder:text-design-faint"
               />
             </div>
@@ -136,6 +145,18 @@ export default function SignInPage() {
             )}
             <button type="submit" disabled={!ref.trim()} className={`${primary} ${ref.trim() ? on : off}`}>
               Continue
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setByName((v) => !v)
+                setRef('')
+                setNumberError(null)
+                document.getElementById('sign-in-ref')?.focus()
+              }}
+              className="mt-2 flex min-h-12 items-center justify-center text-[15px] font-bold text-finder-link"
+            >
+              {byName ? 'Use phone number instead' : 'Aggregator? Sign in with account name'}
             </button>
           </>
         ) : (
@@ -152,7 +173,7 @@ export default function SignInPage() {
                 }}
                 className="font-bold text-finder-link"
               >
-                Change number
+                {byName ? 'Change name' : 'Change number'}
               </button>
             </p>
             <label htmlFor="sign-in-pin" className="sr-only">
