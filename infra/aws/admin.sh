@@ -7,7 +7,7 @@
 #   infra/aws/admin.sh status            # containers and their health
 #   infra/aws/admin.sh logs api          # last 100 lines of api, caddy or db
 #   infra/aws/admin.sh backup-now        # run the nightly backup immediately
-#   infra/aws/admin.sh publish-apks DIR  # put DIR/agent-app.apk and agent-finder.apk on
+#   infra/aws/admin.sh publish-apks DIR|--from-bucket  # put the two apps (from DIR, or as GitHub sent them) on
 #                                        # https://app.<suffix>/download/ for agents to install
 #
 # Where the one-time code goes, and why:
@@ -112,16 +112,25 @@ case "$action" in
     ;;
   publish-apks)
     dir="${1:-}"
-    [[ -f "$dir/agent-app.apk" && -f "$dir/agent-finder.apk" ]] || die "publish-apks needs a folder with agent-app.apk and agent-finder.apk."
-    for f in agent-app.apk agent-finder.apk; do
-      [[ "$(head -c 2 "$dir/$f")" == "PK" ]] || die "$f is not an Android app (APK)."
-    done
     whoami_aws; find_instance; [[ -n "$INSTANCE_ID" ]] || die "No staging instance."
-    say "Uploading the two apps to the private bucket"
     stamp="$(date -u +%Y%m%d%H%M%S)"
-    for f in agent-app.apk agent-finder.apk; do
-      awsr s3 cp --only-show-errors --sse aws:kms "$dir/$f" "s3://$BUCKET/releases/apk-$stamp/$f"
-    done
+    if [[ "$dir" == "--from-bucket" ]]; then
+      # The Android build on GitHub already sent them to releases/apk-latest/ (no laptop upload).
+      say "Taking the apps GitHub sent to the bucket"
+      for f in agent-app.apk agent-finder.apk; do
+        awsr s3 cp --only-show-errors --sse aws:kms "s3://$BUCKET/releases/apk-latest/$f" "s3://$BUCKET/releases/apk-$stamp/$f" \
+          || die "No $f in s3://$BUCKET/releases/apk-latest/: run the Android build for the hosted server first."
+      done
+    else
+      [[ -f "$dir/agent-app.apk" && -f "$dir/agent-finder.apk" ]] || die "publish-apks needs --from-bucket or a folder with agent-app.apk and agent-finder.apk."
+      for f in agent-app.apk agent-finder.apk; do
+        [[ "$(head -c 2 "$dir/$f")" == "PK" ]] || die "$f is not an Android app (APK)."
+      done
+      say "Uploading the two apps to the private bucket"
+      for f in agent-app.apk agent-finder.apk; do
+        awsr s3 cp --only-show-errors --sse aws:kms "$dir/$f" "s3://$BUCKET/releases/apk-$stamp/$f"
+      done
+    fi
     awsr s3 cp --only-show-errors --sse aws:kms "$REPO_ROOT/infra/aws/download.html" "s3://$BUCKET/releases/apk-$stamp/index.html"
     say "Placing them on the download page"
     ssm_run "agent-finder publish apks" \

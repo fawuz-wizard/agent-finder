@@ -27,6 +27,7 @@ concurrency:
 
 permissions:
   contents: write # the pilot release
+  id-token: write # a short-lived AWS sign-in for the staging download page (OIDC; no stored key)
 
 jobs:
   apk:
@@ -125,6 +126,29 @@ jobs:
           path: apps/web/agent-app-*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # A build for the hosted staging server goes straight to its private bucket, so the download
+      # page gets it without passing through anyone's laptop. The AWS role (OIDC) may only write
+      # these two files; `infra/aws/admin.sh publish-apks --from-bucket` then puts them online.
+      - name: Sign in to AWS for the staging download page
+        if: env.API_BASE_URL != '' && vars.AWS_APK_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_APK_ROLE_ARN }}
+          aws-region: eu-west-1
+          role-session-name: agent-finder-apk-${{ github.run_id }}
+
+      - name: Send the apps to the staging bucket
+        if: env.API_BASE_URL != '' && vars.AWS_APK_ROLE_ARN != ''
+        env:
+          BUCKET: ${{ vars.AWS_APK_BUCKET }}
+        run: |
+          cp agent-app-*.apk agent-app.apk
+          cp agent-finder-*.apk agent-finder.apk
+          for f in agent-app.apk agent-finder.apk; do
+            aws s3 cp --only-show-errors --sse aws:kms "$f" "s3://$BUCKET/releases/apk-latest/$f"
+          done
+          echo "Sent. Publish with: infra/aws/admin.sh publish-apks --from-bucket"
 
       # One stable download link per app, so a printed QR code keeps working build after
       # build: the "pilot-latest" release is replaced every time main changes. Mock builds
