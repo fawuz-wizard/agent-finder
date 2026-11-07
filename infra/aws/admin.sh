@@ -122,7 +122,7 @@ case "$action" in
     for f in agent-app.apk agent-finder.apk; do
       awsr s3 cp --only-show-errors --sse aws:kms "$dir/$f" "s3://$BUCKET/releases/apk-$stamp/$f"
     done
-    awsr s3 cp --only-show-errors --sse aws:kms "$(dirname "$0")/download.html" "s3://$BUCKET/releases/apk-$stamp/index.html"
+    awsr s3 cp --only-show-errors --sse aws:kms "$REPO_ROOT/infra/aws/download.html" "s3://$BUCKET/releases/apk-$stamp/index.html"
     say "Placing them on the download page"
     ssm_run "agent-finder publish apks" \
       "set -euo pipefail" \
