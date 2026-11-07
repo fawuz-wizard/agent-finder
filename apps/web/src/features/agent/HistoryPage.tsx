@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
 import type { AgentTransactions } from '@/types/operator'
@@ -36,7 +37,7 @@ export default function HistoryPage() {
       </div>
       <div className="flex flex-col px-[18px] pb-8">
         {tx.state === 'loading' && !tx.data && <p className="py-4 text-sm text-finder-muted">Loading…</p>}
-        {tx.state === 'error' && <p className="py-4 text-sm font-semibold text-danger">{tx.error}</p>}
+        {tx.state === 'error' && <LoadError what="your transactions" error={tx.error} onRetry={tx.refresh} className="my-2" />}
         {tx.data && rows.length === 0 && <p className="py-4 text-sm text-finder-muted">{filter === 'Transfer' ? 'No transfers recorded.' : 'Nothing yet today.'}</p>}
         {rows.map((r) => (
           <div key={r.id} className="flex gap-3.5 border-b border-finder-card-line py-4">

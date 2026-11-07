@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { useAsync } from '@/hooks/useAsync'
+import { ActionError, LoadError } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { AgentHome, FloatRequest } from '@/types/operator'
@@ -65,6 +66,7 @@ export default function FloatPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tok, setTok] = useState(newToken)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   const requests = list.data ?? []
   const pending = requests.find((r) => r.state === 'pending' || r.state === 'approved')
@@ -95,11 +97,14 @@ export default function FloatPage() {
 
   async function cancel(id: string) {
     setBusy(true)
+    setCancelError(null)
     try {
       await operatorApi.moveFloat(id, 'cancelled', ref, null)
       setSent(false)
       list.refresh()
       home.refresh()
+    } catch (e) {
+      setCancelError(e instanceof Error ? e.message : 'Could not cancel the request.')
     } finally {
       setBusy(false)
     }
@@ -114,7 +119,14 @@ export default function FloatPage() {
             Request Sent ✓
           </p>
         )}
-        {pending ? (
+        {list.state === 'error' && !list.data ? (
+          <LoadError
+            what="your float requests"
+            note="We can't see if one is already waiting, so the form is hidden to stop a double request."
+            error={list.error}
+            onRetry={list.refresh}
+          />
+        ) : pending ? (
           <section className={`${BOX} flex flex-col gap-2 px-4 py-4`}>
             <span className="w-fit rounded-pill bg-finder-limited-tint px-3 py-1 text-xs font-bold text-finder-limited">
               {STATE_TEXT[pending.state]} · waiting {pending.waiting_text}
@@ -127,6 +139,7 @@ export default function FloatPage() {
                 Cancel request ›
               </button>
             )}
+            <ActionError error={cancelError} />
           </section>
         ) : (
           <>

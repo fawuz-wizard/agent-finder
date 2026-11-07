@@ -5,6 +5,7 @@ import { FinderSheet } from '@/features/end-user/components/finder'
 import { shrinkPhoto } from '@/lib/photo'
 import { keepDealerPhoto } from './dealerPhotoCache'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { DealerMe } from '@/types/operator'
@@ -97,7 +98,7 @@ export default function DealerProfilePage() {
       </section>
 
       {me.state === 'loading' && <p className="text-sm font-medium text-finder-muted">Loading…</p>}
-      {me.state === 'error' && <p className="text-sm font-semibold text-danger">{me.error}</p>}
+      {me.state === 'error' && !me.data && <LoadError what="your profile" error={me.error} onRetry={me.refresh} />}
 
       <nav aria-label="Profile" className={`${CARD} py-1`}>
         <MenuRow first to="/dealer/agents" label="Manage agents" />

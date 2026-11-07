@@ -20,7 +20,10 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
     """Accepts an inbound X-Request-ID (from a proxy) or mints one; echoes it on the response."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        request_id = request.headers.get(REQUEST_ID_HEADER) or uuid.uuid4().hex
+        # A proxy's id is kept only if it looks like one: short, plain characters.
+        inbound = request.headers.get(REQUEST_ID_HEADER) or ""
+        ok = 0 < len(inbound) <= 64 and all(c.isalnum() or c in "-_." for c in inbound)
+        request_id = inbound if ok else uuid.uuid4().hex
         token = request_id_var.set(request_id)
         started = time.perf_counter()
         try:

@@ -12,6 +12,13 @@ from typing import Any
 from app.core.settings import Settings
 
 KEPT_REQUEST_FIELDS = ("method", "url")
+# The server and the web apps report under one release name and the same environments, so an
+# error seen in both Sentry projects lines up; the `app` tag says which part sent it.
+PRODUCT = "agent-finder"
+
+
+def release_of(version: str) -> str:
+    return f"{PRODUCT}@{version}"
 
 
 def scrub(event: dict[str, Any], _hint: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -37,10 +44,13 @@ def init_monitoring(settings: Settings) -> bool:
         dsn=settings.sentry_dsn,
         environment=settings.app_env,
         server_name=settings.app_name,  # never the machine's own name
-        release=f"{settings.app_name}@{settings.app_version}",
+        release=release_of(settings.app_version),
         send_default_pii=False,
+        # A stack frame's variables could hold a PIN, a token or a customer's number.
+        include_local_variables=False,
         max_request_body_size="never",
         traces_sample_rate=0.0,
         before_send=scrub,
     )
+    sentry_sdk.set_tag("app", "api")
     return True

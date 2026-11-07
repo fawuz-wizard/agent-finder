@@ -1,4 +1,5 @@
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { operatorApi } from '@/services/operatorApi'
 import type { MapAgentRow, MapSummary } from '@/types/operator'
 import { ScreenTitle } from './components/designKit'
@@ -20,7 +21,8 @@ export default function DealerNetworkPage() {
   const t = summary.data?.totals
   const all = rows.data ?? []
   const active = all.filter((r) => r.active_at_orange).length
-  const { placed } = usePlacedAgents()
+  const pins = usePlacedAgents()
+  const placed = pins.placed
   const navigate = useNavigate()
   const share = t && t.registered ? Math.round((t.app_active / t.registered) * 100) : 0
   const funnel = t
@@ -35,7 +37,17 @@ export default function DealerNetworkPage() {
     <div className={PAGE}>
       <ScreenTitle title="Network overview" back="/dealer" />
       {(summary.state === 'loading' || rows.state === 'loading') && <p className="text-sm font-medium text-finder-muted">Loading…</p>}
-      {summary.state === 'error' && <p className="text-sm font-semibold text-danger">{summary.error}</p>}
+      {(summary.state === 'error' && !summary.data) || (rows.state === 'error' && !rows.data) ? (
+        <LoadError
+          what="your network"
+          error={summary.error ?? rows.error}
+          onRetry={() => {
+            if (summary.state === 'error') summary.refresh()
+            if (rows.state === 'error') rows.refresh()
+          }}
+        />
+      ) : null}
+      {t && rows.data && pins.error && <LoadError what="the map's agents" error={pins.error} onRetry={pins.refresh} />}
       {t && rows.data && (
         <>
           <section className={`${CARD} overflow-hidden`}>

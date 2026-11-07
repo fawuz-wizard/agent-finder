@@ -18,6 +18,7 @@ from app.api.v1.search import (
     to_result,
 )
 from app.core.errors import NotFoundError
+from app.core.limits import limited
 from app.core.settings import get_settings
 from app.db.models import Agent
 from app.db.session import get_session
@@ -58,9 +59,10 @@ async def agent_detail(
     transaction: Literal["cash_out", "withdraw", "deposit", "send"] | None = Query(default=None),
     amount_sle: int | None = Query(default=None, ge=1),
     area: str = Query(default="Freetown", min_length=1, max_length=60),
-    lat: float | None = None,
-    lng: float | None = None,
+    lat: float | None = Query(default=None, ge=-90, le=90, allow_inf_nan=False),
+    lng: float | None = Query(default=None, ge=-180, le=180, allow_inf_nan=False),
     db: AsyncSession = Depends(get_session),
+    _limit: None = Depends(limited("agent", per_client=120, per_address=1200)),
 ) -> AgentDetail:
     a = (
         await db.execute(select(Agent).where(Agent.ref == ref_from_public_id(public_id)))
@@ -102,7 +104,12 @@ async def agent_detail(
 
 
 @router.get("/{public_id}/photo", summary="The shop's picture, when the agent has taken one")
-async def agent_photo(public_id: str, db: AsyncSession = Depends(get_session)) -> Response:
+async def agent_photo(
+    public_id: str,
+    db: AsyncSession = Depends(get_session),
+    # Pictures are bigger than answers: walking the ids to copy every shop's photo is slowed.
+    _limit: None = Depends(limited("photo", per_client=120, per_address=1200)),
+) -> Response:
     """Bytes only, for the app's image tag. 404 for a shop that is not on the customer map,
     the same answer as for one that does not exist."""
     a = (

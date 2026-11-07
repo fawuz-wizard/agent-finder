@@ -12,11 +12,13 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agent_app import declaration_of, feedback_for, float_out, seen_as
 from app.core.auth import Principal, hash_pin, new_code, require_permission, require_role
 from app.core.errors import AppError, NotFoundError
+from app.core.limits import clear_sign_in_failures
 from app.db.models import (
     Action,
     Agent,
@@ -25,6 +27,7 @@ from app.db.models import (
     AvailabilityEvent,
     Dealer,
     DealerPhoto,
+    ExportLog,
     FloatRequest,
     OutcomeReport,
     SearchImpression,
@@ -34,6 +37,7 @@ from app.db.models import (
 from app.db.session import get_session
 from app.integrations.operator.base import get_operator
 from app.services import checkin, usage
+from app.services.csv_safe import safe_text
 from app.services.forecast import forecast_counts, forecasts_for
 from app.services.ledger import ledgers_for
 from app.services.phone import mask_msisdn
@@ -607,6 +611,7 @@ async def set_usual(
         Action(
             at=now_utc(),
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=a.ref,
             action="contact",
             note=f"{p.name} noted what {a.shop_name} usually handles",
@@ -686,7 +691,13 @@ async def act(
             "escalate": f"{p.name} escalated {a.shop_name} to the super distributor",
         }[body.action]
     row = Action(
-        at=now, actor=p.name, agent_ref=a.ref, action=body.action, note=note, signal_id=signal_id
+        at=now,
+        actor=p.name,
+        actor_id=p.subject,
+        agent_ref=a.ref,
+        action=body.action,
+        note=note,
+        signal_id=signal_id,
     )
     db.add(row)
     await db.commit()
@@ -739,7 +750,7 @@ async def actions(
         select(Action)
         .where(
             or_(
-                Action.actor == p.name,
+                Action.actor_id == p.subject,
                 and_(
                     Action.action.in_(("agent_note", "agent_pin", "photo")),
                     Action.agent_ref.in_(mine),
@@ -786,6 +797,7 @@ async def reveal(
     db.add(
         AuditLog(
             actor=p.name,
+            actor_id=p.subject,
             permission="VIEW_AGENT_FINANCIAL_DETAIL",
             agent_ref=a.ref,
             field=body.field,
@@ -809,7 +821,7 @@ async def audit(
     rows = (
         (
             await db.execute(
-                select(AuditLog).where(AuditLog.actor == p.name).order_by(AuditLog.at.desc())
+                select(AuditLog).where(AuditLog.actor_id == p.subject).order_by(AuditLog.at.desc())
             )
         )
         .scalars()
@@ -830,8 +842,10 @@ async def audit(
 
 @router.get("/dealer/usage", summary="Pilot usage — how many real people have used this")
 async def usage_summary(
-    p: Principal = Depends(require_role("dealer")), db: AsyncSession = Depends(get_session)
+    p: Principal = Depends(require_permission("VIEW_NATIONAL")),
+    db: AsyncSession = Depends(get_session),
 ) -> dict:
+    """Pilot-wide counts: Orange's national account only, not every aggregator."""
     return await usage.summary(db)
 
 
@@ -864,8 +878,8 @@ class RegisterBody(BaseModel):
     shop_name: str = Field(min_length=1, max_length=120)
     area: str = Field(min_length=1, max_length=80)
     street: str = Field(min_length=1, max_length=120)
-    lat: float
-    lng: float
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lng: float = Field(ge=-180, le=180, allow_inf_nan=False)
     # Required: it is how the aggregator calls the agent, and how customers call if allowed.
     phone: str = Field(max_length=32, pattern=r"^\+?[0-9 ]{6,20}$")
     phone_visible: bool = False
@@ -883,8 +897,8 @@ class EditBody(BaseModel):
     shop_name: str | None = Field(default=None, min_length=1, max_length=120)
     area: str | None = Field(default=None, min_length=1, max_length=80)
     street: str | None = Field(default=None, min_length=1, max_length=120)
-    lat: float | None = None
-    lng: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
+    lng: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
     phone: str | None = Field(default=None, max_length=32, pattern=r"^\+?[0-9 ]{6,20}$")
     phone_visible: bool | None = None
     open_time: str | None = Field(default=None, pattern=TIME_RE)
@@ -987,6 +1001,7 @@ async def register_agent(
         verified=body.verified,
         pin_hash=hash_pin(code, ref),
         must_set_pin=True,
+        code_issued_at=datetime.now(UTC),
         presence="closed",  # until the agent signs in and taps Open
         open_hour=o // 60,
         close_hour=max(o // 60 + 1, c // 60),
@@ -1001,6 +1016,7 @@ async def register_agent(
         Action(
             at=now,
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=ref,
             action="register",
             note=f"{p.name} registered {a.shop_name} as {ref}"
@@ -1008,7 +1024,16 @@ async def register_agent(
         )
     )
     await usage.record(db, "register", "dealer", p.subject, ref)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Two registrations took the same next free number at the same moment: one wins.
+        await db.rollback()
+        raise AppError(
+            f"{ref} was just taken by another registration. Tap Register again.",
+            code="exists",
+            status_code=409,
+        ) from None
     # The code is shown once, here, for the dealer to read out. It is never stored in clear.
     return {**registered_out(a, now), "code": code}
 
@@ -1059,6 +1084,7 @@ async def edit_agent(
         Action(
             at=now,
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=a.ref,
             action="register",
             note=f"{p.name} updated {a.shop_name}'s record",
@@ -1091,6 +1117,7 @@ async def confirm_location(
         Action(
             at=now_utc(),
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=a.ref,
             action="confirm_location",
             note=f"{p.name} confirmed the location of {a.shop_name}",
@@ -1121,6 +1148,7 @@ async def remove_agent_photo(
             Action(
                 at=now_utc(),
                 actor=p.name,
+                actor_id=p.subject,
                 agent_ref=a.ref,
                 action="photo",
                 note=f"{p.name} removed the photo of {a.shop_name}",
@@ -1150,6 +1178,7 @@ async def issue_code(
     code = new_code()
     a.pin_hash = hash_pin(code, a.ref)
     a.must_set_pin = True
+    a.code_issued_at = datetime.now(UTC)
     sessions = (
         await db.execute(select(Session).where(Session.role == "agent", Session.subject == a.ref))
     ).scalars()
@@ -1159,12 +1188,16 @@ async def issue_code(
         Action(
             at=now_utc(),
             actor=p.name,
+            actor_id=p.subject,
             agent_ref=a.ref,
             action="register",
             note=f"{p.name} issued a new sign-in code for {a.shop_name}",
         )
     )
     await db.commit()
+    # A fresh code is also the way back in after the daily wrong-PIN lockout.
+    await clear_sign_in_failures(db, f"sign-in:agent:{a.ref}")
+    await clear_sign_in_failures(db, f"pin-check:agent:{a.ref}")
     return {"ref": a.ref, "code": code}
 
 
@@ -1181,7 +1214,8 @@ def _csv(rows: list[dict], filename: str) -> Response:
     if rows:
         w = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
         w.writeheader()
-        w.writerows(rows)
+        # Typed text (a street, a note) must never run as a formula in the aggregator's Excel.
+        w.writerows({k: safe_text(v) for k, v in r.items()} for r in rows)
     return Response(
         content=buf.getvalue(),
         media_type="text/csv; charset=utf-8",
@@ -1189,8 +1223,29 @@ def _csv(rows: list[dict], filename: str) -> Response:
     )
 
 
-async def report_rows(db: AsyncSession, p: Principal, now: datetime) -> list[dict]:
+FINANCIAL = "VIEW_AGENT_FINANCIAL_DETAIL"
+
+
+async def report_rows(db: AsyncSession, p: Principal, now: datetime, purpose: str) -> list[dict]:
+    """One row per agent. Orange's money figures (cash in, cash out, transactions) are only
+    for an aggregator allowed to see financial detail, and every report that carries them is
+    recorded in the audit log first, one row per agent: who, which agent, why, never the
+    value."""
     agents = await my_agents(db, p.subject)
+    with_money = p.can(FINANCIAL)
+    if with_money and agents:
+        db.add_all(
+            AuditLog(
+                actor=p.name,
+                actor_id=p.subject,
+                permission=FINANCIAL,
+                agent_ref=a.ref,
+                field="orange_month",
+                purpose=purpose,
+            )
+            for a in agents
+        )
+        await db.commit()
     trust = await trust_for(db, agents, now)
     ledgers = await ledgers_for(db, agents, now)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1221,12 +1276,36 @@ async def report_rows(db: AsyncSession, p: Principal, now: datetime) -> list[dic
                 "found_you_today": counts["found"],
                 "reported_problems_today": counts["problems"],
                 "logged_transactions_today": counts["logged"],
-                "orange_april_cash_in": a.orange_cash_in if a.orange_cash_in is not None else "",
-                "orange_april_cash_out": a.orange_cash_out if a.orange_cash_out is not None else "",
-                "orange_april_tx_count": a.orange_tx_count if a.orange_tx_count is not None else "",
             }
         )
+        if with_money:
+            rows[-1].update(
+                {
+                    "orange_april_cash_in": _blank(a.orange_cash_in),
+                    "orange_april_cash_out": _blank(a.orange_cash_out),
+                    "orange_april_tx_count": _blank(a.orange_tx_count),
+                }
+            )
     return rows
+
+
+def _blank(value: object) -> object:
+    return "" if value is None else value
+
+
+async def log_export(db: AsyncSession, p: Principal, what: str, filters: str, rows: int) -> None:
+    """Recorded before the file leaves: who took which list, never what was in it."""
+    db.add(
+        ExportLog(
+            at=now_utc(),
+            actor=p.name,
+            actor_id=p.subject,
+            what=what[:40],
+            filters=(filters or "all")[:200],
+            rows=rows,
+        )
+    )
+    await db.commit()
 
 
 async def count_today(db: AsyncSession, ref: str, start: datetime) -> dict[str, int]:
@@ -1262,14 +1341,15 @@ async def count_today(db: AsyncSession, ref: str, start: datetime) -> dict[str, 
 
 @router.get(
     "/dealer/report",
-    summary="The Global Report for my agents — status, location, activity, never money",
+    summary="The Global Report for my agents — status, location, activity; Orange's money "
+    "figures only with financial-detail permission, audited",
 )
 async def dealer_report(
     p: Principal = Depends(require_permission("VIEW_AGENT")),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     now = now_utc()
-    rows = await report_rows(db, p, now)
+    rows = await report_rows(db, p, now, "Agent report (screen)")
     by_region: dict[str, int] = {}
     by_bucket: dict[str, int] = {}
     for r in rows:
@@ -1293,7 +1373,9 @@ async def dealer_report_csv(
     db: AsyncSession = Depends(get_session),
 ) -> Response:
     now = now_utc()
-    return _csv(await report_rows(db, p, now), f"agent-report-{date.today().isoformat()}.csv")
+    rows = await report_rows(db, p, now, "Agent report (CSV download)")
+    await log_export(db, p, "report.csv", "all", len(rows))
+    return _csv(rows, f"agent-report-{date.today().isoformat()}.csv")
 
 
 RECORD_KINDS = ("searches", "reports", "transactions", "actions", "usage", "audit")
@@ -1384,10 +1466,9 @@ async def records_csv(
                 }
             )
     elif kind == "usage":
-        q = select(UsageEvent).where(
-            (UsageEvent.agent_ref.in_(refs)) | (UsageEvent.actor_kind == "customer"),
-            UsageEvent.at >= start,
-        )
+        # Only events about my own agents: a customer event names the agent it was about,
+        # and one with no agent (a search) belongs to no aggregator.
+        q = select(UsageEvent).where(UsageEvent.agent_ref.in_(refs), UsageEvent.at >= start)
         for x in (await db.execute(q.order_by(UsageEvent.at))).scalars().all():
             rows.append(
                 {
@@ -1409,4 +1490,5 @@ async def records_csv(
                     "purpose": x.purpose,
                 }
             )
+    await log_export(db, p, f"records/{kind}.csv", f"since={start.date().isoformat()}", len(rows))
     return _csv(rows, f"{kind}-{date.today().isoformat()}.csv")

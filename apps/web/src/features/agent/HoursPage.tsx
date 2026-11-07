@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { FinderBox, FinderCta, FinderHeader } from '@/features/end-user/components/finder'
 import { PILL_OFF, PILL_ON, SectionLabel } from './components/agentChrome'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import { WEEKDAYS, WEEKDAY_NAMES } from '@/types/operator'
@@ -17,7 +18,7 @@ export default function HoursPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
   const navigate = useNavigate()
-  const { state, data, refresh } = useAsync<Schedule>((s) => operatorApi.schedule(ref, s), [ref])
+  const { state, data, error: loadError, refresh } = useAsync<Schedule>((s) => operatorApi.schedule(ref, s), [ref])
   const [weekly, setWeekly] = useState<WeeklyHours | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,6 +54,13 @@ export default function HoursPage() {
     }
   }
 
+  if (state === 'error' && !data)
+    return (
+      <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">
+        <FinderHeader title="Working hours" back={() => history.back()} />
+        <LoadError what="your working hours" error={loadError} onRetry={refresh} />
+      </div>
+    )
   if (state === 'loading' || !data || !weekly)
     return (
       <div className="flex flex-col gap-4 px-5 pb-8 text-finder-ink">

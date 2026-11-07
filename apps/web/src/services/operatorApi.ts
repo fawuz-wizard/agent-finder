@@ -10,6 +10,7 @@ import type {
   ActivityEvent,
   AgentFeedback,
   AgentHome,
+  GlobalReport,
   CheckinState,
   AgentInsights,
   AgentProfile,
@@ -74,6 +75,9 @@ function fail(e: unknown): never {
 function agentRefOfSignal(id: string): string {
   return id.split('-').slice(2).join('-')
 }
+
+/** The demo build has no server to keep Orange's report; it says so instead of pretending. */
+export const GLOBAL_REPORT_DEMO = 'Uploading the Global Report needs the live system: start the API and open the live build.'
 
 export const operatorApi = {
   /** The number decides who signs in; `role` is only a hint an older caller may still pass. */
@@ -472,6 +476,30 @@ export const operatorApi = {
   mapCsv(filter: MapFilter): Promise<string> {
     if (config.useLiveApi) return api.text(`/api/v1/dealer/map/agents.csv${mapQuery(filter)}`)
     return import('./demoNationalMap').then((m) => delay(m.demoMapCsv(filter)))
+  },
+
+  /** Upload Orange's Global Report: read and previewed, nothing applied yet. */
+  uploadGlobalReport(file: File, reportDate: string): Promise<GlobalReport> {
+    if (config.useLiveApi)
+      return api.upload<GlobalReport>(`/api/v1/national/reports?report_date=${encodeURIComponent(reportDate)}`, file, {
+        'X-File-Name': file.name.replace(/[^\x20-\x7e]/g, '_').slice(0, 120),
+      })
+    return Promise.reject(new Error(GLOBAL_REPORT_DEMO))
+  },
+
+  globalReports(signal?: AbortSignal): Promise<GlobalReport[]> {
+    if (config.useLiveApi) return api.get<GlobalReport[]>('/api/v1/national/reports', signal)
+    return delay([], signal)
+  },
+
+  applyGlobalReport(id: string, confirmShrink = false): Promise<GlobalReport> {
+    if (config.useLiveApi) return api.postLong<GlobalReport>(`/api/v1/national/reports/${encodeURIComponent(id)}/apply`, { confirm_shrink: confirmShrink })
+    return Promise.reject(new Error(GLOBAL_REPORT_DEMO))
+  },
+
+  discardGlobalReport(id: string): Promise<GlobalReport> {
+    if (config.useLiveApi) return api.post<GlobalReport>(`/api/v1/national/reports/${encodeURIComponent(id)}/discard`, {})
+    return Promise.reject(new Error(GLOBAL_REPORT_DEMO))
   },
 
   audit(signal?: AbortSignal): Promise<AuditEntry[]> {

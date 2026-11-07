@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -15,12 +15,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.agents import ref_from_public_id
 from app.core.errors import AppError, NotFoundError
+from app.core.limits import client_address, limited, rate_limit
 from app.db.models import Agent, OutcomeReport, SearchImpression
 from app.db.session import get_session
 from app.schemas.public.common import PublicModel
 from app.services import usage
 from app.services.ledger import CAPACITY_FAILURES
 from app.services.phrasing import amount_band, freshness_of, normalise_tx, now_utc, public_outcome
+
+REPORTS_PER_AGENT_PER_HOUR = 6
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 MAX_COMMENT_CHARS = 1000
@@ -54,9 +57,14 @@ class ReportAccepted(PublicModel):
 
 @router.post("", response_model=ReportAccepted, status_code=201, summary="Report what happened")
 async def report(
+    request: Request,
     body: VisitReport,
     db: AsyncSession = Depends(get_session),
     x_client: str | None = Header(default=None),
+    # A rival scripting reports to sink a shop: slowed per device and per address.
+    _limit: None = Depends(
+        limited("report", per_client=20, per_address=300, window=timedelta(hours=1))
+    ),
 ) -> ReportAccepted:
     existing = await db.get(OutcomeReport, body.client_token)
     if existing:
@@ -68,6 +76,42 @@ async def report(
     now = now_utc()
     tx = normalise_tx(body.transaction) if body.transaction else None
     client_key = (x_client or "")[:64] or None
+    # What moves an agent's standing (served or not, a rating) counts only from a known device,
+    # once per agent per day; a comment alone is always welcome.
+    if (body.answer in ("yes", "no") or body.rating is not None) and not client_key:
+        raise AppError(
+            "Open Agent Finder to report a visit.", code="client_required", status_code=422
+        )
+    if body.answer in ("yes", "no") and client_key:
+        already = (
+            await db.execute(
+                select(OutcomeReport.id)
+                .where(
+                    OutcomeReport.agent_ref == ref,
+                    OutcomeReport.client_key == client_key,
+                    OutcomeReport.answer.in_(("yes", "no")),
+                    OutcomeReport.at >= now - timedelta(hours=24),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if already:
+            raise AppError(
+                "You have already told us about this agent today. Thank you.",
+                code="report_cooldown",
+                status_code=429,
+            )
+    if body.answer in ("yes", "no"):
+        # Device keys are made by the phone, so a script can invent a new one per report: on
+        # top of once per device per day, one network address moves an agent's standing by only
+        # so many reports an hour. Counted per address, so a rival filling it does not shut out
+        # the agent's real customers elsewhere.
+        await rate_limit(
+            db,
+            f"report-agent:{ref}:addr:{client_address(request)}",
+            REPORTS_PER_AGENT_PER_HOUR,
+            timedelta(hours=1),
+        )
     if body.rating is not None and client_key:
         recent_rating = (
             await db.execute(

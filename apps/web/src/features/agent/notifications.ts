@@ -123,11 +123,22 @@ export function buildNotifications(home: AgentHome | null, feedback: AgentFeedba
   return out
 }
 
-export function useNotifications(ref: string): { items: Notification[]; unseen: number; markSeen: () => void; loading: boolean } {
+export function useNotifications(ref: string): {
+  items: Notification[]
+  unseen: number
+  markSeen: () => void
+  loading: boolean
+  /** Set when the home or the feedback could not be read: the list may be missing things. */
+  error: string | null
+  refresh: () => void
+} {
   const [home, setHome] = useState<AgentHome | null>(null)
   const [feedback, setFeedback] = useState<AgentFeedback | null>(null)
   const [sends, setSends] = useState<FloatSend[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [tick, setTick] = useState(0)
+  const refresh = useCallback(() => setTick((n) => n + 1), [])
   const [seen, setSeen] = useState<Set<string>>(readSeen)
 
   useEffect(() => {
@@ -139,13 +150,15 @@ export function useNotifications(ref: string): { items: Notification[]; unseen: 
       if (!alive) return
       if (h.status === 'fulfilled') setHome(h.value)
       if (f.status === 'fulfilled') setFeedback(f.value)
+      const failed = [h, f].find((r): r is PromiseRejectedResult => r.status === 'rejected')
+      setError(failed ? (failed.reason instanceof Error ? failed.reason.message : 'Could not load this right now.') : null)
       setLoading(false)
     })
     return () => {
       alive = false
       ctrl.abort()
     }
-  }, [ref])
+  }, [ref, tick])
 
   useEffect(() => {
     const sync = () => setSeen(readSeen())
@@ -164,5 +177,5 @@ export function useNotifications(ref: string): { items: Notification[]; unseen: 
     for (const n of items) next.add(n.id)
     writeSeen(next)
   }, [items])
-  return { items, unseen, markSeen, loading }
+  return { items, unseen, markSeen, loading, error, refresh }
 }

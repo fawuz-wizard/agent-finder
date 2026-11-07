@@ -1,14 +1,23 @@
 /**
  * The 7-day served percentage, the same rule as the API's services/week_rule.py, for the
  * demo build. Three checks in order: active days (40 x days / 7, volume never counts), the
- * exact transaction by size (35; only smaller sizes 15 and capped at 50; not done, capped at
- * 35), customer reports from three on (20 x (served - failed) / reports). Nearest five, never
- * under 5, never over 95. Customers read the figure; agents and aggregators read the note.
+ * size of any transaction, cash out and cash in together (35; only smaller sizes 15 and capped
+ * at 50), every customer report from three on (20 x (served - failed) / reports). Nearest five,
+ * never under 5, never over 95. The type matters only for the agent's own Low / None today on
+ * cash or float. Customers read the figure; agents and aggregators read the note.
  */
 import type { SeenAs, SeenAsSide, SeenAsWhy } from '@/types/operator'
 
 export const WINDOW_DAYS = 7
 export const BAND_ORDER = ['≤500', '≤2k', '≤5k', '≤10k', '≤50k', '>50k'] as const
+const BAND_WORDS: Record<string, string> = {
+  '≤500': 'SLE 500',
+  '≤2k': 'SLE 2,000',
+  '≤5k': 'SLE 5,000',
+  '≤10k': 'SLE 10,000',
+  '≤50k': 'SLE 50,000',
+  '>50k': 'over SLE 50,000',
+}
 export type Band = (typeof BAND_ORDER)[number]
 export type Side = 'cash' | 'float'
 export type Low = 'low' | 'none' | null
@@ -41,21 +50,22 @@ export function sideOf(tx: 'cash_out' | 'deposit'): Side {
   return tx === 'cash_out' ? 'cash' : 'float'
 }
 
-/** The percentage a customer reads for one agent and one request. */
-export function score(week: Week, tx: 'cash_out' | 'deposit', amount: number | null, low: Low = null): WeekScore {
-  const side = sideOf(tx)
-  const other: Side = side === 'cash' ? 'float' : 'cash'
-  const label = side === 'cash' ? 'cash out' : 'cash in'
-  const otherLabel = side === 'cash' ? 'cash in' : 'cash out'
+function allBands(week: Week): Set<Band> {
+  return new Set([...week.bands.cash, ...week.bands.float])
+}
+
+/** The percentage a customer reads for one agent and one request. The type asked for changes
+ * nothing here; the caller passes the agent's low word for that side. */
+export function score(week: Week, _tx: 'cash_out' | 'deposit', amount: number | null, low: Low = null): WeekScore {
   if (week.activeDays === 0) return { pct: 5, outcome: 'unknown', note: 'No activity recorded this week', active: false }
 
   let points = (40 * week.activeDays) / WINDOW_DAYS
   let cap = 95
   let note: string | null = null
-  const seen = week.bands[side]
+  const seen = allBands(week)
   if (seen.size === 0) {
     cap = 35
-    note = week.bands[other].size > 0 ? `Does ${otherLabel}; no ${label} this week` : `No ${label} recorded this week`
+    note = 'No transaction recorded this week'
   } else {
     const asked = amount === null ? null : BAND_ORDER.indexOf(bandOf(amount))
     const largest = Math.max(...[...seen].map((b) => BAND_ORDER.indexOf(b)))
@@ -66,8 +76,10 @@ export function score(week: Week, tx: 'cash_out' | 'deposit', amount: number | n
       note = 'Not seen at this size this week'
     }
   }
-  const reports = week.served[side] + week.failed[side]
-  if (reports >= 3) points += (20 * (week.served[side] - week.failed[side])) / reports
+  const served = week.served.cash + week.served.float
+  const failed = week.failed.cash + week.failed.float
+  const reports = served + failed
+  if (reports >= 3) points += (20 * (served - failed)) / reports
   if (low === 'low') cap = Math.min(cap, 35)
   else if (low === 'none') cap = Math.min(cap, 5)
   const pct = Math.max(5, Math.min(95, cap, Math.round(points / 5) * 5))
@@ -79,23 +91,19 @@ const SIDES = [
   ['deposit', 'float', 'Cash in'],
 ] as const
 
-function statusOf(s: WeekScore, seen: boolean, low: Low): Pick<SeenAsSide, 'outcome' | 'phrase'> {
+function statusOf(s: WeekScore, low: Low): Pick<SeenAsSide, 'outcome' | 'phrase'> {
   if (low === 'none') return { outcome: 'limited', phrase: 'None today' }
   if (low === 'low') return { outcome: 'limited', phrase: 'Low today' }
   if (!s.active) return { outcome: 'unknown', phrase: 'No activity this week' }
-  if (!seen) return { outcome: 'limited', phrase: 'Not done this week' }
   return s.outcome === 'likely' ? { outcome: 'likely', phrase: 'Likely to be served' } : { outcome: 'limited', phrase: 'Less likely yet' }
 }
 
 /** How customers see this agent this week, in words; never the percentage or the points. */
 export function weekNote(week: Week, low: [Low, Low], viewer: 'agent' | 'dealer' = 'agent'): SeenAs {
   const you = viewer === 'agent'
-  const done: string[] = []
-  const sides: SeenAsSide[] = SIDES.map(([tx, side, label], i) => {
+  const sides: SeenAsSide[] = SIDES.map(([tx, , label], i) => {
     const s = score(week, tx, null, low[i]!)
-    const seen = week.bands[side].size > 0
-    if (seen) done.push(label.toLowerCase())
-    return { label, ...statusOf(s, seen, low[i]!) }
+    return { label, ...statusOf(s, low[i]!) }
   })
 
   const why: SeenAsWhy[] = []
@@ -113,14 +121,15 @@ export function weekNote(week: Week, low: [Low, Low], viewer: 'agent' | 'dealer'
       title: `${you ? 'You worked' : 'Worked'} ${days} days`,
       detail: you ? 'Record every day you work. Days count, not how many transactions.' : 'Days count, not how many transactions.',
     })
-    if (done.length === 2) {
-      why.push({ tone: 'good', title: 'Cash out and cash in done this week', detail: you ? 'Customers see you for both.' : 'Customers see this agent for both.' })
-    } else if (done.length === 1) {
-      const missing = done[0] === 'cash out' ? 'cash in' : 'cash out'
+    const seen = [...allBands(week)]
+    if (seen.length > 0) {
+      const largest = seen.reduce((m, x) => (BAND_ORDER.indexOf(x) > BAND_ORDER.indexOf(m) ? x : m))
       why.push({
         tone: 'good',
-        title: `${done[0]![0]!.toUpperCase()}${done[0]!.slice(1)} done this week; ${missing} not`,
-        detail: you ? `Record ${missing}s when you do them, and customers will see you for both.` : `${missing[0]!.toUpperCase()}${missing.slice(1)} shows once the agent records one.`,
+        title: `Done this week: up to ${BAND_WORDS[largest] ?? largest}`,
+        detail: you
+          ? 'Cash outs and cash ins count together. Customers asking for more read you as less likely until you do one.'
+          : 'Cash outs and cash ins count together. Customers asking for more read this agent as less likely.',
       })
     }
   }

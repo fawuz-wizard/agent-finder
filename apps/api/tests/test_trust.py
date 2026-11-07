@@ -7,7 +7,9 @@ import pytest
 from app.core.settings import get_settings
 from app.services.trust import score
 
-HDR = {"X-Client": "cust-trust"}
+from customers import each_customer
+
+HDR = each_customer("cust-trust")
 
 
 @pytest.fixture

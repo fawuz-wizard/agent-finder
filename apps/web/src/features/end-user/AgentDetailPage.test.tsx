@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentDetailPage from './AgentDetailPage'
+import { initialsOf } from '@/lib/initials'
 import { customerApi } from '@/services/customerApi'
 import { AgentResultCard } from './components/AgentResultCard'
 import type { AgentResult } from '@/types/public'
@@ -40,6 +41,26 @@ describe("the shop's photo", () => {
       </MemoryRouter>,
     )
     expect(plain.querySelector('img')).toBeNull()
+  })
+})
+
+describe('without a shop photo', () => {
+  it("shows the shop's initials and says the photo is still to come, never a map", async () => {
+    const real = await customerApi.agent('af-4821', { transaction: 'cash_out', amount_sle: 2000, area: 'Lumley' })
+    const spy = vi.spyOn(customerApi, 'agent').mockResolvedValue({ ...real, photo_url: null })
+    at('/agents/af-4821?tx=cash_out&amount=2000')
+    await screen.findByText("Fatmata's Shop")
+    expect(screen.getByText('No shop photo yet')).toBeInTheDocument()
+    expect(screen.getByText('FS')).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /where fatmata/i })).not.toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  it('takes up to two letters from the name', () => {
+    expect(initialsOf('Aminata Kamara Shop')).toBe('AK')
+    expect(initialsOf("Fatmata's Shop")).toBe('FS')
+    expect(initialsOf('Lumley')).toBe('L')
+    expect(initialsOf('  ')).toBe('?')
   })
 })
 

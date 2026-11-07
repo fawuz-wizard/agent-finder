@@ -18,6 +18,8 @@ async def main(subject: str, pin: str) -> None:
     async with get_session_factory()() as db:
         d = await db.get(Dealer, subject)
         if d:
+            if "VIEW_NATIONAL" in d.permissions.split(",") and len(pin) < 6:
+                raise SystemExit("Orange's national account needs a 6-digit PIN")
             d.pin_hash = hash_pin(pin, d.id)
         else:
             a = (await db.execute(select(Agent).where(Agent.ref == subject))).scalar_one_or_none()

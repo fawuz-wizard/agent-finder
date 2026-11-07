@@ -27,6 +27,10 @@ function renderApp() {
   )
 }
 
+// The demo agent's day is built from the seeded network, which loads lazily; under a full-suite
+// run that can take longer than Testing Library's 1 s default.
+const SLOW = { timeout: 8_000 }
+
 afterEach(() => {
   localStorage.clear()
   sessionStorage.clear()
@@ -36,13 +40,13 @@ describe('the bell', () => {
   it('counts what is new on the home header, opens the list, and remembers what was seen on this phone', async () => {
     const user = userEvent.setup()
     renderApp()
-    const bell = await screen.findByRole('link', { name: /notifications, \d+ new/i })
+    const bell = await screen.findByRole('link', { name: /notifications, \d+ new/i }, SLOW)
     const count = Number(/(\d+) new/.exec(bell.getAttribute('aria-label') ?? '')![1])
     expect(count).toBeGreaterThan(0)
     await user.click(bell)
-    expect(await screen.findByText('Notifications')).toBeInTheDocument()
+    expect(await screen.findByText('Notifications', {}, SLOW)).toBeInTheDocument()
     // The demo agent's day: customers who could not be served, and a comment.
-    expect((await screen.findAllByText(/could not be served/i)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(/could not be served/i, {}, SLOW)).length).toBeGreaterThan(0)
     expect(screen.getByText(/new customer comment/i)).toBeInTheDocument()
     // Every row leads somewhere.
     for (const row of screen.getAllByRole('link').filter((l) => l.getAttribute('href')?.startsWith('/agent/'))) {
@@ -50,9 +54,9 @@ describe('the bell', () => {
     }
     // Opened once: back home, the badge is gone and stays gone.
     await user.click(screen.getByRole('link', { name: 'Home' }))
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Notifications' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Notifications' })).toBeInTheDocument(), SLOW)
     expect(JSON.parse(localStorage.getItem('af.seenNotifications') ?? '[]').length).toBe(count)
-  })
+  }, 20_000)
 })
 
 describe('the check-in at the pin in the bell', () => {

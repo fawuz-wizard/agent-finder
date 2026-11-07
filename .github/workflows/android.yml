@@ -84,6 +84,9 @@ jobs:
         env:
           VITE_API_MODE: ${{ env.API_BASE_URL != '' && 'live' || 'mock' }}
           VITE_API_BASE_URL: ${{ env.API_BASE_URL }}
+          # Errors on the phones reach Sentry (live builds only; the demo never reports). The
+          # DSN is a repository secret, never in the code; unset means off.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           # A plain-http API (a laptop on the phone's hotspot) is only reachable if the shell
           # serves the page from http://localhost; see capacitor.config.ts.
           CAP_ALLOW_HTTP: ${{ startsWith(env.API_BASE_URL, 'http://') && '1' || '' }}

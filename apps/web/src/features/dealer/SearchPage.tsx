@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { operatorApi } from '@/services/operatorApi'
 import type { DealerAgentRow } from '@/types/operator'
 import { FinderBox, FinderHeader } from '@/features/end-user/components/finder'
@@ -14,7 +15,7 @@ import { AgentRowCard } from './components/AgentRowCard'
  * live on this tab later; the space is kept.
  */
 export default function DealerSearchPage() {
-  const { data, state } = useAsync<DealerAgentRow[]>((s) => operatorApi.dealerAgents(s))
+  const { data, state, error, refresh } = useAsync<DealerAgentRow[]>((s) => operatorApi.dealerAgents(s))
   const [query, setQuery] = useState('')
   const [recent, setRecent] = useState(readSearches)
   const q = query.trim()
@@ -67,6 +68,7 @@ export default function DealerSearchPage() {
       {q && (
         <div className="mt-3 flex flex-col" role="region" aria-live="polite" aria-label="Results">
           {state === 'loading' && <p className="text-base font-medium text-finder-muted">Looking…</p>}
+          {state === 'error' && !data && <LoadError what="the search" error={error} onRetry={refresh} />}
           {state === 'ready' && shown.length === 0 && <p className="text-base font-medium text-finder-muted">No agent of yours matches “{q}”.</p>}
           {state === 'ready' && shown.length > 0 && <p className="py-2 text-sm font-bold text-finder-muted">{summaryLine(shown.length, rows.length, keywords)}</p>}
           {shown.map((a) => (

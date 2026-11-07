@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Lock } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { LogoMark } from '@/design'
 import { config } from '@/lib/config'
-import { useSession } from './session'
+import { clearSessionEnded, sessionEnded, useSession } from './session'
 
 /**
  * Sign in, in the approved design (2026-10-29): the mark and the word, "Welcome back", the
@@ -21,6 +22,11 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null)
   // The number first, then the PIN: two steps on one screen, one sign-in call at the end.
   const [step, setStep] = useState<'number' | 'pin'>('number')
+  // Sent here because the server ended the sign-in: say so, once.
+  // Read without clearing (a render may run twice); cleared once the page has shown it.
+  const [ended] = useState(() => sessionEnded())
+  useEffect(() => clearSessionEnded(), [])
+  const [numberError, setNumberError] = useState<string | null>(null)
 
   const ready = pin.length >= 4 && ref.trim().length > 0
 
@@ -34,8 +40,7 @@ export default function SignInPage() {
         navigate('/choose-pin', { replace: true })
         return
       }
-      // Orange's national account has no agents of its own: it opens on the national map.
-      const home = s.role === 'agent' ? '/agent' : s.permissions.includes('VIEW_NATIONAL') ? '/dealer/map' : '/dealer'
+      const home = s.role === 'agent' ? '/agent' : '/dealer'
       navigate(location.state?.from && location.state.from.startsWith(home) ? location.state.from : home, {
         replace: true,
       })
@@ -65,8 +70,16 @@ export default function SignInPage() {
         onSubmit={(e) => {
           e.preventDefault()
           if (step === 'number') {
+            const digits = ref.replace(/[\s+()-]/g, '')
+            // A number, but too short to be one: an account name or a 3-digit agent number
+            // ("024") passes; "12" or "76123" does not.
+            if (/^\d+$/.test(digits) && (digits.length < 3 || (digits.length > 3 && digits.length < 8))) {
+              setNumberError('Enter your 9-digit Orange number, for example 076 123 456.')
+              return
+            }
             if (ref.trim()) {
               setError(null)
+              setNumberError(null)
               setStep('pin')
             }
           } else void submit()
@@ -80,7 +93,18 @@ export default function SignInPage() {
 
         {step === 'number' ? (
           <>
-            <h1 className="mt-14 text-[30px] font-extrabold leading-tight tracking-[-0.03em]">Welcome back</h1>
+            {ended && (
+              <div role="status" className="mt-8 flex items-start gap-3 rounded-[14px] bg-finder-tile px-4 py-3.5">
+                <Lock aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-finder-link" strokeWidth={2.2} />
+                <div>
+                  <p className="text-[15px] font-extrabold">You were signed out</p>
+                  <p className="mt-0.5 text-sm leading-snug text-design-muted">
+                    For your safety, sign-ins end after a while. Sign in again and you&apos;ll go straight back to where you were.
+                  </p>
+                </div>
+              </div>
+            )}
+            <h1 className={`${ended ? 'mt-8' : 'mt-14'} text-[30px] font-extrabold leading-tight tracking-[-0.03em]`}>Welcome back</h1>
             <p className="mt-2 text-[15px] leading-normal text-design-muted">Enter your Orange phone number to continue.</p>
             <label htmlFor="sign-in-ref" className="sr-only">
               Phone number
@@ -91,7 +115,12 @@ export default function SignInPage() {
               <input
                 id="sign-in-ref"
                 value={ref}
-                onChange={(e) => setRef(e.target.value)}
+                onChange={(e) => {
+                  setRef(e.target.value)
+                  setNumberError(null)
+                }}
+                aria-invalid={numberError ? true : undefined}
+                aria-describedby={numberError ? 'sign-in-ref-error' : undefined}
                 placeholder="76X XXX XXX"
                 autoComplete="username"
                 autoCapitalize="off"
@@ -100,6 +129,11 @@ export default function SignInPage() {
                 className="h-full min-w-0 flex-1 bg-transparent text-base font-semibold tracking-[0.04em] outline-none placeholder:text-design-faint"
               />
             </div>
+            {numberError && (
+              <p id="sign-in-ref-error" role="alert" className="mt-2 text-sm font-semibold text-design-red">
+                {numberError}
+              </p>
+            )}
             <button type="submit" disabled={!ref.trim()} className={`${primary} ${ref.trim() ? on : off}`}>
               Continue
             </button>

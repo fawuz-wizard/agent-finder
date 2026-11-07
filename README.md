@@ -33,13 +33,37 @@ cd apps/web
 npm install
 VITE_API_MODE=mock npx vite --port 5175                          # customer app
 VITE_API_MODE=mock VITE_APP_SURFACE=agent npx vite --port 5177   # agent and aggregator
+VITE_API_MODE=mock VITE_APP_SURFACE=national npx vite --port 5178  # Orange's national map (orange / 123456)
 ```
 Windows PowerShell:
 ```
 cd apps/web
 $env:VITE_API_MODE="mock"; npx vite --port 5175
 $env:VITE_API_MODE="mock"; $env:VITE_APP_SURFACE="agent"; npx vite --port 5177
+$env:VITE_API_MODE="mock"; $env:VITE_APP_SURFACE="national"; npx vite --port 5178
 ```
+
+### Everything live in VS Code (API + all three apps, one shared database)
+Needs Python 3.11+ (3.12 recommended) and Node 22.
+1. Terminal > Run Task > **Live: install** (first time only).
+2. Terminal > Run Task > **Live: run all**. Four terminals open: the API and the three apps.
+3. Open:
+   - http://localhost:5173: customer app (tap the Agent Finder banner)
+   - http://localhost:5174: agent and aggregator app
+   - http://localhost:5181: Orange's national console (account `orange`, PIN `123456`), with **Global Report**
+4. The data lives in `apps/api/meeting-demo.db` (never uploaded to GitHub). Delete that file to start fresh.
+5. To stop, click the bin icon on each terminal.
+
+Each app can also be started alone (Terminal > Run Task > **Live: ...**), as long as **Live: API (8000)** is running.
+
+### On Windows
+The same VS Code tasks work on Windows (they run in PowerShell). Without VS Code, use the two
+files in the `windows` folder:
+1. Install **Python 3.12** from python.org (tick **Add Python to PATH**) and **Node.js 22** from nodejs.org.
+2. Double-click `windows\install.bat` (first time only; needs internet).
+3. Double-click `windows\run-all.bat`. Four windows open (the API and the three apps) and the
+   browser opens Orange's console. Close the four windows to stop.
+How the Global Report works, and a walk-through for showing it: `docs/global-report.md`.
 
 ### Signing in on the agent and aggregator app
 Nobody chooses a role; the number decides.
@@ -71,8 +95,10 @@ on another phone. Live mode is what makes them share one database.
 - React 18 + TypeScript, built with Vite, styled with Tailwind 4 on Orange design tokens
   (`src/design/tokens.css`: Poppins for the customer module, square Orange style for the platform,
   light and dark).
-- One code base, two builds: `VITE_APP_SURFACE=customer` (default) or `agent` (the Agent App and the
-  aggregator console together).
+- One code base, three builds: `VITE_APP_SURFACE=customer` (default), `agent` (the Agent App: agents
+  and aggregators together) or `national` (Orange's national map, a web page of its own for a
+  laptop, with its own sign-in and a 6-digit PIN). The Agent App refuses the Orange account and
+  the national page refuses everyone else; the API decides what each account may read.
 - Two data modes: `VITE_API_MODE=mock` runs everything in the browser from demo data
   (`src/services/operatorDemo.ts`, `demoNetwork.ts`); `live` calls the API (`src/services/*Api.ts`).
   The two must behave the same.
@@ -116,7 +142,7 @@ on another phone. Live mode is what makes them share one database.
 1. `POST /api/v1/search` with the transaction, optional amount, and a point.
 2. The API finds open, confirmed agents within 500 m (wider only when nobody near can serve).
 3. For each, it scores the served percentage with the 7-day rule (`app/services/week_rule.py`): days
-   the agent was active, whether they did this exact transaction at this size, and customer reports;
+   the agent was active, whether they did any transaction (cash out or cash in) at this size, and customer reports;
    rounded to fives, 5 to 95. Agents and aggregators read it in words (`seen_as`), never as a figure.
 4. It returns the agents with words, the percentage, the distance and how fresh the information is,
    never a money figure.
@@ -136,8 +162,9 @@ npm install
 printf 'VITE_API_MODE=live\nVITE_API_BASE_URL=http://localhost:8000\n' > .env.local
 npx vite --port 5173                                         # customer
 VITE_APP_SURFACE=agent npx vite --port 5174                  # agent and aggregator
+VITE_APP_SURFACE=national npx vite --port 5176               # Orange's national map
 ```
-API docs: http://localhost:8000/docs. `SEED_ON_START=true` fills an empty database once with the demo accounts (aggregator `kissy`, agents `024`, `031`, `009`, `017`, `038`, PIN `1234`); without it the live database starts empty and real accounts are issued with `scripts/issue_code.py`; Orange's agent file
+API docs: http://localhost:8000/docs. `SEED_ON_START=true` fills an empty database once with the demo accounts (aggregator `kissy`, agents `024`, `031`, `009`, `017`, `038`, PIN `1234`; Orange's national account `orange`, PIN `123456`); without it the live database starts empty and real accounts are issued with `scripts/issue_code.py`; Orange's agent file
 is not in this package (it is Orange's data) and is imported with `scripts/import_orange.py` when
 provided. `.env.example` lists every setting. More detail: `apps/web/RUNNING.md`.
 

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { useAsync } from '@/hooks/useAsync'
 import { operatorApi } from '@/services/operatorApi'
 import { useSession } from '@/features/auth/session'
-import type { AgentHome, AgentProfile, Presence } from '@/types/operator'
+import type { AgentHome, AgentProfile, LowLevel, Presence } from '@/types/operator'
 import { FinderCta } from '@/features/end-user/components/finder'
 import { AgentTitle } from './components/agentKit'
 import { Icon } from './components/agentIcons'
-import { BOX, OUTLINE, PRIMARY } from './components/agentClasses'
+import { BOX, OUTLINE, PRIMARY, chip } from './components/agentClasses'
 import { BEEP_AWAY_BASE, askToBeep, beep, cancelBeep } from '@/lib/notify'
 import { AWAY_REMINDER_MIN } from './shopPresence'
 
@@ -32,8 +32,22 @@ function stopAwayReminders() {
  * Service Status, the new design's screen 10, nothing added: two cards, Open for Business and
  * Away (the one in force is lit; tap the other to switch), where the shop is pinned and the
  * service radius, Update Location, and the switch button. Nothing here shows a balance.
- * Low / none today and Close for today are off this screen for now, as in the design.
+ * Below the cards, the agent's own word for today, one row each for Cash (notes, for cash-out
+ * customers) and Float (e-money, for cash-in customers): OK, Low or None. Low keeps that side
+ * at "less likely" for customers until midnight, None at the floor; the other side is
+ * untouched. It can only lower what customers read. Not in the design file yet (added for the
+ * pilot, 2026-11-03). Close for today stays off this screen, as in the design.
  */
+type Side = 'cash_out' | 'deposit'
+const STOCK: { side: Side; label: string; hint: string }[] = [
+  { side: 'cash_out', label: 'Cash today', hint: 'Notes for cash-out customers' },
+  { side: 'deposit', label: 'Float today', hint: 'E-money for cash-in customers' },
+]
+const LEVELS: { value: 'ok' | LowLevel; label: string }[] = [
+  { value: 'ok', label: 'OK' },
+  { value: 'low', label: 'Low' },
+  { value: 'none', label: 'None' },
+]
 export default function StatusPage() {
   const { session } = useSession()
   const ref = session?.ref ?? 'Agent 024'
@@ -41,6 +55,21 @@ export default function StatusPage() {
   const profile = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
   const [saving, setSaving] = useState<Presence | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [stockSaving, setStockSaving] = useState<Side | null>(null)
+
+  async function setStock(side: Side, level: 'ok' | LowLevel) {
+    if (stockSaving) return
+    setStockSaving(side)
+    setError(null)
+    try {
+      await operatorApi.setLow(ref, side, level)
+      home.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save.')
+    } finally {
+      setStockSaving(null)
+    }
+  }
 
   async function setPresence(presence: Presence) {
     if (!home.data || saving) return
@@ -124,6 +153,33 @@ export default function StatusPage() {
             </button>
           )
         })}
+
+        <section aria-labelledby="stock-title" className={`${BOX} flex flex-col gap-4 px-4 py-[18px]`}>
+          <div className="flex flex-col gap-1">
+            <h2 id="stock-title" className="text-sm font-semibold">
+              Running low today?
+            </h2>
+            <p className="text-xs text-finder-muted">Tell customers before they walk to you. Resets at midnight.</p>
+          </div>
+          {STOCK.map(({ side, label, hint }) => {
+            const now = data.low[side] ?? 'ok'
+            return (
+              <div key={side} className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm font-bold">{label}</span>
+                  <span className="text-right text-xs text-finder-muted">{hint}</span>
+                </div>
+                <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
+                  {LEVELS.map(({ value, label: word }) => (
+                    <button key={value} type="button" role="radio" aria-checked={now === value} disabled={stockSaving !== null} onClick={() => now !== value && void setStock(side, value)} className={`${chip(now === value)} h-11 justify-center text-sm disabled:opacity-60`}>
+                      {word}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </section>
 
         <div className={`${BOX} flex flex-col gap-5 px-4 py-[18px]`}>
           <div className="flex gap-3.5">

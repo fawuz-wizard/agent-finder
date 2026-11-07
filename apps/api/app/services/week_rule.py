@@ -4,15 +4,18 @@ Three checks, in order, all from counts the agent can change by working:
 
 1. Active days: on how many of the last 7 days the agent recorded any transaction.
    40 x days / 7. Volume does not count; one transaction a day earns the same as thirty.
-2. This transaction: has the agent done the requested type in the window, at the requested
-   size or larger? 35. Only at smaller sizes: 15, and the total is capped at 50. The type
-   not done at all: 0, capped at 35.
-3. Customers: visit reports for the requested type in the window. Fewer than three: 0.
+2. This size: has the agent done any transaction in the window, cash out or cash in, at the
+   requested size or larger? 35. Only at smaller sizes: 15, and the total is capped at 50.
+   Both types count together: every transaction involves the agent on both sides (a cash in
+   brings notes for the next cash out, a cash out brings float for the next cash in), so the
+   week is evidence for either request.
+3. Customers: every visit report in the window, whatever the type. Fewer than three: 0.
    Three or more: 20 x (served - failed) / reports. Served and failed weigh the same.
 
 The total is rounded to the nearest five, never under 5, never over 95. An agent with no
-transaction of any type in seven days is not recommended and reads 5. The agent's own "low
-today" caps that side at 35 until it lapses; "none today" caps it at 5.
+transaction of any type in seven days is not recommended and reads 5. The type matters in one
+place only, the agent's own word for today: "low today" on cash (for cash outs) or float (for
+cash ins) caps that side at 35 until midnight; "none today" caps it at 5.
 
 No subtraction: nothing here estimates what an agent has left. Customers read the
 percentage; agents and aggregators never see it or the points.
@@ -33,17 +36,38 @@ from app.services.phrasing import amount_band, side_for
 
 WINDOW_DAYS = 7
 BAND_ORDER = ("≤500", "≤2k", "≤5k", "≤10k", "≤50k", ">50k")
+BAND_WORDS = {
+    "≤500": "SLE 500",
+    "≤2k": "SLE 2,000",
+    "≤5k": "SLE 5,000",
+    "≤10k": "SLE 10,000",
+    "≤50k": "SLE 50,000",
+    ">50k": "over SLE 50,000",
+}
 LIKELY_FROM = 50  # a percentage at or above this reads "likely" and can be recommended
 
 
 @dataclass
 class Week:
-    """What seven days hold for one agent, per side (cash = cash out, float = cash in)."""
+    """What seven days hold for one agent. Kept per side (cash = cash out, float = cash in) for
+    the records; the rule reads both sides together."""
 
     active_days: int = 0
     bands: dict[str, set[str]] = field(default_factory=lambda: {"cash": set(), "float": set()})
     served: dict[str, int] = field(default_factory=lambda: {"cash": 0, "float": 0})
     failed: dict[str, int] = field(default_factory=lambda: {"cash": 0, "float": 0})
+
+    @property
+    def all_bands(self) -> set[str]:
+        return self.bands["cash"] | self.bands["float"]
+
+    @property
+    def served_all(self) -> int:
+        return self.served["cash"] + self.served["float"]
+
+    @property
+    def failed_all(self) -> int:
+        return self.failed["cash"] + self.failed["float"]
 
 
 @dataclass(frozen=True)
@@ -104,10 +128,10 @@ async def weeks_for(db: AsyncSession, refs: list[str], now: datetime) -> dict[st
 
 
 def size_done(week: Week, tx: str, amount_sle: int | None) -> float:
-    """Check 2 as a number for the learned ranker: 1 when the type was done at this size or
-    larger this week (or done at all when no amount is asked), 0.5 when only at smaller
-    sizes, 0 when not done."""
-    seen = week.bands[side_for(tx)]
+    """Check 2 as a number for the learned ranker: 1 when any transaction was done at this
+    size or larger this week (or any at all when no amount is asked), 0.5 when only at
+    smaller sizes, 0 when none."""
+    seen = week.all_bands
     if not seen:
         return 0.0
     asked = _band_index(amount_band(amount_sle))
@@ -116,25 +140,18 @@ def size_done(week: Week, tx: str, amount_sle: int | None) -> float:
 
 
 def score(week: Week, tx: str, amount_sle: int | None, low: str | None = None) -> WeekScore:
-    """The percentage a customer reads for one agent and one request."""
-    side = side_for(tx)
-    other = "float" if side == "cash" else "cash"
-    label = "cash out" if side == "cash" else "cash in"
-    other_label = "cash in" if side == "cash" else "cash out"
+    """The percentage a customer reads for one agent and one request. The type asked for
+    (`tx`) changes nothing here; the caller passes the agent's low word for that side."""
     if week.active_days == 0:
         return WeekScore(5, "unknown", "No activity recorded this week", active=False)
 
     points = 40 * week.active_days / WINDOW_DAYS
     cap = 95
     note = None
-    seen = week.bands[side]
+    seen = week.all_bands
     if not seen:
         cap = 35
-        note = (
-            f"Does {other_label}; no {label} this week"
-            if week.bands[other]
-            else f"No {label} recorded this week"
-        )
+        note = "No transaction recorded this week"
     else:
         asked = _band_index(amount_band(amount_sle))
         largest = max(_band_index(b) or 0 for b in seen)
@@ -145,9 +162,9 @@ def score(week: Week, tx: str, amount_sle: int | None, low: str | None = None) -
             cap = 50
             note = "Not seen at this size this week"
 
-    reports = week.served[side] + week.failed[side]
+    reports = week.served_all + week.failed_all
     if reports >= 3:
-        points += 20 * (week.served[side] - week.failed[side]) / reports
+        points += 20 * (week.served_all - week.failed_all) / reports
 
     if low == "low":
         cap = min(cap, 35)
@@ -162,7 +179,7 @@ def score(week: Week, tx: str, amount_sle: int | None, low: str | None = None) -
 SIDES = (("cash_out", "cash", "Cash out"), ("deposit", "float", "Cash in"))
 
 
-def _status(s: WeekScore, seen: bool, low: str | None) -> tuple[str, str]:
+def _status(s: WeekScore, low: str | None) -> tuple[str, str]:
     """One status word per type, as the agent's listing shows it: never the percentage."""
     if low == "none":
         return "limited", "None today"
@@ -170,8 +187,6 @@ def _status(s: WeekScore, seen: bool, low: str | None) -> tuple[str, str]:
         return "limited", "Low today"
     if not s.active:
         return "unknown", "No activity this week"
-    if not seen:
-        return "limited", "Not done this week"
     if s.outcome == "likely":
         return "likely", "Likely to be served"
     return "limited", "Less likely yet"
@@ -186,13 +201,9 @@ def week_note(week: Week, low: tuple[str | None, str | None], viewer: str = "age
     aggregator."""
     you = viewer == "agent"
     sides = []
-    done = []
-    for (tx, side, label), side_low in zip(SIDES, low, strict=True):
+    for (tx, _side, label), side_low in zip(SIDES, low, strict=True):
         s = score(week, tx, None, side_low)
-        seen = bool(week.bands[side])
-        if seen:
-            done.append(label.lower())
-        outcome, phrase = _status(s, seen, side_low)
+        outcome, phrase = _status(s, side_low)
         sides.append({"label": label, "outcome": outcome, "phrase": phrase})
 
     why = []
@@ -214,28 +225,22 @@ def week_note(week: Week, low: tuple[str | None, str | None], viewer: str = "age
         )
     why.append({"tone": "good" if d >= 5 else "warn", "title": title, "detail": detail})
 
-    if d > 0:
-        if len(done) == 2:
-            why.append(
-                {
-                    "tone": "good",
-                    "title": "Cash out and cash in done this week",
-                    "detail": "Customers see you for both."
+    if d > 0 and week.all_bands:
+        largest = max(week.all_bands, key=lambda b: _band_index(b) or 0)
+        size = BAND_WORDS.get(largest, largest)
+        why.append(
+            {
+                "tone": "good",
+                "title": f"Done this week: up to {size}",
+                "detail": (
+                    "Cash outs and cash ins count together. Customers asking for more read "
+                    "you as less likely until you do one."
                     if you
-                    else "Customers see this agent for both.",
-                }
-            )
-        elif done:
-            missing = "cash in" if done[0] == "cash out" else "cash out"
-            why.append(
-                {
-                    "tone": "good",
-                    "title": f"{done[0].capitalize()} done this week; {missing} not",
-                    "detail": f"Record {missing}s when you do them, and customers will see you for both."  # noqa: E501
-                    if you
-                    else f"{missing.capitalize()} shows once the agent records one.",
-                }
-            )
+                    else "Cash outs and cash ins count together. Customers asking for more "
+                    "read this agent as less likely."
+                ),
+            }
+        )
 
     served = sum(week.served.values())
     failed = sum(week.failed.values())

@@ -6,7 +6,9 @@ from __future__ import annotations
 import pytest
 from app.services.forecast import days_left_text, risk_of
 
-HDR = {"X-Client": "cust-forecast"}
+from customers import each_customer
+
+HDR = each_customer("cust-forecast")
 
 
 def test_risk_rule_reads_the_evidence_in_order():

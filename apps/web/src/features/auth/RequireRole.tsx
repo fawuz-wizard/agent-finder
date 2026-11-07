@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import type { Role } from '@/types/operator'
-import { useSession } from './session'
+import { isNational, useSession } from './session'
 
 /**
  * Sends the wrong role away instead of rendering a screen it should not see. This is a
@@ -13,6 +13,8 @@ export function RequireRole({ role }: { role: Role }) {
   if (!session) return <Navigate to="/sign-in" state={{ from: location.pathname }} replace />
   // Signed in with a one-time code: nothing opens until a PIN is chosen. The API shuts
   // every other route the same way.
+  // A national session never reaches the Agent App's screens (it is refused at sign-in too).
+  if (isNational(session)) return <Navigate to="/national" replace />
   if (session.must_set_pin) return <Navigate to="/choose-pin" replace />
   if (session.role !== role) return <Navigate to={session.role === 'agent' ? '/agent' : '/dealer'} replace />
   return <Outlet />

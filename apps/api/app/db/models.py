@@ -5,18 +5,22 @@ operator adapter and returned with their source.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,6 +36,10 @@ class Dealer(Base, TimestampMixin):
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     # True while the account holds a one-time sign-in code, not a PIN the person chose.
     must_set_pin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # When the one-time code now in pin_hash was issued. For a short while after, a sign-in
+    # with it is let through the new-phone lockout (core/limits): the code is how a locked-out
+    # person gets back in, so a stranger filling that count must not be able to stop it.
+    code_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Named grants, comma-separated. The API is the authority on these.
     permissions: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # Orange's regions: east | north | west | south. Derived from the city on import.
@@ -117,6 +125,10 @@ class Agent(Base, TimestampMixin):
     pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     # True while the account holds a one-time sign-in code, not a PIN the person chose.
     must_set_pin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # When the one-time code now in pin_hash was issued. For a short while after, a sign-in
+    # with it is let through the new-phone lockout (core/limits): the code is how a locked-out
+    # person gets back in, so a stranger filling that count must not be able to stop it.
+    code_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Current declaration. PRIVATE words; compared server-side only.
     presence: Mapped[str] = mapped_column(
@@ -216,6 +228,17 @@ class AgentTransaction(Base):
 
 class FloatRequest(Base):
     __tablename__ = "float_requests"
+    # One waiting request per agent, kept by the database: two taps at the same moment cannot
+    # both get through the check in the code.
+    __table_args__ = (
+        Index(
+            "uq_float_one_pending",
+            "agent_ref",
+            unique=True,
+            sqlite_where=text("state = 'pending'"),
+            postgresql_where=text("state = 'pending'"),
+        ),
+    )
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
     agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
     dealer_id: Mapped[str] = mapped_column(ForeignKey("dealers.id"), nullable=False)
@@ -273,6 +296,8 @@ class Action(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    # Who did it, by account id (the aggregator's), so lists never match on a shared name.
+    actor_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
     # contact|call|nudge|escalate|snooze|resolve
     action: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -292,6 +317,8 @@ class AuditLog(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    # Who did it, by account id (the aggregator's), so lists never match on a shared name.
+    actor_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     permission: Mapped[str] = mapped_column(String(60), nullable=False)
     agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
     field: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -308,6 +335,9 @@ class Session(Base):
     )
     device_label: Mapped[str | None] = mapped_column(String(80))
     revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # A hash of the device that signed in (core/limits.device_id): a phone the account has
+    # used before is never refused by the lockout that guards against new phones.
+    client: Mapped[str | None] = mapped_column(String(32), index=True)
 
 
 class SearchImpression(Base):
@@ -355,3 +385,75 @@ class UsageEvent(Base):
     actor_kind: Mapped[str] = mapped_column(String(10), nullable=False)  # customer|agent|dealer
     actor_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     agent_ref: Mapped[str | None] = mapped_column(String(40))
+
+
+class RateEvent(Base):
+    """One counted event for a limit: a wrong PIN, a search, a sign-in attempt. Kept in the
+    database, not in memory, so a restart does not reset a lockout and several API servers
+    share one count. Old rows are pruned as the limits are checked."""
+
+    __tablename__ = "rate_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
+class ExportLog(Base):
+    """One download of a list of agents (the national map's CSV): who, when and which filter,
+    never the rows. Written before the file is returned, so a download that fails half way is
+    still on record."""
+
+    __tablename__ = "export_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    what: Mapped[str] = mapped_column(String(40), nullable=False)
+    filters: Mapped[str] = mapped_column(String(200), nullable=False)
+    rows: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ReportImport(Base):
+    """One upload of Orange's Global Report. Read, cleaned and compared with what is on record
+    first (status "previewed"), written only when a person applies it ("applied") or set aside
+    ("discarded"). The cleaned rows wait here between the two steps, without the file's
+    personal columns, and are cleared once the report is applied or discarded. The same file
+    twice is one record (its SHA-256 is unique)."""
+
+    __tablename__ = "report_imports"
+
+    id: Mapped[str] = mapped_column(String(24), primary_key=True)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    file_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    uploaded_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    uploaded_by_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, index=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)  # JSON: counts, issues by row
+    rows: Mapped[str | None] = mapped_column(Text)  # JSON: cleaned rows, until applied
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    applied_by: Mapped[str | None] = mapped_column(String(120))
+    applied_by_id: Mapped[str | None] = mapped_column(String(40))  # the account, not just its name
+
+
+class AgentDailyStat(Base):
+    """One agent's figures for one day, from Orange's Global Report: cash in, cash out, the
+    transaction count, and, when the report carries them, float and commission. Money figures:
+    never shown to customers; to an aggregator only with financial-detail permission."""
+
+    __tablename__ = "agent_daily_stats"
+    __table_args__ = (UniqueConstraint("agent_ref", "report_date", name="uq_daily_agent_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agent_ref: Mapped[str] = mapped_column(ForeignKey("agents.ref"), nullable=False, index=True)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    cash_in: Mapped[float | None] = mapped_column(Float)
+    cash_out: Mapped[float | None] = mapped_column(Float)
+    tx_count: Mapped[float | None] = mapped_column(Float)
+    float_balance: Mapped[float | None] = mapped_column(Float)
+    commission: Mapped[float | None] = mapped_column(Float)
+    import_id: Mapped[str] = mapped_column(ForeignKey("report_imports.id"), nullable=False)

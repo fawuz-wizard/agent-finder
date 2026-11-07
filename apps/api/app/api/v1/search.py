@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.limits import limited
 from app.core.settings import get_settings
 from app.db.models import Agent, OutcomeReport, SearchImpression
 from app.db.session import get_session
@@ -73,8 +74,8 @@ class SearchRequest(BaseModel):
     area: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)] = (
         "Freetown"
     )
-    lat: float | None = None
-    lng: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
+    lng: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
     radius_m: int = Field(default=500, ge=500, le=500)
 
 
@@ -82,8 +83,8 @@ class Point(PublicModel):
     """A coarse point (~110 m): the agent's business point, or the origin the distance was
     measured from. Never a customer's precise location."""
 
-    lat: float
-    lng: float
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lng: float = Field(ge=-180, le=180, allow_inf_nan=False)
 
 
 class AgentResult(PublicModel):
@@ -91,8 +92,8 @@ class AgentResult(PublicModel):
     name: str
     area: str
     # Coarse business point, so the app can draw the way there without leaving.
-    lat: float
-    lng: float
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lng: float = Field(ge=-180, le=180, allow_inf_nan=False)
     distance_m: int
     outcome: str
     outcome_text: str
@@ -251,6 +252,7 @@ async def search(
     req: SearchRequest,
     db: AsyncSession = Depends(get_session),
     x_client: str | None = Header(default=None),
+    _limit: None = Depends(limited("search", per_client=60, per_address=600)),
 ) -> SearchResponse:
     now = now_utc()
     tx = normalise_tx(req.transaction)
@@ -293,8 +295,8 @@ async def search(
                 **week_features(
                     active_days=w.active_days,
                     size_done=size_done(w, tx, req.amount_sle),
-                    served=w.served[side],
-                    failed=w.failed[side],
+                    served=w.served_all,
+                    failed=w.failed_all,
                     distance_m=dist,
                     low=(cash_low if side == "cash" else float_low) is not None,
                 ),

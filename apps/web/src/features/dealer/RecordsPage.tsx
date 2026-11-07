@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { operatorApi } from '@/services/operatorApi'
 import type { DealerReport, RecordKind } from '@/types/operator'
 import { FinderCta, FinderHeader } from '@/features/end-user/components/finder'
@@ -100,6 +101,7 @@ export default function DealerRecordsPage() {
           {report.data.agents} agents · {report.data.located} on the map · {report.data.active_at_orange} active at Orange
         </p>
       )}
+      {report.state === 'error' && !report.data && <LoadError what="your summary" error={report.error} onRetry={report.refresh} className="mt-4" />}
 
       <SectionLabel className="mt-6">What to include</SectionLabel>
       <div className="mt-2 flex flex-col" role="group" aria-label="What to include">

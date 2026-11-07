@@ -10,7 +10,8 @@ from datetime import UTC, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Principal, settled_principal
@@ -70,7 +71,11 @@ async def record_send(
         raise _not_found()
     if body.client_token:
         dup = (
-            await db.execute(select(FloatSend).where(FloatSend.client_token == body.client_token))
+            await db.execute(
+                select(FloatSend).where(
+                    FloatSend.client_token == body.client_token, FloatSend.dealer_id == p.subject
+                )
+            )
         ).scalar_one_or_none()
         if dup:
             a = await db.get(Agent, dup.agent_ref)
@@ -101,19 +106,51 @@ async def record_send(
     db.add(s)
     if req:
         note = f"Sent SLE {body.amount_sle:,}" + (f" · ref {ref}" if ref else "")
-        steps = ["approved", "completed"] if req.state == "pending" else ["completed"]
+        read_state = req.state
+        # Guarded by the state we read: a second send racing this one (a double tap, a second
+        # phone) finds the request already completed and records nothing.
+        moved = await db.execute(
+            update(FloatRequest)
+            .where(FloatRequest.id == req.id, FloatRequest.state == read_state)
+            .values(state="completed", decided_at=now, decided_by=p.name, decision_reason=note)
+            .execution_options(synchronize_session=False)
+        )
+        if moved.rowcount != 1:
+            await db.rollback()
+            raise AppError(
+                "That request was just sent. Refresh to see it.",
+                code="illegal_transition",
+                status_code=409,
+            )
+        steps = ["approved", "completed"] if read_state == "pending" else ["completed"]
+        state = read_state
         for to in steps:
             db.add(
                 FloatRequestEvent(
-                    request_id=req.id, from_state=req.state, to_state=to, actor=p.name, reason=note
+                    request_id=req.id, from_state=state, to_state=to, actor=p.name, reason=note
                 )
             )
-            req.state = to
-        req.decided_at = now
-        req.decided_by = p.name
-        req.decision_reason = note
+            state = to
     await usage.record(db, "float_send", "dealer", p.subject, a.ref)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        if body.client_token:
+            # The same tap sent twice at once: the first one's result, not an error.
+            first = (
+                await db.execute(
+                    select(FloatSend).where(
+                        FloatSend.client_token == body.client_token,
+                        FloatSend.dealer_id == p.subject,
+                    )
+                )
+            ).scalar_one_or_none()
+            if first:
+                return _out(first, a.shop_name, first.actor)
+        raise AppError(
+            "That send was already recorded.", code="duplicate", status_code=409
+        ) from None
     await db.refresh(s)
     return _out(s, a.shop_name, p.name)
 

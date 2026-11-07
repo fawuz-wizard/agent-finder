@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { causeOf } from '@/design'
 import { FinderPill } from './finder'
 
 /** Three rows of grey bars in the shape of a result, on the dark surface. No shimmer (cheap CPUs). */
@@ -31,10 +32,17 @@ export function EmptyState({ title, body, actions }: { title: string; body: stri
   )
 }
 
+const ERROR_HEADING = { offline: "You're offline", slow: 'Taking too long', server: 'Something went wrong on our side' } as const
+
+/** The heading follows the cause: the phone's connection, a slow signal, or our side. */
+function errorHeading(message: string | null | undefined): string {
+  return ERROR_HEADING[causeOf(message)]
+}
+
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="flex flex-col items-start gap-4 py-6" role="alert">
-      <h2 className="text-xl font-bold leading-tight">Something went wrong on our side</h2>
+      <h2 className="text-xl font-bold leading-tight">{errorHeading(message)}</h2>
       <p className="text-base font-medium text-finder-muted">{message}</p>
       {onRetry && <FinderPill onClick={onRetry}>Try again</FinderPill>}
     </div>

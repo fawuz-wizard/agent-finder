@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
 
+import app.db.models  # noqa: F401  (registers every table on Base.metadata)
 from alembic import context
 from app.core.settings import get_settings
 from app.db.base import Base
@@ -13,10 +14,14 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 config = context.config
-if config.config_file_name is not None:
+# From the command line Alembic sets up logging; called by the app at start-up it must not,
+# or it would silence the app's own loggers.
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# configparser reads "%" as interpolation, and a generated database password is URL-encoded
+# (%40 for @): doubled here, or start-up fails and the error message carries the password.
+config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 
@@ -41,7 +46,11 @@ def run_migrations_offline() -> None:
 
 def _run_sync(connection: Connection) -> None:
     context.configure(
-        connection=connection, target_metadata=target_metadata, include_object=_include_object
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=_include_object,
+        # SQLite cannot alter a column in place; batch mode rebuilds the table instead.
+        render_as_batch=connection.dialect.name == "sqlite",
     )
     with context.begin_transaction():
         context.run_migrations()

@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
+# Pinned: the container builds the app with exactly this, not whatever is newest that day.
+requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,6 +20,8 @@ dependencies = [
   "geoalchemy2>=0.15",
   "psycopg[binary]>=3.1",
   "aiosqlite>=0.20",
+  # Windows has no time-zone database of its own (Africa/Freetown).
+  "tzdata>=2024.1; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
@@ -44,3 +47,5 @@ ignore = ["B008"]  # FastAPI Depends() in defaults is idiomatic
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Shared test helpers (tests/customers.py) are imported by name.
+pythonpath = ["tests"]

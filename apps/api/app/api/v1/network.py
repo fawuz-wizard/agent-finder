@@ -15,8 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Principal, require_permission
 from app.core.errors import NotFoundError
-from app.db.models import Agent, Dealer
+from app.db.models import Agent, Dealer, ExportLog
 from app.db.session import get_session
+from app.services.csv_safe import safe_text
 from app.services.network_map import app_days, scope_agents, summary, transacting
 from app.services.photo import public_photo_url
 from app.services.phrasing import is_open_now, now_utc
@@ -137,8 +138,7 @@ def _cell(v) -> str:
         return "no"
     if v is None:
         return "no file figure"
-    s = str(v)
-    return "'" + s if s[:1] in ("=", "+", "-", "@") else s
+    return str(safe_text(str(v)))
 
 
 @router.get("/agents.csv", summary="The same rows as a CSV file that opens in Excel")
@@ -150,6 +150,23 @@ async def map_agents_csv(
     db: AsyncSession = Depends(get_session),
 ) -> Response:
     rows = await _rows(db, p, region, aggregator, city)
+    # Recorded before the file leaves: who took which list, never what was in it.
+    filters = ", ".join(
+        f"{k}={getattr(v, 'value', v)}"
+        for k, v in (("region", region), ("aggregator", aggregator), ("city", city))
+        if v
+    )
+    db.add(
+        ExportLog(
+            at=now_utc(),
+            actor=p.name,
+            actor_id=p.subject,
+            what="agents.csv",
+            filters=(filters or "all")[:200],
+            rows=len(rows),
+        )
+    )
+    await db.commit()
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow([label for _, label in CSV_COLUMNS])

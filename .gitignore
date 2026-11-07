@@ -27,7 +27,8 @@ infra/.pgdata/
 # editors / os
 .DS_Store
 .idea/
-.vscode/
+.vscode/*
+!.vscode/tasks.json
 
 # local sqlite (pilot default)
 apps/api/*.db
@@ -44,3 +45,16 @@ apps/api/*.db-wal
 
 # pilot data with real phone numbers never enters the repository
 apps/api/data/agents-pilot.csv
+
+# Database backups hold agents' and customers' data: never in git.
+backups/
+*.dump
+
+# Spreadsheets and data exports hold real agents' and customers' details (Orange's Global
+# Report, CSV downloads from the app): never in git. The made-up sample report is the one exception.
+*.xlsx
+*.xls
+*.xlsm
+*.ods
+*.csv
+!docs/demo/sample-global-report.csv

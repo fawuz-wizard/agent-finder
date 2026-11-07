@@ -21,22 +21,26 @@ def _settings(**kw) -> Settings:
     return Settings(_env_file=None, **kw)
 
 
+LIVE = {
+    "cors_origins": "https://agentfinder.example",
+    "customer_hash_key": "k" * 32,
+    "pin_pepper": "p" * 32,
+    "forwarded_allow_ips": "10.0.0.0/16",
+}
+
+
 def test_seed_defaults_on_only_in_tests(monkeypatch):
     """The fixture network is for the test suite. A laptop starts empty and is filled by the
-    Orange import or by registering agents; production never plants demo PINs."""
+    Orange import or by registering agents; a live server never plants demo PINs."""
     monkeypatch.delenv("SEED_ON_START", raising=False)
     monkeypatch.delenv("CORS_ORIGINS", raising=False)
     assert _settings(app_env="development").seed_on_start is False
     assert _settings(app_env="test").seed_on_start is True
-    prod = _settings(app_env="production", cors_origins="https://agentfinder.example")
-    assert prod.seed_on_start is False
-    # An explicit value still wins, in either direction.
-    assert (
-        _settings(
-            app_env="production", cors_origins="https://x.example", seed_on_start=True
-        ).seed_on_start
-        is True
-    )
+    assert _settings(app_env="production", **LIVE).seed_on_start is False
+    # Asking a live server for the demo accounts, whose PINs are public, refuses to start.
+    for env in ("production", "staging"):
+        with pytest.raises(ValidationError, match="SEED_ON_START must be false"):
+            _settings(app_env=env, **{**LIVE, "seed_on_start": True})
     assert _settings(app_env="development", seed_on_start=False).seed_on_start is False
 
 
@@ -51,11 +55,31 @@ def test_production_without_cors_origins_refuses_to_start(monkeypatch):
     assert "http://localhost:5174" in dev and "http://127.0.0.1:5178" in dev
     assert dev[-3:] == ["https://localhost", "http://localhost", "capacitor://localhost"]
     assert _settings(
-        app_env="production", cors_origins=" https://a.example, https://b.example "
-    ).cors_origins == [  # noqa: E501
-        "https://a.example",
-        "https://b.example",
-    ]
+        app_env="production", **{**LIVE, "cors_origins": " https://a.example, https://b.example "}
+    ).cors_origins == ["https://a.example", "https://b.example"]
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"pin_pepper": ""}, "PIN_PEPPER must be set"),
+        ({"customer_hash_key": "short"}, "CUSTOMER_HASH_KEY must be set"),
+        ({"forwarded_allow_ips": ""}, "FORWARDED_ALLOW_IPS must be set"),
+        ({"forwarded_allow_ips": "*"}, "not '\\*'"),
+        ({"cors_origins": "http://localhost:5173"}, "only https://"),
+        ({"cors_origins": "*"}, "only https://"),
+    ],
+)
+def test_production_refuses_an_unsafe_setting(monkeypatch, change, message):
+    monkeypatch.delenv("SEED_ON_START", raising=False)
+    with pytest.raises(ValidationError, match=message):
+        _settings(app_env="production", **{**LIVE, **change})
+
+
+def test_production_allows_the_android_app_origin():
+    origins = "https://agentfinder.example,https://localhost,capacitor://localhost"
+    s = _settings(app_env="production", **{**LIVE, "cors_origins": origins})
+    assert "https://localhost" in s.cors_origins
 
 
 @pytest.fixture
@@ -170,3 +194,28 @@ async def test_admin_surface_is_not_mounted_for_the_pilot(client, dealer):
     for path in ("/api/v1/admin", "/api/v1/admin/", "/api/v1/admin/agents"):
         assert (await client.get(path, headers=dealer)).status_code == 404, path
     assert "admin" not in (await client.get("/api/v1")).json()["resources"]
+
+
+def test_production_without_a_customer_hash_key_refuses_to_start(monkeypatch):
+    with pytest.raises(ValidationError, match="CUSTOMER_HASH_KEY must be set in production"):
+        _settings(app_env="production", cors_origins="https://agentfinder.example")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("env", ["staging", "production"])
+async def test_a_public_server_hides_the_api_docs_and_insists_on_https(env):
+    """Staging is a public address too: no API map for strangers, and browsers are told to
+    use HTTPS only (HSTS). A laptop in development keeps both."""
+    from httpx import ASGITransport, AsyncClient
+
+    app = create_app(_settings(app_env=env, **LIVE))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as c:
+        for path in ("/docs", "/openapi.json", "/redoc"):
+            assert (await c.get(path)).status_code == 404, path
+        r = await c.get("/health")
+        assert r.headers["strict-transport-security"].startswith("max-age=")
+        assert r.headers["x-frame-options"] == "DENY"
+    dev = create_app(_settings(app_env="development"))
+    async with AsyncClient(transport=ASGITransport(app=dev), base_url="http://test") as c:
+        assert (await c.get("/openapi.json")).status_code == 200
+        assert "strict-transport-security" not in (await c.get("/health")).headers

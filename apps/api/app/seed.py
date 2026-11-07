@@ -13,7 +13,9 @@ from app.db.session import get_session_factory
 from app.services.phrasing import now_utc
 
 DEMO_PIN = "1234"
-NATIONAL_PERMS = "VIEW_AGENT,VIEW_NATIONAL"
+NATIONAL_PERMS = "VIEW_AGENT,VIEW_NATIONAL,IMPORT_GLOBAL_REPORT"
+# The national account's PIN is 6 digits (app/api/v1/auth.py).
+NATIONAL_DEMO_PIN = "123456"
 ALL_PERMS = "VIEW_AGENT,VIEW_AGENT_FINANCIAL_DETAIL,MANAGE_FLOAT_REQUEST,VIEW_AGENT_HISTORY,CONTACT_AGENT,ESCALATE_AGENT,MANAGE_AGENT"  # noqa: E501
 
 AGENTS = [
@@ -156,7 +158,7 @@ async def seed_if_empty() -> None:
             Dealer(
                 id="orange",
                 name="Orange Sierra Leone",
-                pin_hash=hash_pin(DEMO_PIN, "orange"),
+                pin_hash=hash_pin(NATIONAL_DEMO_PIN, "orange"),
                 permissions=NATIONAL_PERMS,
             )
         )

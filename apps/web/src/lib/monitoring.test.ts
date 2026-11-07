@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { initMonitoring, scrub } from './monitoring'
+import { RELEASE, environment, initMonitoring, scrub } from './monitoring'
 
 describe('error tracking', () => {
   it('is off without a DSN', async () => {
@@ -17,5 +17,10 @@ describe('error tracking', () => {
     expect(out).not.toHaveProperty('user')
     expect(out).not.toHaveProperty('breadcrumbs')
     expect(JSON.stringify(out)).not.toMatch(/8\.48|500|1234/)
+  })
+
+  it('reports under the same release name as the server', () => {
+    expect(RELEASE).toMatch(/^agent-finder@\d+\.\d+\.\d+$/)
+    expect(environment()).toBeTruthy()
   })
 })

@@ -4,6 +4,7 @@ import { Camera, ImageIcon, Trash2 } from 'lucide-react'
 import { FinderSheet } from '@/features/end-user/components/finder'
 import { shrinkPhoto } from '@/lib/photo'
 import { useAsync } from '@/hooks/useAsync'
+import { LoadError } from '@/design'
 import { useSession } from '@/features/auth/session'
 import { operatorApi } from '@/services/operatorApi'
 import type { AgentProfile } from '@/types/operator'
@@ -31,7 +32,7 @@ export default function ProfilePage() {
   const [theme, setTheme] = usePlatformTheme()
   const navigate = useNavigate()
   const ref = session?.ref ?? 'Agent 024'
-  const { data, setData } = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
+  const { state, data, error, refresh, setData } = useAsync<AgentProfile>((s) => operatorApi.profile(ref, s), [ref])
   // The round picture is the shop photo: customers, the aggregator and the agent all see it.
   const [picOpen, setPicOpen] = useState(false)
   const [picBusy, setPicBusy] = useState(false)
@@ -83,6 +84,7 @@ export default function ProfilePage() {
           <span className="self-start rounded-[20px] bg-agent-pill px-2.5 py-[3px] text-[11px] font-bold text-agent-pill-ink">Agent</span>
         </div>
       </div>
+      {state === 'error' && !data && <LoadError what="your profile" error={error} onRetry={refresh} className="mx-[18px] mb-3" />}
 
       {/* Light or dark, one tap, at the top: the only display choice, on this phone only. */}
       <div className={`${BOX} mx-[18px] mb-3 flex items-center gap-3 px-4 py-2.5`}>

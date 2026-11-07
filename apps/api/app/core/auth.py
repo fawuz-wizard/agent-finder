@@ -6,7 +6,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
-import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -29,15 +28,75 @@ PERMISSIONS = {
     "MANAGE_AGENT",
     # Orange's national view: the map and counts for every agent in the country. Read only.
     "VIEW_NATIONAL",
+    # Upload Orange's daily Global Report (national console): preview, then apply.
+    "IMPORT_GLOBAL_REPORT",
 }
 
 
-def hash_pin(pin: str, salt: str) -> str:
+PEPPERED = "p1$"
+
+
+def _legacy_hash(pin: str, salt: str) -> str:
     return hashlib.pbkdf2_hmac("sha256", pin.encode(), salt.encode(), 100_000).hex()
 
 
+def hash_pin(pin: str, salt: str) -> str:
+    """PBKDF2 over an HMAC of the PIN with PIN_PEPPER, a secret that lives only in the host's
+    secret store: a copy of the database or a backup is not enough to try the 10^4 PINs."""
+    from app.core.settings import get_settings
+
+    pepper = get_settings().pin_pepper.encode()
+    peppered = hmac.new(pepper, pin.encode(), hashlib.sha256).digest()
+    return PEPPERED + hashlib.pbkdf2_hmac("sha256", peppered, salt.encode(), 100_000).hex()
+
+
+# A hash from before the pepper, sealed with it in place (wrap_legacy_hashes): HMAC with the
+# pepper over the old PBKDF2, so a copy of the database no longer opens it either.
+WRAPPED = "p2$"
+
+
+def _wrap(legacy: str) -> str:
+    from app.core.settings import get_settings
+
+    pepper = get_settings().pin_pepper.encode()
+    return WRAPPED + hmac.new(pepper, legacy.encode(), hashlib.sha256).hexdigest()
+
+
 def verify_pin(pin: str, salt: str, stored: str) -> bool:
-    return hmac.compare_digest(hash_pin(pin, salt), stored)
+    """Constant-time. Older hashes (wrapped, or from before the pepper) still verify;
+    needs_rehash says to replace them the next time their owner signs in."""
+    if stored.startswith(PEPPERED):
+        return hmac.compare_digest(hash_pin(pin, salt), stored)
+    if stored.startswith(WRAPPED):
+        return hmac.compare_digest(_wrap(_legacy_hash(pin, salt)), stored)
+    return hmac.compare_digest(PEPPERED + _legacy_hash(pin, salt), PEPPERED + stored)
+
+
+def needs_rehash(stored: str) -> bool:
+    return not stored.startswith(PEPPERED)
+
+
+async def wrap_legacy_hashes(db: AsyncSession) -> int:
+    """At start-up: every PIN or unused code hashed before the pepper is sealed with it now,
+    not only when its owner next signs in (some never do). Returns how many were sealed."""
+    from app.db.models import Agent
+
+    sealed = 0
+    for model in (Agent, Dealer):
+        rows = (
+            await db.execute(
+                select(model).where(
+                    model.pin_hash != "",
+                    model.pin_hash.not_like(f"{PEPPERED}%"),
+                    model.pin_hash.not_like(f"{WRAPPED}%"),
+                )
+            )
+        ).scalars()
+        for row in rows:
+            row.pin_hash = _wrap(row.pin_hash)
+            sealed += 1
+    await db.commit()
+    return sealed
 
 
 def new_token() -> str:
@@ -56,29 +115,14 @@ def new_code() -> str:
 
 SESSION_MAX_AGE = timedelta(days=30)
 
-# A 4-6 digit PIN survives only if guessing is slow. Per-account lockout, in memory: the
-# API is one process, so this needs no store. Cleared on a successful sign-in.
-LOCK_AFTER_FAILURES = 5
-LOCK_WINDOW_SECONDS = 15 * 60
-_failed_sign_ins: dict[str, list[float]] = {}
+
+def token_key(token: str) -> str:
+    """What the sessions table keeps of a sign-in token: its SHA-256, never the token itself,
+    so a leaked database or backup holds no working sign-ins."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
-def check_sign_in_allowed(key: str) -> None:
-    now = time.monotonic()
-    recent = [t for t in _failed_sign_ins.get(key, []) if now - t < LOCK_WINDOW_SECONDS]
-    _failed_sign_ins[key] = recent
-    if len(recent) >= LOCK_AFTER_FAILURES:
-        raise AppError(
-            "Too many attempts. Try again in 15 minutes.", code="rate_limited", status_code=429
-        )
-
-
-def note_sign_in_failure(key: str) -> None:
-    _failed_sign_ins.setdefault(key, []).append(time.monotonic())
-
-
-def clear_sign_in_failures(key: str) -> None:
-    _failed_sign_ins.pop(key, None)
+# The PIN lockout lives in app/core/limits.py, in the database, so it survives restarts.
 
 
 @dataclass(frozen=True)
@@ -105,7 +149,7 @@ async def current_principal(
     if not authorization or not authorization.lower().startswith("bearer "):
         raise UnauthorizedError("Sign in first.")
     token = authorization.split(" ", 1)[1].strip()
-    sess = await db.get(Session, token)
+    sess = await db.get(Session, token_key(token))
     if sess is None or sess.revoked:
         raise UnauthorizedError("That session has ended. Sign in again.")
     created = sess.created_at if sess.created_at.tzinfo else sess.created_at.replace(tzinfo=UTC)

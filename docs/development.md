@@ -35,3 +35,82 @@ make check       # everything CI runs
 ## Auth in development
 `AUTH_MODE=demo` (default). Demo accounts and PINs are created by the seed script in the database
 stage and are labelled as demo in the UI. Real phone OTP is a later stage.
+
+## Database changes, limits and backups
+
+**Migrations.** The API migrates the database at start-up (`app/db/migrate.py`). A new database
+is built by `alembic/versions` alone; one made before migrations (the pilot's) is given any
+missing tables, marked as at `0002_baseline`, then migrated forward. Any change to a model is a
+new migration, written in `apps/api`:
+
+    .venv/bin/alembic revision --autogenerate -m "what changed"
+
+Read the generated file before committing it. `tests/test_migrations.py` fails if the models
+and the migrations disagree, so a forgotten migration is caught in CI, not on the live server.
+
+**Limits** (`app/core/limits.py`, kept in the `rate_events` table so a restart or a second
+server does not reset them): five wrong PINs lock an account for 15 minutes (sign-in and the
+transaction keypad), and twenty in a day lock it until the next day. Orange's national account
+needs a 6-digit PIN. Anyone who knows an account's name can trigger the day lock on purpose;
+the way back the same day is a new one-time code, which also lifts the lock: for an agent,
+their aggregator issues it in the app; for an aggregator or the national account, the team
+runs `.venv/bin/python scripts/issue_code.py <account>` and reads the code out in person. Each
+agent may record at most 120 transactions an hour. Every download of the agents list is kept
+in `export_log` (who, when, filter, row count). Customer search allows 60 a minute per device and 600 per network
+address (many phones share one address on mobile networks); the public agent page 120 and
+1,200; sign-in 30 and 300 per 10 minutes. Behind a load balancer, make sure the API sees the
+customer's address, not the balancer's, or the address limits will be shared by everyone:
+set `FORWARDED_ALLOW_IPS` (below).
+
+**Wrong PINs** lock the device that typed them (5 in 15 minutes, 20 a day), never the owner's
+own phone. Devices the account has never signed in from share one count (10 in 15 minutes,
+20 a day); past it, only a phone used before or a new sign-in code gets in: a code read out in
+the last 30 minutes gets through even a full count, so a stranger cannot keep its owner out. A
+new code clears every count for the account, and changing a PIN signs the other phones out
+without forgetting that they are the owner's. Aggregators and Orange get a new code from the
+team: `python -m scripts.issue_code <account id>`.
+
+PINs and codes hashed before `PIN_PEPPER` existed are sealed with it at start-up and replaced
+by the full form at their owner's next sign-in. Run every script that sets PINs (imports,
+codes) with the same `PIN_PEPPER` as the server, or the hashes it writes will never match.
+
+**Backups**, from `apps/api`, on a schedule (daily at least), each followed by its check where
+the private key is kept. The folder must be outside the repository; on a live server the
+backup must be encrypted and copied to a second place, or the script refuses:
+
+    .venv/bin/python -m scripts.backup_db backup --dir /secure/backups --keep 14 \
+        --encrypt-to backups@agentfinder --copy-to s3://agentfinder-backups/db
+    .venv/bin/python -m scripts.backup_db check  --dir /secure/backups
+
+Each backup has a manifest of every table's row count; `check` restores the newest backup into
+a scratch database and fails on a table missing or short. For PostgreSQL set
+`RESTORE_CHECK_URL` to an empty scratch database; the script refuses any database that holds
+tables it did not restore itself, whatever its address.
+On AWS the managed database's own encrypted backups, copied to a second region, come first.
+
+**Before going live** (security reviews of 2026-11-01 and 2026-11-04). A live server
+(`APP_ENV=staging` or `production`) refuses to start without each of these:
+- `CUSTOMER_HASH_KEY` and `PIN_PEPPER`: 32 or more random characters each, from the host's
+  secret store. A PIN hash from before the pepper is replaced at its owner's next sign-in.
+- `SEED_ON_START` false: the demo accounts' PINs are public.
+- Production only: `FORWARDED_ALLOW_IPS`, the load balancer's address range (never `*`), and
+  `CORS_ORIGINS` listing only `https://` origins (plus `https://localhost` and
+  `capacitor://localhost` for the Android app).
+- `/docs` and `/openapi.json` are off on staging and production, and every answer carries HSTS
+  (HTTPS only). The container runs uvicorn without its own proxy handling or
+  access log: the app reads the forwarded address, and logs paths without query strings.
+- Dependencies install from `apps/api/requirements.lock`; CI runs `pip-audit` on it.
+- Still open: one-time sign-in codes do not expire yet (an aggregator re-issues one if lost).
+
+**The seven classic holes** (checked 2026-11-06; the tests named here keep them shut):
+
+| | Hole | How Agent Finder locks it |
+|---|---|---|
+| 1 | A secret key in the browser code | Only `VITE_*` values reach the browser, and none is secret (API address, Sentry DSN, map keys). A scan of a live build found no server secret. **At hosting:** restrict the TomTom and Google Maps keys to the site's domains and the Android app in their consoles. |
+| 2 | The `.env` file on the live site | `.dockerignore` keeps `.env*` out of the API image; the web build ships only `dist/` (no `.env`). **At hosting:** upload `dist/` only. |
+| 3 | A login only checked in the browser | Every API route checks the session on the server except the public ones (search, an agent's public page and photo, sign-in, customer reports, health), which are rate-limited. |
+| 4 | Change the number in the address: someone else's record | Every record is checked against its owner; the wrong owner gets the same 404 as a missing one (`tests/test_other_aggregator_404.py`, plus the scoping tests per feature). |
+| 5 | No row level security: the whole database answers | No browser talks to the database; the API is the only door. **At hosting:** the database sits in a private network with no public address, reachable only from the API. |
+| 6 | An admin page hidden, not locked | The national console and Global Report need an account and the `IMPORT_GLOBAL_REPORT` / national permissions, checked on the server (404 otherwise); API docs are off on public servers. |
+| 7 | No HTTPS | HSTS on staging and production (`test_a_public_server_hides_the_api_docs_and_insists_on_https`), `https://`-only CORS in production, sessions in a header, not a cookie. **At hosting:** the load balancer and CDN redirect HTTP to HTTPS. |
+
