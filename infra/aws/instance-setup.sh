@@ -178,13 +178,14 @@ install -m 750 "$SRC/infra/aws/backup.sh" /usr/local/sbin/agent-finder-backup
 install -m 644 "$SRC/infra/aws/systemd/agent-finder-backup.service" "$SRC/infra/aws/systemd/agent-finder-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now agent-finder-backup.timer >/dev/null
-systemctl list-timers agent-finder-backup.timer --no-pager | head -n 2
+systemctl list-timers agent-finder-backup.timer --no-pager --no-legend || true
 
 say "Removing images no longer used"
 for repo in agent-finder-api agent-finder-backup; do
-  docker images "$repo" --format '{{.Tag}}' | grep -vxE "current|$API_TAG" \
+  # Nothing old to remove is not an error (grep finding no line exits 1 under pipefail).
+  { docker images "$repo" --format '{{.Tag}}' | grep -vxE "current|$API_TAG" || true; } \
     | while read -r tag; do docker rmi "$repo:$tag" >/dev/null 2>&1 || true; done
 done
-docker image prune -f >/dev/null
+docker image prune -f >/dev/null || true
 
 say "Done: https://api.$SITE_SUFFIX is running $API_TAG"
