@@ -7,6 +7,8 @@
 #   infra/aws/admin.sh status            # containers and their health
 #   infra/aws/admin.sh logs api          # last 100 lines of api, caddy or db
 #   infra/aws/admin.sh backup-now        # run the nightly backup immediately
+#   infra/aws/admin.sh publish-apks DIR  # put DIR/agent-app.apk and agent-finder.apk on
+#                                        # https://app.<suffix>/download/ for agents to install
 #
 # Where the one-time code goes, and why:
 #   AWS keeps the output of every Run Command, and whoever runs this script (a person, or an
@@ -107,6 +109,29 @@ case "$action" in
     whoami_aws; find_instance; [[ -n "$INSTANCE_ID" ]] || die "No staging instance."
     say "Running the backup now"
     ssm_run "agent-finder backup" "/usr/local/sbin/agent-finder-backup"
+    ;;
+  publish-apks)
+    dir="${1:-}"
+    [[ -f "$dir/agent-app.apk" && -f "$dir/agent-finder.apk" ]] || die "publish-apks needs a folder with agent-app.apk and agent-finder.apk."
+    for f in agent-app.apk agent-finder.apk; do
+      [[ "$(head -c 2 "$dir/$f")" == "PK" ]] || die "$f is not an Android app (APK)."
+    done
+    whoami_aws; find_instance; [[ -n "$INSTANCE_ID" ]] || die "No staging instance."
+    say "Uploading the two apps to the private bucket"
+    stamp="$(date -u +%Y%m%d%H%M%S)"
+    for f in agent-app.apk agent-finder.apk; do
+      awsr s3 cp --only-show-errors --sse aws:kms "$dir/$f" "s3://$BUCKET/releases/apk-$stamp/$f"
+    done
+    awsr s3 cp --only-show-errors --sse aws:kms "$(dirname "$0")/download.html" "s3://$BUCKET/releases/apk-$stamp/index.html"
+    say "Placing them on the download page"
+    ssm_run "agent-finder publish apks" \
+      "set -euo pipefail" \
+      "d=/opt/agent-finder/www/download; n=\$d.next; rm -rf \$n; install -d -m 755 \$n" \
+      "aws s3 cp --only-show-errors --recursive --region '$REGION' 's3://$BUCKET/releases/apk-$stamp/' \$n/" \
+      "chmod 644 \$n/*; rm -rf \$d.old; if [ -d \$d ]; then mv \$d \$d.old; fi; mv \$n \$d; rm -rf \$d.old" \
+      "ls -l \$d"
+    site_suffix
+    note "Download page: https://app.$SITE_SUFFIX/download/"
     ;;
   *) usage ;;
 esac

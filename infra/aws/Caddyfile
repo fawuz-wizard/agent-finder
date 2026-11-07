@@ -55,7 +55,23 @@ api.{$SITE_SUFFIX} {
 }
 
 app.{$SITE_SUFFIX} {
-	import spa customer
+	# The Android apps, for agents to install from a link or QR code (the repository is private,
+	# so GitHub's links need a sign-in). Files only: published by `admin.sh publish-apks`.
+	handle /download* {
+		root * /srv
+		import security_headers
+		header Cache-Control "no-cache"
+		@apk path *.apk
+		header @apk {
+			Content-Type "application/vnd.android.package-archive"
+			Content-Disposition "attachment"
+		}
+		try_files {path} {path}/index.html
+		file_server
+	}
+	handle {
+		import spa customer
+	}
 }
 
 agent.{$SITE_SUFFIX} {
