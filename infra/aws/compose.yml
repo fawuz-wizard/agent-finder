@@ -1,0 +1,121 @@
+# Agent Finder STAGING on one EC2 instance. Not for local development (that is
+# infra/docker-compose.yml). Run it through /usr/local/bin/af-compose, which instance-setup.sh
+# installs: it passes --env-file /opt/agent-finder/.env (root-only, written from SSM).
+#
+# Images are built on the instance by instance-setup.sh (docker build), never pulled for our
+# own code: pull_policy never.
+#
+# Networks:
+#   edge  caddy + api. caddy has a fixed address (172.30.0.10) so the API can trust exactly that
+#         one address to tell it the real client (FORWARDED_ALLOW_IPS). Trusting a whole range
+#         like 172.16.0.0/12 would also trust any other container Docker ever starts; one fixed
+#         address is narrower and just as simple.
+#   data  api + db + the backup job, internal: no route to the internet, so the database can
+#         neither be reached from outside nor send anything out.
+# Only caddy publishes ports (80, 443). The database has no ports: entry at all.
+
+name: agent-finder
+
+x-api-env: &api-env
+  APP_ENV: staging
+  SEED_ON_START: "false"
+  PORT: "8000"
+  LOG_LEVEL: INFO
+  DATABASE_URL: postgresql+asyncpg://agentfinder:${POSTGRES_PASSWORD:?missing}@db:5432/agentfinder
+  CUSTOMER_HASH_KEY: ${CUSTOMER_HASH_KEY:?missing}
+  PIN_PEPPER: ${PIN_PEPPER:?missing}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  FORWARDED_ALLOW_IPS: 172.30.0.10
+  # The three web sites, plus the Android APK's own origins (Capacitor serves the web build
+  # from https://localhost and capacitor://localhost).
+  CORS_ORIGINS: https://app.${SITE_SUFFIX:?missing},https://agent.${SITE_SUFFIX},https://national.${SITE_SUFFIX},https://localhost,capacitor://localhost
+
+services:
+  db:
+    # postgres:16 plus the PostGIS package (the first migration runs CREATE EXTENSION postgis).
+    # Built from infra/aws/db.Dockerfile because postgis/postgis has no arm64 image.
+    image: agent-finder-db:16
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agentfinder
+      POSTGRES_DB: agentfinder
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentfinder -d agentfinder"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  api:
+    image: agent-finder-api:${API_TAG:-current}
+    pull_policy: never
+    restart: unless-stopped
+    environment: *api-env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [edge, data]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_SUFFIX: ${SITE_SUFFIX:?missing}
+    volumes:
+      # A folder, not a single file: a file bind mount keeps the old copy after it is replaced.
+      - /opt/agent-finder/caddy:/etc/caddy:ro
+      - /opt/agent-finder/www:/srv:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+    networks:
+      edge:
+        ipv4_address: 172.30.0.10
+
+  # The nightly backup (backup.sh starts it with `af-compose run --rm backup`). Not started by
+  # `up`: it is in the "tools" profile. It needs the API's settings because the backup script
+  # loads them (and refuses to run on staging without encryption and a second copy).
+  backup:
+    profiles: [tools]
+    image: agent-finder-backup:${API_TAG:-current}
+    pull_policy: never
+    environment:
+      <<: *api-env
+      BACKUP_GPG_RECIPIENT: ${BACKUP_GPG_RECIPIENT:?missing}
+    volumes:
+      - /var/backups/agent-finder:/backups
+      - /var/lib/agent-finder/outbox:/outbox
+      - /opt/agent-finder/backup-key.asc:/run/backup-key.asc:ro
+    networks: [data]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        export GNUPGHOME="$$(mktemp -d)" &&
+        gpg --batch --quiet --import /run/backup-key.asc &&
+        python -m scripts.backup_db backup --dir /backups --keep 7
+        --encrypt-to "$$BACKUP_GPG_RECIPIENT" --copy-to /outbox
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  data:
+    internal: true
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
