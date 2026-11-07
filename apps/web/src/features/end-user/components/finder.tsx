@@ -3,24 +3,9 @@ import { Link } from 'react-router-dom'
 import { cn } from '@/design'
 
 /**
- * The customer module's chrome, as drawn in the Om Agent Finder file: the host app's
- * strip, the "‹ Agent Finder" row, the icons and the one big button.
+ * The customer module's chrome, as drawn in the Om Agent Finder file: the "Agent Finder" row,
+ * the icons and the one big button.
  */
-
-/** The Orange Money app's own top strip. Decorative here: the module is embedded under it. */
-export function HostStrip() {
-  return (
-    <div aria-hidden="true" className="flex h-11 items-center gap-4 px-[1.1rem] pt-2 text-base font-semibold text-finder-ink">
-      <svg width="24" height="18" viewBox="0 0 24 18" className="shrink-0">
-        <path d="M1 2h22M1 9h22M1 16h22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-      <span className="flex items-center gap-3">
-        072416283
-        <CaretIcon />
-      </span>
-    </div>
-  )
-}
 
 /** The customer module's outlined secondary action: a white pill, 44 px, beside the orange one. */
 export function FinderPill({ className, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -79,14 +64,6 @@ export function PinIcon({ size = 20 }: { size?: number }) {
     <svg style={{ width: rem(size), height: rem(size) }} viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
       <path d="M12 22s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z" fill="currentColor" />
       <circle cx="12" cy="10" r="2.6" fill="var(--color-finder-bg)" />
-    </svg>
-  )
-}
-
-export function CaretIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <path d="M2 4l5 6 5-6z" fill="currentColor" />
     </svg>
   )
 }

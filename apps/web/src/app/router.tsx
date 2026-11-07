@@ -16,7 +16,6 @@ const HowAvailabilityWorks = lazy(() => import('@/features/end-user/HowAvailabil
 const ReportVisit = lazy(() => import('@/features/end-user/ReportVisitPage'))
 const SignIn = lazy(() => import('@/features/auth/SignInPage'))
 const ChoosePin = lazy(() => import('@/features/auth/ChoosePinPage'))
-const HostHome = lazy(() => import('@/features/host/HostHomePage'))
 const AgentDashboard = lazy(() => import('@/features/agent/DashboardPage'))
 const AgentServices = lazy(() => import('@/features/agent/ServicesPage'))
 const AgentActivity = lazy(() => import('@/features/agent/ActivityPage'))
@@ -93,14 +92,14 @@ const appRoutes: RouteObject[] = [
       { path: '/choose-pin', element: withSuspense(<ChoosePin />) },
     ],
   },
-  // The customer build starts in the simulated host app; its banner opens the customer module.
+  // The customer build opens on Agent Finder itself (inside Max it, Max it draws its own bar).
   // The Agent App build starts on sign-in: agents and dealers never see the customer home.
   {
     path: '/',
     element:
-      config.surface === 'agent' ? <Navigate to="/sign-in" replace /> : config.hostShell ? withSuspense(<HostHome />) : <Navigate to="/find" replace />,
+      config.surface === 'agent' ? <Navigate to="/sign-in" replace /> : <Navigate to="/find" replace />,
   },
-  { path: '/host', element: <Navigate to={config.surface === 'agent' ? '/sign-in' : '/'} replace /> },
+  { path: '/host', element: <Navigate to={config.surface === 'agent' ? '/sign-in' : '/find'} replace /> },
   {
     path: '/agent',
     element: <RequireRole role="agent" />,

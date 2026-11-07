@@ -90,15 +90,23 @@ interface NominatimAnswer {
   address?: Record<string, string>
 }
 
-/** The most local name people use, from the parts Nominatim returns. */
+/**
+ * The most local names people use, from the parts Nominatim returns: the road and the area
+ * together when both are known ("Thunder Hill Road · Jalloh Terrace"), because people often
+ * know the place by the road's name and the map by the area's. Either alone otherwise.
+ */
 export function placeLabel(address: Record<string, string> | undefined): string | null {
   if (!address) return null
-  const keys = ['neighbourhood', 'suburb', 'quarter', 'residential', 'village', 'hamlet', 'town', 'city_district', 'road', 'city']
-  for (const k of keys) {
-    const v = address[k]?.trim()
-    if (v) return v.length > 40 ? `${v.slice(0, 39)}…` : v
+  const first = (keys: string[]) => keys.map((k) => address[k]?.trim()).find((v) => v) ?? null
+  const area = first(['neighbourhood', 'suburb', 'quarter', 'residential', 'village', 'hamlet', 'town', 'city_district'])
+  const road = first(['road'])
+  if (road && area && road !== area) {
+    const both = `${road} · ${area}`
+    if (both.length <= 44) return both
+    return short(area)
   }
-  return null
+  const v = area ?? road ?? first(['city'])
+  return v ? short(v) : null
 }
 
 function cacheKey(p: CoarsePoint): string {

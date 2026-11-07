@@ -58,18 +58,6 @@
   --color-app-highlight: #fdb2e1;    /* logo pink — passes on dark surfaces */
   --color-app-success: #66cc66;      /* ods-forest-100 — the light pair of forest-200 */
 
-  /* Demo host shell only — the simulated super-app the customer module is embedded in.
-     Never used by Agent Finder's own screens. */
-  --color-host-bg: #171515;
-  --color-host-card: #2a2727;
-  --color-host-tile: #2a2727;
-  --color-host-circle: #3a3636;
-  --color-host-nav: #0d0c0c;
-  --color-host-line: #262323;
-  --color-host-dot: #4a4646;
-  --color-host-promo: #f2b705;
-  --color-host-promo-mid: #f7c948;
-  --color-host-promo-deep: #8f7b3a;
 
   /* Type: Boosted stack (HelvNeueOrange is licence-restricted; Helvetica Neue is the
      documented fallback). Sizes follow the Boosted mobile scale: h1 24, h2/h3 18, body 16. */

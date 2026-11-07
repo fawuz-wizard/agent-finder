@@ -127,7 +127,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-1 flex-col px-5 pb-6 text-white">
-      <FinderHeader back={params.get('from') === 'host' ? '/' : undefined} />
+      <FinderHeader />
 
       <div className="mt-6 flex items-center justify-between gap-3">
         <button
