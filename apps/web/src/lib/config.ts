@@ -14,6 +14,12 @@ export const config = {
   apiMode: ((env.VITE_API_MODE as string | undefined) ?? 'mock') as 'mock' | 'live',
   useLiveApi: ((env.VITE_API_MODE as string | undefined) ?? 'mock') === 'live',
   /**
+   * The simulated host app (the Max it home and its top strip with a placeholder number). On in
+   * the demo, where it shows where Agent Finder sits; off in a live build, which opens straight on
+   * Agent Finder (inside the real Max it, Max it draws its own top bar). VITE_HOST_SHELL=on|off.
+   */
+  hostShell: ((env.VITE_HOST_SHELL as string | undefined) ?? (((env.VITE_API_MODE as string | undefined) ?? 'mock') === 'live' ? 'off' : 'on')) === 'on',
+  /**
    * Demo only: simulate the operator's activity feed, so capacity is read from transactions
    * and agents are never asked to refresh. Off for the pilot with real agents.
    */

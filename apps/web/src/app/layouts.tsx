@@ -27,7 +27,7 @@ export function CustomerLayout() {
       {/* The customer module ships embedded in a phone super-app; on desktop it presents as a
           framed phone-width module rather than stretching into a thin full-width stack. */}
       <main className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col bg-finder-bg md:my-8 md:min-h-[900px] md:flex-none md:border-2 md:border-line">
-        <HostStrip />
+        {config.hostShell && <HostStrip />}
         <Outlet />
       </main>
     </div>

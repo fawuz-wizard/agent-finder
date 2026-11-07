@@ -97,7 +97,8 @@ const appRoutes: RouteObject[] = [
   // The Agent App build starts on sign-in: agents and dealers never see the customer home.
   {
     path: '/',
-    element: config.surface === 'agent' ? <Navigate to="/sign-in" replace /> : withSuspense(<HostHome />),
+    element:
+      config.surface === 'agent' ? <Navigate to="/sign-in" replace /> : config.hostShell ? withSuspense(<HostHome />) : <Navigate to="/find" replace />,
   },
   { path: '/host', element: <Navigate to={config.surface === 'agent' ? '/sign-in' : '/'} replace /> },
   {
