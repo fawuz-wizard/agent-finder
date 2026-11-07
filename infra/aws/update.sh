@@ -39,7 +39,9 @@ if [[ "$LOGS_ONLY" == 1 ]]; then
   exit 0
 fi
 
-check_ref_on_github
+check_ref_local
+WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+upload_release
 say "Redeploying '$GIT_REF' on $INSTANCE_ID"
 mapfile -t lines < <(redeploy_lines)
 ssm_run "agent-finder deploy $GIT_REF" "${lines[@]}"

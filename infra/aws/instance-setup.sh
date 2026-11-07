@@ -76,7 +76,7 @@ chmod 755 /usr/local/bin/af-compose
 
 # --- 2. Settings and secrets ------------------------------------------------------------------
 say "Fetching settings and secrets from SSM Parameter Store into $AF/.env (values not shown)"
-API_TAG="$(git -C "$SRC" rev-parse --short=12 HEAD)"
+API_TAG="$(cat "$SRC/REVISION" 2>/dev/null || git -C "$SRC" rev-parse --short=12 HEAD)"
 params_json="$(mktemp)"
 chmod 600 "$params_json"
 # Only the direct children of the prefix (not codes/). Decrypted values go to a root-only file.

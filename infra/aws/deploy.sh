@@ -13,7 +13,7 @@
 #   --budget-email BUDGET_EMAIL  who gets the cost alert           (required)
 #   --budget   BUDGET_USD     monthly budget in US dollars         (default 25)
 #
-# Before the first run: commit and push infra/aws/ to GitHub at GIT_REF (the instance clones
+# Before the first run: commit infra/aws/ at GIT_REF (the laptop packs that commit for the instance;
 # the repository; it cannot see this laptop).
 #
 # Secrets: PIN_PEPPER, CUSTOMER_HASH_KEY and POSTGRES_PASSWORD are generated here with
@@ -48,7 +48,7 @@ check_ref
 REPO_ROOT="$(cd ../.. && pwd)"
 
 whoami_aws
-check_ref_on_github
+check_ref_local
 
 WORK="$(mktemp -d)"
 chmod 700 "$WORK"
@@ -136,7 +136,7 @@ awsr s3api put-bucket-encryption --bucket "$BUCKET" --server-side-encryption-con
   '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"aws:kms"},"BucketKeyEnabled":true}]}'
 note "expiring backups after 35 days"
 awsr s3api put-bucket-lifecycle-configuration --bucket "$BUCKET" --lifecycle-configuration \
-  '{"Rules":[{"ID":"expire-35-days","Status":"Enabled","Filter":{},"Expiration":{"Days":35},"NoncurrentVersionExpiration":{"NoncurrentDays":35},"AbortIncompleteMultipartUpload":{"DaysAfterInitiation":7}}]}'
+  '{"Rules":[{"ID":"expire-35-days","Status":"Enabled","Filter":{"Prefix":"postgres/"},"Expiration":{"Days":35},"NoncurrentVersionExpiration":{"NoncurrentDays":35},"AbortIncompleteMultipartUpload":{"DaysAfterInitiation":7}},{"ID":"releases-90-days","Status":"Enabled","Filter":{"Prefix":"releases/"},"Expiration":{"Days":90},"NoncurrentVersionExpiration":{"NoncurrentDays":7}}]}'
 note "refusing any request that is not over HTTPS"
 cat >"$WORK/bucket-policy.json" <<EOF
 {"Version":"2012-10-17","Statement":[{"Sid":"HttpsOnly","Effect":"Deny","Principal":"*","Action":"s3:*",
@@ -145,6 +145,7 @@ EOF
 awsr s3api put-bucket-policy --bucket "$BUCKET" --policy "file://$WORK/bucket-policy.json"
 awsr s3api put-bucket-tagging --bucket "$BUCKET" --tagging "TagSet=[{Key=Project,Value=$NAME}]"
 printf '%s' "$BUCKET" >"$WORK/v"; put_param BACKUP_BUCKET String "$WORK/v"
+upload_release
 
 # --- Instance role ----------------------------------------------------------------------------
 say "Making sure the instance role $ROLE_NAME exists (Session Manager + only what it needs)"
@@ -163,7 +164,8 @@ cat >"$WORK/role-policy.json" <<EOF
  {"Sid":"WriteOneTimeCodes","Effect":"Allow","Action":["ssm:PutParameter"],"Resource":["$P/codes/*"]},
  {"Sid":"SecureStringsViaSsmOnly","Effect":"Allow","Action":["kms:Decrypt","kms:Encrypt","kms:GenerateDataKey"],
   "Resource":"$SSM_KEY_ARN","Condition":{"StringEquals":{"kms:ViaService":"ssm.$REGION.amazonaws.com"}}},
- {"Sid":"WriteBackups","Effect":"Allow","Action":["s3:PutObject"],"Resource":"arn:aws:s3:::$BUCKET/*"},
+ {"Sid":"WriteBackups","Effect":"Allow","Action":["s3:PutObject"],"Resource":"arn:aws:s3:::$BUCKET/postgres/*"},
+ {"Sid":"ReadReleases","Effect":"Allow","Action":["s3:GetObject"],"Resource":"arn:aws:s3:::$BUCKET/releases/*"},
  {"Sid":"ListBackups","Effect":"Allow","Action":["s3:ListBucket"],"Resource":"arn:aws:s3:::$BUCKET"}
 ]}
 EOF
@@ -222,12 +224,11 @@ if [[ -z "$INSTANCE_ID" ]]; then
 # First boot: get the code at $GIT_REF and run its setup. Later updates come through SSM.
 set -euo pipefail
 exec >>/var/log/agent-finder-setup.log 2>&1
-dnf install -y -q git
 mkdir -p /opt/agent-finder
-[ -d /opt/agent-finder/src/.git ] || git clone --quiet --no-checkout $REPO_URL /opt/agent-finder/src
+# The role's credentials can take a moment after boot.
+for i in \$(seq 1 30); do aws sts get-caller-identity --region '$REGION' >/dev/null 2>&1 && break; sleep 5; done
+$(fetch_release_lines)
 cd /opt/agent-finder/src
-git fetch --quiet --depth 1 origin '$GIT_REF'
-git checkout --quiet --force FETCH_HEAD
 bash infra/aws/instance-setup.sh
 EOF
   for attempt in 1 2 3 4 5 6; do

@@ -13,8 +13,9 @@ export AWS_PROFILE
 
 NAME="agent-finder-staging"
 PARAM_PREFIX="/agent-finder/staging"
-REPO_URL="https://github.com/fawuz-wizard/agent-finder.git"
-REPO_RAW="https://raw.githubusercontent.com/fawuz-wizard/agent-finder"
+# The repository is private: the instance never pulls from GitHub. The laptop packs the code at
+# GIT_REF (git archive) into the private bucket, and the instance fetches it with its own role.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ROLE_NAME="${NAME}-instance"
 SG_NAME="${NAME}-web"
 INSTANCE_TYPE="t4g.small"
@@ -42,14 +43,37 @@ check_ref() {
   [[ "$GIT_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$ ]] || die "GIT_REF '$GIT_REF' is not a branch, tag or commit name."
 }
 
-check_ref_on_github() {
-  # The instance builds from GitHub, not from this laptop: the infra/aws files must be
-  # committed and pushed at GIT_REF, or the instance has nothing to run.
-  say "Checking that GitHub has infra/aws at '$GIT_REF'"
-  if ! curl -fsSL -o /dev/null "$REPO_RAW/$GIT_REF/infra/aws/instance-setup.sh"; then
-    die "GitHub has no infra/aws/instance-setup.sh at '$GIT_REF'. Commit and push infra/aws first."
-  fi
-  note "found"
+check_ref_local() {
+  # The code is packed from this laptop's git: GIT_REF must be a commit here (fetched first, so
+  # a branch name means what GitHub has).
+  say "Finding '$GIT_REF' in this laptop's copy of the repository"
+  git -C "$REPO_ROOT" fetch --quiet origin 2>/dev/null || note "(could not reach GitHub; using what is here)"
+  RELEASE_SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "origin/$GIT_REF^{commit}" 2>/dev/null \
+    || git -C "$REPO_ROOT" rev-parse --verify --quiet "$GIT_REF^{commit}")" \
+    || die "'$GIT_REF' is not a branch, tag or commit in this repository."
+  RELEASE_SHA="${RELEASE_SHA:0:12}"
+  git -C "$REPO_ROOT" cat-file -e "$RELEASE_SHA:infra/aws/instance-setup.sh" 2>/dev/null \
+    || die "'$GIT_REF' has no infra/aws/instance-setup.sh. Commit infra/aws first."
+  note "commit $RELEASE_SHA"
+}
+
+upload_release() {
+  # Needs BUCKET (whoami_aws) and RELEASE_SHA (check_ref_local). Only committed files go up.
+  say "Packing commit $RELEASE_SHA and uploading it to the private bucket"
+  git -C "$REPO_ROOT" archive --format=tar.gz -o "$WORK/release.tgz" "$RELEASE_SHA"
+  awsr s3 cp --only-show-errors --sse aws:kms "$WORK/release.tgz" "s3://$BUCKET/releases/$RELEASE_SHA.tar.gz"
+  note "s3://$BUCKET/releases/$RELEASE_SHA.tar.gz"
+}
+
+# Remote lines (bash, root) that replace /opt/agent-finder/src with the uploaded release.
+fetch_release_lines() {
+  printf '%s\n' \
+    "aws s3 cp --only-show-errors --region '$REGION' 's3://$BUCKET/releases/$RELEASE_SHA.tar.gz' /tmp/af-release.tgz" \
+    "rm -rf /opt/agent-finder/src.new && mkdir -p /opt/agent-finder/src.new" \
+    "tar -xzf /tmp/af-release.tgz -C /opt/agent-finder/src.new && rm -f /tmp/af-release.tgz" \
+    "echo '$RELEASE_SHA' > /opt/agent-finder/src.new/REVISION" \
+    "rm -rf /opt/agent-finder/src.old; if [ -d /opt/agent-finder/src ]; then mv /opt/agent-finder/src /opt/agent-finder/src.old; fi" \
+    "mv /opt/agent-finder/src.new /opt/agent-finder/src"
 }
 
 whoami_aws() {
@@ -127,10 +151,11 @@ redeploy_lines() {
   printf '%s\n' \
     "set -euo pipefail" \
     "cloud-init status --wait >/dev/null 2>&1 || true" \
+    "mkdir -p /opt/agent-finder"
+  fetch_release_lines
+  printf '%s\n' \
     "cd /opt/agent-finder/src" \
-    "git fetch --quiet --depth 1 origin '$GIT_REF'" \
-    "git checkout --quiet --force FETCH_HEAD" \
-    "echo \"Checked out $GIT_REF at \$(git rev-parse --short HEAD)\"" \
+    "echo 'Deploying $GIT_REF at $RELEASE_SHA'" \
     "bash infra/aws/instance-setup.sh 2>&1 | tee -a /var/log/agent-finder-setup.log"
 }
 
