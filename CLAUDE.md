@@ -2,6 +2,25 @@
 
 Project timebox: one week. Keep plans and implementation focused on the smallest useful customer experience that can be completed and demonstrated within that week.
 
+## How to work here (any model, keep it cheap)
+
+Read `docs/handover.md` first for where things are and how to ship. Then, for every task:
+
+1. **One task per session.** If the task is unclear, ask one question before reading code.
+2. **Look before reading.** Find the files with grep or a directory listing; read only the parts
+   you need, never whole large files.
+3. **Screens:** describe or show the change and get the user's yes before writing code.
+4. **Small diffs.** Change only what the task needs; no refactors on the side.
+5. **Checks before shipping:** `cd apps/api && .venv/bin/ruff check . && .venv/bin/python -m pytest -q`
+   and `cd apps/web && npm run typecheck && npm run lint && npm test`. If one fails, fix it or stop
+   and report it; never ship over a failure.
+6. **Ship** with the recipe in `docs/handover.md` (server: `update.sh`; apps: the GitHub build,
+   then `admin.sh publish-apks --from-bucket`).
+7. **Report in plain words:** what changed, what was checked, what is left. Then stop.
+
+Never print or commit data from Orange's file (names, phone numbers, account ids that contain
+them); one-time codes go to private files, never into the chat. No AI attribution lines in commits.
+
 ## Skill routing
 
 When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
