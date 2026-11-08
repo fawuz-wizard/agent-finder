@@ -2,6 +2,12 @@
 
     python -m scripts.import_orange ~/Downloads/Book2.xlsx            # validate and report only
     python -m scripts.import_orange ~/Downloads/Book2.xlsx --apply    # also write to the database
+    python -m scripts.import_orange map.csv --map-only --apply          # a map-only sheet (below)
+
+--map-only is for a sheet the team prepared for the map: shop name, town, address, agent code,
+the aggregator's line and a point, but no agent phone numbers and no money figures. A missing
+agent phone is then expected rather than a reason to hold the agent back, and any phone or
+figure the sheet still carries is dropped before anything is written.
 
 The same cleaning as the Global Report upload in the national console: the code lives in
 app/services/orange_report.py. Run it with the server's PIN_PEPPER, or the PINs it sets for new
@@ -37,6 +43,18 @@ async def apply(results: list[RowResult]) -> dict:
         return created
 
 
+def map_only(results: list[RowResult]) -> None:
+    """Keep only what the map needs: no agent line, no Orange figures; a missing line is fine."""
+    for res in results:
+        if res.agent is None:
+            continue
+        if "bad_msisdn" in res.issues:
+            res.issues.remove("bad_msisdn")
+        res.agent["msisdn"] = None
+        for k in ("cash_in", "cash_out", "tx_count", "float_balance", "commission"):
+            res.agent[k] = None
+
+
 def main(argv: list[str]) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
@@ -46,6 +64,8 @@ def main(argv: list[str]) -> int:
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     rows = read_table(path)
     results = validate(rows, digest[:12])
+    if "--map-only" in argv:
+        map_only(results)
     rep = report(results)
     rep["file_sha256"] = digest
     print(json.dumps({k: v for k, v in rep.items() if k != "rows_with_issues"}, indent=2))

@@ -7,6 +7,8 @@
 #   infra/aws/admin.sh status            # containers and their health
 #   infra/aws/admin.sh logs api          # last 100 lines of api, caddy or db
 #   infra/aws/admin.sh backup-now        # run the nightly backup immediately
+#   infra/aws/admin.sh import-orange FILE [--apply]  # a map-only sheet of Orange's agents (dry run first)
+#   infra/aws/admin.sh issue-orange-codes # codes for Orange's aggregators, into a private file
 #   infra/aws/admin.sh publish-apks DIR|--from-bucket  # put the two apps (from DIR, or as GitHub sent them) on
 #                                        # https://app.<suffix>/download/ for agents to install
 #
@@ -141,6 +143,34 @@ case "$action" in
       "ls -l \$d"
     site_suffix
     note "Download page: https://app.$SITE_SUFFIX/download/"
+    ;;
+  import-orange)
+    # A map-only sheet (see apps/api/scripts/import_orange.py --map-only): no agent phones, no
+    # figures. It travels through the private bucket and is deleted from it and the server after.
+    file="${1:-}"; mode="${2:-}"
+    [[ -f "$file" ]] || die "Usage: admin.sh import-orange FILE.csv [--apply]"
+    [[ -z "$mode" || "$mode" == "--apply" ]] || die "The only option is --apply."
+    head -1 "$file" | grep -q '^aggregator,aggregator_phone,agent_code' || die "Not the team's cleaned sheet (first column must be aggregator)."
+    python3 -I -c 'import csv,sys; sys.exit(any((r.get("phone") or "").strip() for r in csv.DictReader(open(sys.argv[1], encoding="utf-8-sig"))))' "$file" \
+      || die "The sheet still has agent phone numbers (the phone column). Use a map-only sheet."
+    whoami_aws; find_instance; [[ -n "$INSTANCE_ID" ]] || die "No staging instance."
+    key="releases/import-$(date -u +%Y%m%d%H%M%S)-$RANDOM.csv"
+    awsr s3 cp --only-show-errors --sse aws:kms "$file" "s3://$BUCKET/$key"
+    trap 'awsr s3 rm --only-show-errors "s3://$BUCKET/$key" || true' EXIT
+    say "Importing ${mode:+and applying }the map-only sheet (dry run unless --apply)"
+    ssm_run "agent-finder import-orange" \
+      "set -euo pipefail" "umask 077" \
+      "tmp=\$(mktemp -d); trap 'rm -rf \"\$tmp\"; /usr/local/bin/af-compose exec -T api rm -f /tmp/import.csv || true' EXIT" \
+      "aws s3 cp --only-show-errors --region '$REGION' 's3://$BUCKET/$key' \"\$tmp/import.csv\"" \
+      "/usr/local/bin/af-compose cp \"\$tmp/import.csv\" api:/tmp/import.csv" \
+      "/usr/local/bin/af-compose exec -T api python -m scripts.import_orange /tmp/import.csv --map-only $mode"
+    ;;
+  issue-orange-codes)
+    whoami_aws; find_instance; [[ -n "$INSTANCE_ID" ]] || die "No staging instance."
+    say "Issuing one-time codes to Orange's aggregators who have not chosen a PIN"
+    mapfile -t lines < <(code_lines "orange-aggregators" "python -m scripts.issue_orange_codes")
+    ssm_run "agent-finder issue-orange-codes" "${lines[@]}"
+    show_reader "orange-aggregators"
     ;;
   *) usage ;;
 esac
