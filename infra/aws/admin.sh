@@ -162,6 +162,7 @@ case "$action" in
       "set -euo pipefail" "umask 077" \
       "tmp=\$(mktemp -d); trap 'rm -rf \"\$tmp\"; /usr/local/bin/af-compose exec -T api rm -f /tmp/import.csv || true' EXIT" \
       "aws s3 cp --only-show-errors --region '$REGION' 's3://$BUCKET/$key' \"\$tmp/import.csv\"" \
+      "chmod 644 \"\$tmp/import.csv\"" \
       "/usr/local/bin/af-compose cp \"\$tmp/import.csv\" api:/tmp/import.csv" \
       "/usr/local/bin/af-compose exec -T api python -m scripts.import_orange /tmp/import.csv --map-only $mode"
     ;;
