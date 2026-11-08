@@ -342,6 +342,12 @@ export const operatorApi = {
     return delay(demo.demoSetUsual(ref, note))
   },
 
+  /** The number a new agent would get, shown on the form before Register. */
+  nextAgentNumber(signal?: AbortSignal): Promise<{ ref: string }> {
+    if (config.useLiveApi) return api.get<{ ref: string }>('/api/v1/dealer/agents/next-number', signal)
+    return delay(demo.demoNextAgentNumber())
+  },
+
   /** Register any agent under me; the API assigns the number when none is given, and
    *  answers with the one-time code the agent signs in with for the first time. */
   registerAgent(body: RegisterAgentBody): Promise<RegisteredWithCode> {

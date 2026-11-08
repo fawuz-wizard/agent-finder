@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
@@ -457,6 +458,16 @@ async def agents_list(
             }
         )
     return rows
+
+
+@router.get("/dealer/agents/next-number", summary="The number a new agent would get")
+async def next_number(
+    p: Principal = Depends(require_permission("MANAGE_AGENT")),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Shown on the registration form before Register, so the aggregator knows it in advance.
+    Two people registering at once may still race for it; the loser is told to tap again."""
+    return {"ref": await next_free_ref(db)}
 
 
 @router.get("/dealer/agents/{ref}", summary="One agent's day, money masked")
@@ -924,9 +935,18 @@ def _hours(open_time: str, close_time: str) -> tuple[int, int]:
     return o, c
 
 
+# Agents from Orange's file carry their 6-digit Orange agent code as their number; the team's
+# own registrations count from 101 below that range, so the two never meet.
+ORANGE_CODE_START = 100_000
+
+
 async def next_free_ref(db: AsyncSession) -> str:
     refs = (await db.execute(select(Agent.ref))).scalars().all()
-    numbers = [int(r[6:]) for r in refs if r.startswith("Agent ") and r[6:].isdigit()]
+    numbers = [
+        n
+        for r in refs
+        if r.startswith("Agent ") and r[6:].isdigit() and (n := int(r[6:])) < ORANGE_CODE_START
+    ]
     # Pilot registrations start at 101, clear of the seeded 0xx numbers.
     return f"Agent {(max([*numbers, 100]) + 1):03d}"
 
@@ -982,8 +1002,21 @@ async def register_agent(
     check_point(body.lat, body.lng)
     o, c = _hours(body.open_time, body.close_time)
     ref = normalise_ref(body.ref) if body.ref else await next_free_ref(db)
-    if (await db.execute(select(Agent.ref).where(Agent.ref == ref))).first():
-        raise AppError(f"{ref} is already registered.", code="exists", status_code=409)
+    taken = (await db.execute(select(Agent.source).where(Agent.ref == ref))).first()
+    if taken:
+        if taken[0] == "orange_file":
+            raise AppError(
+                f"{ref} is already on the map from Orange's agent list. Don't register it again: "
+                "its Orange aggregator can correct its pin. Leave the number as given to "
+                "register a new agent.",
+                code="exists",
+                status_code=409,
+            )
+        raise AppError(
+            f"{ref} is already registered. Leave the number as given to use the next free one.",
+            code="exists",
+            status_code=409,
+        )
     code = new_code()
     a = Agent(
         ref=ref,
@@ -1026,8 +1059,14 @@ async def register_agent(
     await usage.record(db, "register", "dealer", p.subject, ref)
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         # Two registrations took the same next free number at the same moment: one wins.
+        # Logged by constraint name only, never the values, so another cause shows up too.
+        diag = getattr(e.orig, "diag", None)
+        logging.getLogger(__name__).warning(
+            "register_agent integrity error: %s",
+            getattr(diag, "constraint_name", None) or type(e.orig).__name__,
+        )
         await db.rollback()
         raise AppError(
             f"{ref} was just taken by another registration. Tap Register again.",
