@@ -1,0 +1,83 @@
+# Caddy for Agent Finder STAGING. SITE_SUFFIX comes from the environment (compose.yml), e.g.
+# 3-250-1-2.sslip.io for the Elastic IP 3.250.1.2; sslip.io resolves those names to that IP.
+#
+# - HTTPS on every name with certificates from Let's Encrypt, obtained and renewed by Caddy.
+# - Plain HTTP on port 80 is answered with a redirect to HTTPS (Caddy does this by itself for
+#   every site below).
+# - No access log: Caddy writes none unless a `log` directive asks for one, and there is none
+#   here, on purpose. A query string can hold a customer's position.
+
+{
+	# Keep the admin endpoint inside the container (the default is localhost:2019 there).
+	admin localhost:2019
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(self), camera=(), microphone=()"
+		-Server
+	}
+}
+
+# One static web build with single-page-app routing: an unknown path gets index.html, except
+# under /assets/, where a missing file must be a 404 (a stale chunk name, not a page).
+(spa) {
+	root * /srv/{args[0]}
+	encode zstd gzip
+	import security_headers
+
+	@hashed path /assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+	@shell path / /index.html /sw.js /registerSW.js /manifest.webmanifest
+	header @shell Cache-Control "no-cache"
+
+	@route {
+		not path /assets/*
+	}
+	try_files @route {path} /index.html
+	file_server
+}
+
+api.{$SITE_SUFFIX} {
+	# The largest request the API takes is the national Global Report upload (10 MB).
+	request_body {
+		max_size 12MB
+	}
+	# The API sets its own security headers (HSTS included, APP_ENV=staging).
+	reverse_proxy api:8000 {
+		header_down -Server
+	}
+}
+
+app.{$SITE_SUFFIX} {
+	# The Android apps, for agents to install from a link or QR code (the repository is private,
+	# so GitHub's links need a sign-in). Files only: published by `admin.sh publish-apks`.
+	handle /download* {
+		root * /srv
+		import security_headers
+		header Cache-Control "no-cache"
+		@apk path *.apk
+		header @apk {
+			Content-Type "application/vnd.android.package-archive"
+			Content-Disposition "attachment"
+		}
+		try_files {path} {path}/index.html
+		file_server
+	}
+	handle {
+		import spa customer
+	}
+}
+
+agent.{$SITE_SUFFIX} {
+	import spa agent
+}
+
+national.{$SITE_SUFFIX} {
+	import spa national
+}

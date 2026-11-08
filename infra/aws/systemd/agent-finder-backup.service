@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent Finder staging: encrypted database backup to S3
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/agent-finder-backup
+TimeoutStartSec=30min
+Nice=10

@@ -95,6 +95,14 @@ export default function ResultsPage() {
         : 'Distances from your location'
   const subtitle = `${whereFrom}${inside ? ', within 500 m' : ''}${params.get('rough') === '1' ? ' · move outside for a better fix' : ''}`
 
+  const changeSearch = () => navigate(`/find?${params.toString()}`)
+  // Said wherever the answer is thin, not only on the empty screen: what to change, and where.
+  const changeLink = (
+    <button type="button" onClick={changeSearch} className="-mt-1 flex min-h-control items-center self-start text-base font-bold text-finder-link">
+      {req.amount_sle ? 'Change amount or location ›' : 'Change location ›'}
+    </button>
+  )
+
   return (
     <div className="flex flex-1 flex-col px-5 pb-6 text-white">
       <FinderHeader back="/find" />
@@ -170,13 +178,19 @@ export default function ResultsPage() {
             )}
 
             {lists.recommended.length === 0 && lists.nearest.length > 0 && (
-              <Banner tone="warning">
-                No likely match within 500 m. Nearby open agents are shown by distance; activity cannot confirm they can serve this request.
-              </Banner>
+              <>
+                <Banner tone="warning">
+                  No likely match within 500 m. Nearby open agents are shown by distance; activity cannot confirm they can serve this request.
+                </Banner>
+                {changeLink}
+              </>
             )}
 
             {lists.recommended.length === 0 && lists.nearest.length === 0 && (data.further_away?.length ?? 0) > 0 && (
-              <Banner tone="warning">No open agents within 500 m. These open options are further away.</Banner>
+              <>
+                <Banner tone="warning">No open agent within 500 m of you. Change the amount or your location, or choose one of these further away.</Banner>
+                {changeLink}
+              </>
             )}
 
             {shown.length > 0 && (
@@ -208,8 +222,12 @@ export default function ResultsPage() {
             {lists.nearest.length === 0 && (data.further_away?.length ?? 0) === 0 && (
               <EmptyState
                 title={`No open agent near ${data.query.area}`}
-                body={req.amount_sle ? 'Try a smaller amount, another place, or come back in a while.' : 'Try another place, or come back in a while.'}
-                actions={<FinderCta onClick={() => navigate(`/find?${params.toString()}`)}>Change amount or place</FinderCta>}
+                body={
+                  req.amount_sle
+                    ? 'There is no agent here for this amount right now. Change the amount or your location to find one, or come back in a while.'
+                    : 'There is no agent here right now. Change your location to find one, or come back in a while.'
+                }
+                actions={<FinderCta onClick={changeSearch}>{req.amount_sle ? 'Change amount or location' : 'Change location'}</FinderCta>}
               />
             )}
 

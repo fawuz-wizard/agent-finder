@@ -54,6 +54,16 @@ export default function RegisterAgentPage() {
   const [areaState, setAreaState] = useState<'idle' | 'looking' | 'found' | 'unknown'>('idle')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The number this agent will get, shown before Register (the server may still give the next
+  // one if someone else registers first).
+  const [nextRef, setNextRef] = useState<string | null>(null)
+  // How sure the phone is of the shop's point, in metres; null until "Use my location".
+  const [accuracy, setAccuracy] = useState<number | null>(null)
+  useEffect(() => {
+    const ctrl = new AbortController()
+    operatorApi.nextAgentNumber(ctrl.signal).then((r) => setNextRef(r.ref)).catch(() => setNextRef(null))
+    return () => ctrl.abort()
+  }, [])
 
   // The area follows the pin: looked up a moment after it stops moving, unless the aggregator typed one.
   useEffect(() => {
@@ -108,19 +118,42 @@ export default function RegisterAgentPage() {
     }
     setLocating(true)
     setError(null)
-    navigator.geolocation.getCurrentPosition(
+    setAccuracy(null)
+    // The first reading often comes from the mobile network or Wi-Fi and can be hundreds of
+    // metres off. Keep listening while the GPS locks on, keep the most accurate reading, and
+    // stop as soon as it is within 20 m, or after 20 seconds with the best one so far.
+    let best: GeolocationPosition | null = null
+    let id: number | null = null
+    let done = false
+    const finish = () => {
+      done = true
+      if (id !== null) navigator.geolocation.clearWatch(id)
+      clearTimeout(timer)
+      setLocating(false)
+    }
+    const timer = setTimeout(() => {
+      if (!best) setError('Could not read the location. Step outside, or drag the map onto the shop.')
+      finish()
+    }, 20_000)
+    id = navigator.geolocation.watchPosition(
       (pos) => {
+        if (done || (best && pos.coords.accuracy >= best.coords.accuracy)) return
+        best = pos
         // Rounded to ~1 m of precision for the shop's own point; it is the shop, not a person.
         set('lat', pos.coords.latitude.toFixed(5))
         set('lng', pos.coords.longitude.toFixed(5))
-        setLocating(false)
+        setAccuracy(Math.round(pos.coords.accuracy))
+        if (pos.coords.accuracy <= 20) finish()
       },
       (err) => {
+        if (best) return finish()
         setError(locationErrorText(err, 'Could not read the location. Type the coordinates instead.'))
-        setLocating(false)
+        finish()
       },
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
     )
+    // A phone that answers at once may finish before the watch has its id.
+    if (done) navigator.geolocation.clearWatch(id)
   }
 
   async function submit() {
@@ -201,6 +234,12 @@ export default function RegisterAgentPage() {
             Type coordinates
           </button>
         </div>
+        {accuracy !== null && (
+          <p role="status" className={`text-xs font-semibold ${accuracy > 60 ? 'text-danger' : 'text-finder-muted'}`}>
+            {locating ? `Improving… accurate to about ${accuracy} m` : `Accurate to about ${accuracy} m.`}
+            {!locating && accuracy > 60 && ' That is rough: step outside and tap Use my location again, or drag the map onto the shop.'}
+          </p>
+        )}
         {typing && (
           <div className="grid grid-cols-2 gap-2.5">
             <Field id="reg-lat" label="Latitude">
@@ -264,22 +303,22 @@ export default function RegisterAgentPage() {
           {error}
         </p>
       )}
+      {customRef ? (
+        <Field id="reg-ref" label="Agent number">
+          <input id="reg-ref" className={FIELD} value={form.ref} inputMode="numeric" placeholder={nextRef ? `e.g. ${nextRef.replace('Agent ', '')}` : 'e.g. 101'} onChange={(e) => set('ref', e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} />
+        </Field>
+      ) : (
+        <p className="text-[13px] font-semibold text-finder-muted">
+          Agent number: <b className="text-finder-ink">{nextRef ?? 'given when you register'}</b> ·{' '}
+          <button type="button" onClick={() => setCustomRef(true)} className="font-bold text-finder-link">
+            Change
+          </button>
+        </p>
+      )}
       <button type="button" onClick={submit} disabled={!ready || busy} className={`${SOLID} text-[15px] disabled:opacity-50`}>
         {busy ? 'Registering…' : 'Register agent'}
       </button>
       {!busy && missing && <p className="-mt-1.5 text-center text-xs font-medium text-finder-muted">{missing}</p>}
-      {customRef ? (
-        <Field id="reg-ref" label="Agent number">
-          <input id="reg-ref" className={FIELD} value={form.ref} inputMode="numeric" placeholder="e.g. 101" onChange={(e) => set('ref', e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} />
-        </Field>
-      ) : (
-        <p className="text-xs font-medium text-finder-muted">
-          The next free number is given automatically ·{' '}
-          <button type="button" onClick={() => setCustomRef(true)} className="font-bold text-finder-link">
-            Use a specific number
-          </button>
-        </p>
-      )}
       <p className="text-xs font-medium text-finder-muted">You get a one-time sign-in code to read out to the agent. They choose their own PIN; hours start at 07:00–20:00 and they set their own week.</p>
     </div>
   )

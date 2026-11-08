@@ -58,18 +58,6 @@
   --color-app-highlight: #fdb2e1;    /* logo pink — passes on dark surfaces */
   --color-app-success: #66cc66;      /* ods-forest-100 — the light pair of forest-200 */
 
-  /* Demo host shell only — the simulated super-app the customer module is embedded in.
-     Never used by Agent Finder's own screens. */
-  --color-host-bg: #171515;
-  --color-host-card: #2a2727;
-  --color-host-tile: #2a2727;
-  --color-host-circle: #3a3636;
-  --color-host-nav: #0d0c0c;
-  --color-host-line: #262323;
-  --color-host-dot: #4a4646;
-  --color-host-promo: #f2b705;
-  --color-host-promo-mid: #f7c948;
-  --color-host-promo-deep: #8f7b3a;
 
   /* Type: Boosted stack (HelvNeueOrange is licence-restricted; Helvetica Neue is the
      documented fallback). Sizes follow the Boosted mobile scale: h1 24, h2/h3 18, body 16. */
@@ -326,6 +314,7 @@
   }
   body {
     margin: 0;
+    min-height: 100vh;
     min-height: 100dvh;
     font-size: var(--text-base);
     /* Boosted: $line-height-base = 18/16, $letter-spacing-base = -0.1px */
@@ -433,4 +422,13 @@
   --color-agent-chart-blue: #7fb2ff;
   --color-agent-chart-line: #3a3a40;
   --color-agent-chart-grid: #33333a;
+}
+
+/* Older Android WebViews (before Chrome 108, e.g. 106 on a Galaxy A14) ignore `dvh`, so a
+   full-height shell shrank to its content and left a dark band under the page. They fall back
+   to `vh`, which on a phone app with no browser bar is the whole screen. */
+@supports not (height: 100dvh) {
+  .min-h-dvh {
+    min-height: 100vh;
+  }
 }

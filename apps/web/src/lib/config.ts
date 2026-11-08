@@ -28,7 +28,7 @@ export const config = {
   maxResults: 10,
   /**
    * Which app this build is. One codebase ships as three: the customer's Agent Finder (opens on
-   * the host home), the Agent App for agents and aggregators (opens on sign-in), and Orange's
+   * the "What do you need?" screen), the Agent App for agents and aggregators (opens on sign-in), and Orange's
    * national map, a web page of its own for a laptop (opens on its own sign-in).
    */
   surface: (['agent', 'national'].includes(env.VITE_APP_SURFACE as string) ? env.VITE_APP_SURFACE : 'customer') as 'customer' | 'agent' | 'national',

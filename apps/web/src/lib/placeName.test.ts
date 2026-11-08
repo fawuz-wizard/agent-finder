@@ -10,7 +10,10 @@ describe('the name of where the customer is', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('prefers the most local name people use', () => {
-    expect(placeLabel({ road: 'Peninsular Road', neighbourhood: 'Lumley Beach', city: 'Freetown' })).toBe('Lumley Beach')
+    expect(placeLabel({ road: 'Peninsular Road', neighbourhood: 'Lumley Beach', city: 'Freetown' })).toBe('Peninsular Road · Lumley Beach')
+    // People in Kissy call it Thunder Hill; the map's area there is Jalloh Terrace: show both.
+    expect(placeLabel({ road: 'Thunder Hill Road', neighbourhood: 'Jalloh Terrace', suburb: 'Kissy' })).toBe('Thunder Hill Road · Jalloh Terrace')
+    expect(placeLabel({ neighbourhood: 'Lumley Beach' })).toBe('Lumley Beach')
     expect(placeLabel({ road: 'Wilkinson Road', city: 'Freetown' })).toBe('Wilkinson Road')
     expect(placeLabel({ city: 'Freetown' })).toBe('Freetown')
     expect(placeLabel({})).toBeNull()

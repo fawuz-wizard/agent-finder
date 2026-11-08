@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Agent Finder · Download the app</title>
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #1e1e1e; color: #fff; }
+  main { max-width: 26rem; margin: 0 auto; padding: 2.5rem 1.4rem 3rem; }
+  h1 { font-size: 1.7rem; margin: 0 0 .4rem; }
+  p { color: #c9c9c9; line-height: 1.5; margin: .4rem 0; }
+  .card { background: #262626; border-radius: 18px; padding: 1.2rem; margin-top: 1.2rem; }
+  .card h2 { font-size: 1.15rem; margin: 0 0 .3rem; }
+  a.btn { display: flex; align-items: center; justify-content: center; height: 3.4rem; border-radius: 12px; font-weight: 700; font-size: 1.05rem; text-decoration: none; margin-top: .9rem; }
+  a.agent { background: #5a21b8; color: #fff; }
+  a.customer { background: #fdb2e1; color: #000; }
+  ol { color: #c9c9c9; padding-left: 1.2rem; line-height: 1.6; }
+  .note { font-size: .9rem; color: #a8a8a8; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Agent Finder</h1>
+  <p>Download the Android app. Test version for the Orange Summer Challenge pilot.</p>
+
+  <div class="card">
+    <h2>Agent App</h2>
+    <p>For agents and aggregators: sign in with the code you were given, then choose your PIN.</p>
+    <a class="btn agent" href="agent-app.apk" download>Download the Agent App</a>
+  </div>
+
+  <div class="card">
+    <h2>Agent Finder</h2>
+    <p>For customers: find an agent who can serve you, before you walk.</p>
+    <a class="btn customer" href="agent-finder.apk" download>Download Agent Finder</a>
+  </div>
+
+  <div class="card">
+    <h2>How to install</h2>
+    <ol>
+      <li>Tap a download button and open the file when it finishes.</li>
+      <li>If Android asks, allow installing apps from your browser.</li>
+      <li>If an older Agent Finder is on the phone and the install fails, remove the old one first.</li>
+    </ol>
+    <p class="note">iPhone: open the web version in Safari instead: agents at <a id="agentweb" style="color:#fdb2e1" href="/">the Agent App</a>, customers at <a style="color:#fdb2e1" href="/">Agent Finder</a>.</p>
+  </div>
+</main>
+<script>
+  // This page is on app.<address>; the Agent App's web version is on agent.<address>.
+  var a = document.getElementById('agentweb');
+  a.href = 'https://' + location.hostname.replace(/^app\./, 'agent.') + '/';
+</script>
+</body>
+</html>

@@ -1008,6 +1008,11 @@ function registeredOut(a: AgentState): RegisteredAgent {
   }
 }
 
+export function demoNextAgentNumber(): { ref: string } {
+  const numbers = agents.map((a) => Number(a.ref.replace('Agent ', ''))).filter((n) => Number.isFinite(n) && n < 100_000)
+  return { ref: `Agent ${String(Math.max(...numbers, 100) + 1).padStart(3, '0')}` }
+}
+
 export function demoRegisterAgent(body: RegisterAgentBody): RegisteredWithCode {
   // As the API: the agent's phone is required, it is how the aggregator calls them.
   if (!body.phone || !/^\+?[0-9 ]{6,20}$/.test(body.phone.trim())) throw new Error("Enter the agent's phone number.")
@@ -1019,8 +1024,7 @@ export function demoRegisterAgent(body: RegisterAgentBody): RegisteredWithCode {
     if (!/^\d{1,6}$/.test(v)) throw new Error('The agent number must be digits, e.g. 101.')
     ref = `Agent ${v.padStart(3, '0')}`
   } else {
-    const numbers = agents.map((a) => Number(a.ref.replace('Agent ', ''))).filter((n) => Number.isFinite(n))
-    ref = `Agent ${String(Math.max(...numbers, 100) + 1).padStart(3, '0')}`
+    ref = demoNextAgentNumber().ref
   }
   if (agents.some((a) => a.ref === ref)) throw new Error(`${ref} is already registered.`)
   const weekly = Object.fromEntries(WEEKDAYS.map((d) => [d, [body.open_time, body.close_time]])) as WeeklyHours

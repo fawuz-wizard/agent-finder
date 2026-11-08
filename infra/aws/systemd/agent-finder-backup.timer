@@ -1,0 +1,12 @@
+[Unit]
+Description=Agent Finder staging: nightly database backup
+
+[Timer]
+# 02:30 UTC, which is 02:30 in Freetown. Persistent: a night missed while the instance was
+# stopped runs at the next start.
+OnCalendar=*-*-* 02:30:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

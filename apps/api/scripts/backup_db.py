@@ -43,7 +43,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from app.core.settings import get_settings
 
-REPO = Path(__file__).resolve().parents[3]
+_HERE = Path(__file__).resolve()
+# The repository root when run from a checkout (apps/api/scripts/…); inside the server image the
+# script sits at /app/scripts with no repository around it, and there is nothing to keep out.
+REPO: Path | None = (
+    _HERE.parents[3] if len(_HERE.parents) > 3 and _HERE.parents[1].name == "api" else None
+)
 # Rows that come and go on their own (the limits' counters are pruned every few minutes): a
 # restore may hold fewer of them than the manifest without anything being lost.
 VOLATILE = {"rate_events"}
@@ -104,7 +109,7 @@ def _counts_pg(args: list[str], env: dict[str, str]) -> dict[str, int]:
 
 def _outside_repo(folder: Path) -> Path:
     folder = folder.expanduser().resolve()
-    if folder == REPO or REPO in folder.parents:
+    if REPO is not None and (folder == REPO or REPO in folder.parents):
         raise SystemExit(
             f"Keep backups outside the repository (not under {REPO}): they hold real data."
         )

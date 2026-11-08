@@ -37,4 +37,18 @@ describe('sign in, the number step', () => {
     expect(await screen.findByLabelText(/^pin$/i)).toBeInTheDocument()
     expect(screen.queryByText(/enter your 9-digit orange number/i)).not.toBeInTheDocument()
   })
+
+  it('lets an aggregator sign in with an account name, on a letter keyboard', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    expect(await screen.findByLabelText(/^phone number$/i)).toHaveAttribute('inputmode', 'tel')
+    await user.click(screen.getByRole('button', { name: /sign in with account name/i }))
+    const name = screen.getByLabelText(/^account name$/i)
+    expect(name).toHaveAttribute('inputmode', 'text')
+    expect(screen.queryByText('+232')).not.toBeInTheDocument()
+    await user.type(name, 'test-agg')
+    await user.click(screen.getByRole('button', { name: /^continue$/i }))
+    expect(await screen.findByLabelText(/^pin$/i)).toBeInTheDocument()
+    expect(screen.getByText('test-agg')).toBeInTheDocument()
+  })
 })

@@ -218,3 +218,35 @@ async def test_registering_needs_the_agents_phone(client, dealer):
     assert r.status_code == 422 and "phone" in r.text
     r = await client.post("/api/v1/dealer/agents", json={**NEW, "phone": None}, headers=dealer)
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_the_next_number_is_shown_first_and_skips_orange_codes(client, dealer):
+    from app.db import session as dbsession
+    from app.db.models import Agent
+
+    async with dbsession.get_session_factory()() as db:
+        db.add(
+            Agent(
+                ref="Agent 300001",
+                dealer_id="kissy",
+                person_name="Test",
+                shop_name="Test",
+                area="Freetown",
+                street="Test Road",
+                pin_hash="x",
+                source="orange_file",
+            )
+        )
+        await db.commit()
+    shown = (await client.get("/api/v1/dealer/agents/next-number", headers=dealer)).json()["ref"]
+    assert shown != "Agent 300002" and int(shown[6:]) < 100_000  # the team's own range
+    made = await client.post("/api/v1/dealer/agents", json=NEW, headers=dealer)
+    assert made.status_code == 201 and made.json()["ref"] == shown
+    # Typing an Orange agent's code says what happened, not "taken by another registration".
+    again = await client.post(
+        "/api/v1/dealer/agents",
+        json={**NEW, "ref": "300001", "phone": "+232 76 555 999"},
+        headers=dealer,
+    )
+    assert again.status_code == 409 and "Orange's agent list" in again.json()["error"]["message"]

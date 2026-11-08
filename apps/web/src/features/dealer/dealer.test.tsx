@@ -970,3 +970,26 @@ describe('dealer agents, when the list will not load', () => {
     expect(await screen.findAllByRole('link', { name: /./ })).not.toHaveLength(0)
   })
 })
+
+describe('register an agent', () => {
+  it('shows the agent number before Register and keeps the most accurate location reading', async () => {
+    signIn([...ALL, PERMISSIONS.manageAgent])
+    const clearWatch = vi.fn()
+    // The network gives a rough fix first (400 m), then the GPS locks on (12 m).
+    const watchPosition = vi.fn((ok: PositionCallback) => {
+      const at = (lat: number, accuracy: number) => ({ coords: { latitude: lat, longitude: -13.26, accuracy } }) as GeolocationPosition
+      ok(at(8.4, 400))
+      ok(at(8.4655, 12))
+      ok(at(8.41, 300)) // a worse reading after the good one is ignored
+      return 7
+    })
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { watchPosition, clearWatch, getCurrentPosition: vi.fn() } })
+    render(<App start="/dealer/agents/new" />)
+    const number = await screen.findByText(/^Agent \d{3}$/)
+    const register = screen.getByRole('button', { name: /register agent/i })
+    expect(number.compareDocumentPosition(register) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: /use my location/i }))
+    expect(await screen.findByText(/accurate to about 12 m/i)).toBeInTheDocument()
+    expect(clearWatch).toHaveBeenCalledWith(7)
+  })
+})
