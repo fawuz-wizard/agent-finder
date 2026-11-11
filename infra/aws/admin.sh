@@ -9,6 +9,8 @@
 #   infra/aws/admin.sh backup-now        # run the nightly backup immediately
 #   infra/aws/admin.sh import-orange FILE [--apply]  # a map-only sheet of Orange's agents (dry run first)
 #   infra/aws/admin.sh issue-orange-codes # codes for Orange's aggregators, into a private file
+#   infra/aws/admin.sh load-pilot-week FILE [--apply] [--keep-dates] | --remove [--apply]
+#                                        # dummy pilot transactions for agents on the map
 #   infra/aws/admin.sh publish-apks DIR|--from-bucket  # put the two apps (from DIR, or as GitHub sent them) on
 #                                        # https://app.<suffix>/download/ for agents to install
 #
@@ -165,6 +167,40 @@ case "$action" in
       "chmod 644 \"\$tmp/import.csv\"" \
       "/usr/local/bin/af-compose cp \"\$tmp/import.csv\" api:/tmp/import.csv" \
       "/usr/local/bin/af-compose exec -T api python -m scripts.import_orange /tmp/import.csv --map-only $mode"
+    ;;
+  load-pilot-week)
+    # Dummy pilot transactions for agents already on the map (apps/api/scripts/load_pilot_week.py).
+    # The file has date,agent_code,cash_in,cash_out only; it travels like import-orange's.
+    #   admin.sh load-pilot-week FILE.csv [--apply] [--keep-dates]
+    #   admin.sh load-pilot-week --remove [--apply]
+    opts=(); file=""
+    for arg in "$@"; do
+      case "$arg" in
+        --apply|--keep-dates|--remove) opts+=("$arg") ;;
+        -*) die "Options: --apply, --keep-dates, --remove." ;;
+        *) file="$arg" ;;
+      esac
+    done
+    whoami_aws; find_instance; [[ -n "$INSTANCE_ID" ]] || die "No staging instance."
+    if [[ " ${opts[*]} " == *" --remove "* ]]; then
+      say "Pilot transactions: remove (dry run unless --apply)"
+      ssm_run "agent-finder load-pilot-week remove" \
+        "/usr/local/bin/af-compose exec -T api python -m scripts.load_pilot_week ${opts[*]}"
+    else
+      [[ -f "$file" ]] || die "Usage: admin.sh load-pilot-week FILE.csv [--apply] [--keep-dates]"
+      head -1 "$file" | grep -q '^date,agent_code,cash_in,cash_out' || die "Not a pilot week file (date,agent_code,cash_in,cash_out)."
+      key="releases/pilot-$(date -u +%Y%m%d%H%M%S)-$RANDOM.csv"
+      awsr s3 cp --only-show-errors --sse aws:kms "$file" "s3://$BUCKET/$key"
+      trap 'awsr s3 rm --only-show-errors "s3://$BUCKET/$key" || true' EXIT
+      say "Pilot transactions: load (dry run unless --apply)"
+      ssm_run "agent-finder load-pilot-week" \
+        "set -euo pipefail" "umask 077" \
+        "tmp=\$(mktemp -d); trap 'rm -rf \"\$tmp\"; /usr/local/bin/af-compose exec -T api rm -f /tmp/pilot.csv || true' EXIT" \
+        "aws s3 cp --only-show-errors --region '$REGION' 's3://$BUCKET/$key' \"\$tmp/pilot.csv\"" \
+        "chmod 644 \"\$tmp/pilot.csv\"" \
+        "/usr/local/bin/af-compose cp \"\$tmp/pilot.csv\" api:/tmp/pilot.csv" \
+        "/usr/local/bin/af-compose exec -T api python -m scripts.load_pilot_week /tmp/pilot.csv ${opts[*]}"
+    fi
     ;;
   issue-orange-codes)
     whoami_aws; find_instance; [[ -n "$INSTANCE_ID" ]] || die "No staging instance."
