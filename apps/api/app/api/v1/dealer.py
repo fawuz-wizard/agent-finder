@@ -951,6 +951,19 @@ async def next_free_ref(db: AsyncSession) -> str:
     return f"Agent {(max([*numbers, 100]) + 1):03d}"
 
 
+def _constraint_of(e: IntegrityError) -> str:
+    """The name of the rule the database refused, for the log: psycopg carries it in `diag`,
+    asyncpg on the driver error underneath; SQLite names none, so its class name stands in."""
+    orig = e.orig
+    for err in (orig, getattr(orig, "__cause__", None)):
+        name = getattr(getattr(err, "diag", None), "constraint_name", None) or getattr(
+            err, "constraint_name", None
+        )
+        if name:
+            return str(name)
+    return type(orig).__name__
+
+
 def registered_out(a: Agent, now: datetime) -> dict:
     from app.services import schedule
 
@@ -1044,34 +1057,42 @@ async def register_agent(
         night_mode=True,
     )
     schedule.set_weekly(a, {d: [body.open_time, body.close_time] for d in schedule.DAYS})
-    db.add(a)
-    db.add(
-        Action(
-            at=now,
-            actor=p.name,
-            actor_id=p.subject,
-            agent_ref=ref,
-            action="register",
-            note=f"{p.name} registered {a.shop_name} as {ref}"
-            + (" · checked against Orange's record" if body.verified else ""),
-        )
-    )
-    await usage.record(db, "register", "dealer", p.subject, ref)
     try:
+        db.add(a)
+        # The agent row must be written before the rows that point at it (the action below).
+        # Nothing ties the two models together for SQLAlchemy, so in one flush it may write
+        # the action first, which PostgreSQL refuses: every registration failed live.
+        await db.flush()
+        db.add(
+            Action(
+                at=now,
+                actor=p.name,
+                actor_id=p.subject,
+                agent_ref=ref,
+                action="register",
+                note=f"{p.name} registered {a.shop_name} as {ref}"
+                + (" · checked against Orange's record" if body.verified else ""),
+            )
+        )
+        await usage.record(db, "register", "dealer", p.subject, ref)
         await db.commit()
     except IntegrityError as e:
-        # Two registrations took the same next free number at the same moment: one wins.
-        # Logged by constraint name only, never the values, so another cause shows up too.
-        diag = getattr(e.orig, "diag", None)
-        logging.getLogger(__name__).warning(
-            "register_agent integrity error: %s",
-            getattr(diag, "constraint_name", None) or type(e.orig).__name__,
-        )
+        # Logged by constraint name only, never the values, so the real cause is visible.
+        logging.getLogger(__name__).warning("register_agent integrity error: %s", _constraint_of(e))
         await db.rollback()
+        if await db.get(Agent, ref) is not None:
+            # Two registrations took the same next free number at the same moment: one wins.
+            raise AppError(
+                f"{ref} was just taken by another registration. Tap Register again.",
+                code="exists",
+                status_code=409,
+            ) from None
+        # Any other refusal is a fault on our side, not the aggregator's number.
         raise AppError(
-            f"{ref} was just taken by another registration. Tap Register again.",
-            code="exists",
-            status_code=409,
+            "The agent could not be registered. Please try again; if it keeps happening, "
+            "tell the team.",
+            code="register_failed",
+            status_code=500,
         ) from None
     # The code is shown once, here, for the dealer to read out. It is never stored in clear.
     return {**registered_out(a, now), "code": code}

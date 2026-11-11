@@ -13,7 +13,7 @@ from app.db.models import Agent, Dealer
 from app.main import create_app
 from app.seed import seed_if_empty
 from pydantic import ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 
 def _settings(**kw) -> Settings:
@@ -111,6 +111,9 @@ async def test_seed_off_leaves_the_database_empty(empty_db):
 @pytest.mark.asyncio
 async def test_seed_refuses_when_agents_exist_whatever_the_flag(empty_db):
     async with dbsession.get_session_factory()() as db:
+        # An agent with no aggregator on record: a state only an old, unchecked file can hold,
+        # so the foreign-key check is off for this one setup write.
+        await db.execute(text("PRAGMA foreign_keys=OFF"))
         db.add(
             Agent(
                 ref="Real 001",

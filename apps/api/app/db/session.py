@@ -40,6 +40,9 @@ def get_engine() -> AsyncEngine:
                 cur = dbapi_conn.cursor()
                 cur.execute("PRAGMA journal_mode=WAL")
                 cur.execute("PRAGMA synchronous=NORMAL")
+                # SQLite ignores foreign keys unless asked; PostgreSQL always checks them. On,
+                # so a write that only works with the check off fails here too, not only live.
+                cur.execute("PRAGMA foreign_keys=ON")
                 cur.close()
         else:
             _engine = create_async_engine(

@@ -250,3 +250,42 @@ async def test_the_next_number_is_shown_first_and_skips_orange_codes(client, dea
         headers=dealer,
     )
     assert again.status_code == 409 and "Orange's agent list" in again.json()["error"]["message"]
+
+
+# Live bug, 2026-11: every registration on the PostgreSQL server answered "was just taken by
+# another registration", whatever the number. The action row was written before the agent row
+# it points at; SQLite let it through because it ignored foreign keys. Both are pinned here.
+
+
+@pytest.mark.asyncio
+async def test_the_test_database_checks_foreign_keys_as_postgresql_does(client):
+    from sqlalchemy import text
+
+    async with dbsession.get_session_factory()() as db:
+        assert (await db.execute(text("PRAGMA foreign_keys"))).scalar_one() == 1
+
+
+@pytest.mark.asyncio
+async def test_any_number_registers_and_its_history_points_at_the_new_agent(client, dealer):
+    from app.db.models import Action, Agent
+    from sqlalchemy import select
+
+    for typed in (None, "123456", "654321"):
+        r = await client.post("/api/v1/dealer/agents", json={**NEW, "ref": typed}, headers=dealer)
+        assert r.status_code == 201, r.text
+        ref = r.json()["ref"]
+        async with dbsession.get_session_factory()() as db:
+            assert await db.get(Agent, ref) is not None
+            acts = (
+                await db.execute(select(Action.action).where(Action.agent_ref == ref))
+            ).scalars()
+            assert list(acts) == ["register"]
+
+
+@pytest.mark.asyncio
+async def test_a_number_already_held_still_gets_its_own_plain_answer(client, dealer):
+    first = await client.post("/api/v1/dealer/agents", json={**NEW, "ref": "555"}, headers=dealer)
+    assert first.status_code == 201, first.text
+    again = await client.post("/api/v1/dealer/agents", json={**NEW, "ref": "555"}, headers=dealer)
+    assert again.status_code == 409
+    assert "already registered" in again.json()["error"]["message"]

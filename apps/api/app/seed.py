@@ -202,6 +202,8 @@ async def seed_if_empty() -> None:
                     declared_at=declared,
                 )
             )
+            # The agent row first: the event points at it, and PostgreSQL checks that.
+            await db.flush()
             db.add(
                 AvailabilityEvent(
                     agent_ref=ref,
